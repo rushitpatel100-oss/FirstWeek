@@ -92,3 +92,7 @@ make migrate
 | M5 Full simulation | Five playable days with PM and Teammate |
 | M6 Evaluation and portfolio | Skill matrix, GitHub export, CV bullets |
 | M7 Deploy and write-up | Public demo on AWS, eval report |
+
+## License
+
+[MIT](LICENSE) © 2026 Rushit Patel
