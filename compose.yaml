@@ -1,0 +1,90 @@
+# One command starts the whole stack:  docker compose up --build
+#   Web app      http://localhost:3000
+#   API          http://localhost:8000/docs
+#   Temporal UI  http://localhost:8233
+
+x-python-env: &python-env
+  DATABASE_URL: postgresql+psycopg://firstweek:firstweek@postgres:5432/firstweek
+  REDIS_URL: redis://redis:6379/0
+  TEMPORAL_ADDRESS: temporal:7233
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: firstweek
+      POSTGRES_PASSWORD: firstweek
+      POSTGRES_DB: firstweek
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firstweek -d firstweek"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  temporal:
+    image: temporalio/temporal:latest
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db"]
+    ports: ["7233:7233", "8233:8233"]
+    volumes: [temporal-data:/data]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+      args: { PACKAGE: firstweek-core }
+    command: ["alembic", "-c", "packages/core/alembic.ini", "upgrade", "head"]
+    environment: *python-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+      args: { PACKAGE: firstweek-api }
+    command: ["uvicorn", "firstweek_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment: *python-env
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      temporal: { condition: service_started }
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+      args: { PACKAGE: firstweek-worker }
+    command: ["python", "-m", "firstweek_worker.main"]
+    env_file:
+      - path: .env
+        required: false
+    environment: *python-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      temporal: { condition: service_started }
+
+  web:
+    build: { context: apps/web }
+    environment:
+      API_URL: http://api:8000
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  temporal-data:

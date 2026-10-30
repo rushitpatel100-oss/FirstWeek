@@ -1,0 +1,29 @@
+# FirstWeek: notes for Claude
+
+FirstWeek turns any job title into an evidence-backed Role Reality Report and a five-day simulated project with AI colleagues. Portfolio project, built to production standards. The full build plan lives in the "AI Job Simulator: Portfolio Build Plan" doc.
+
+## Ground rules
+
+- Every model call goes through `firstweek_core.llm.LLMGateway`. Never call a provider SDK directly.
+- Every LLM output is validated against a Pydantic contract in `firstweek_core.contracts`.
+- Facts about real roles or companies come only from collected evidence, never model memory.
+- Schema changes: edit `firstweek_core/db/models.py`, then `make migration m="..."`. Never hand-edit tables.
+- Colleague agents never see `AnswerKey`. Use `ProjectBlueprint.public_view()`.
+- Secrets live in `.env` (git-ignored). Never commit keys or print them.
+
+## Commands
+
+- `make check`: ruff, strict mypy, pytest (what CI runs)
+- `make up` / `make down`: Docker stack
+- Database tests run when `DATABASE_URL` points at a migrated Postgres with pgvector.
+
+## Layout
+
+- `packages/core`: contracts, models, migrations, LLM gateway (strict mypy)
+- `apps/api`: FastAPI
+- `services/worker`: Temporal worker; workflows in their own modules
+- `apps/web`: Next.js 16 with Cache Components. Read `apps/web/AGENTS.md` first: its APIs differ from older Next.js.
+
+## Working style
+
+Each milestone step ships as one pull request with tests and a short walkthrough (what, why, decisions needed). Record notable decisions as ADRs in `docs/adr` and one line per session in `docs/learning-log.md`.

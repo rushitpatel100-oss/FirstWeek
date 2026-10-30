@@ -1,0 +1,19 @@
+[project]
+name = "firstweek-worker"
+version = "0.1.0"
+description = "Temporal worker running FirstWeek's long pipelines."
+requires-python = ">=3.12"
+dependencies = [
+    "firstweek-core",
+    "temporalio>=1.35",
+]
+
+[tool.uv.sources]
+firstweek-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/firstweek_worker"]

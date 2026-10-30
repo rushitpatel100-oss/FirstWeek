@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python (lint, types, tests, migrations)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: firstweek
+          POSTGRES_PASSWORD: firstweek
+          POSTGRES_DB: firstweek
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U firstweek" --health-interval 3s
+          --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://firstweek:firstweek@localhost:5432/firstweek
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --all-packages --frozen
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy packages/core/src packages/core/tests apps/api/src services/worker/src
+      - name: Migrate (up, drift check, down, up)
+        run: |
+          uv run alembic -c packages/core/alembic.ini upgrade head
+          uv run alembic -c packages/core/alembic.ini check
+          uv run alembic -c packages/core/alembic.ini downgrade base
+          uv run alembic -c packages/core/alembic.ini upgrade head
+      - name: Test
+        run: uv run pytest
+
+  web:
+    name: Web (lint, types, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/web/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm exec next typegen
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build every service image
+        run: docker compose build
