@@ -1,4 +1,4 @@
-"""Gateway tests use a fake completion function, so they cost nothing and need no keys."""
+"""Gateway tests. None of them call a real model, so they cost nothing and need no keys."""
 
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -16,6 +16,7 @@ from firstweek_core.llm import (
     CallRecord,
     LLMGateway,
     StructuredOutputError,
+    Tier,
 )
 
 
@@ -176,3 +177,56 @@ async def test_failed_call_is_recorded_and_reraised() -> None:
         await gateway.complete(purpose="x", messages=[{"role": "user", "content": "hi"}])
     assert records[0].success is False
     assert records[0].error == "provider down"
+
+
+async def test_no_temperature_by_default_and_unsupported_params_dropped() -> None:
+    llm = FakeLLM(["ok", "ok"])
+    gateway, _, _ = _gateway(llm)
+
+    await gateway.complete(purpose="x", messages=[{"role": "user", "content": "hi"}])
+    await gateway.complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], temperature=0.7
+    )
+
+    assert "temperature" not in llm.calls[0]
+    assert llm.calls[0]["drop_params"] is True
+    assert llm.calls[1]["temperature"] == 0.7
+
+
+# --------------------------------------------------------------------------------------
+# Real LiteLLM request preparation, no network: LiteLLM's mock_response still runs its
+# parameter checks for each model. This catches provider rule changes (for example,
+# Claude 5.5 rejecting a custom temperature) that a fake completion function cannot.
+
+
+@pytest.mark.parametrize("tier", ["frontier", "mid", "small", "judge"])
+async def test_every_tier_passes_litellm_parameter_checks(
+    tier: Tier, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import functools
+
+    import litellm
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-not-real")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+    gateway = LLMGateway(
+        settings=Settings(_env_file=None),
+        completion_fn=functools.partial(
+            litellm.acompletion, mock_response='{"supported": true, "reason": "quoted"}'
+        ),
+        tracer=FakeTracer(),
+        budgets=BudgetRegistry(Decimal("1")),
+    )
+
+    plain = await gateway.complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], tier=tier, temperature=0.2
+    )
+    structured = await gateway.structured(
+        purpose="verify-claim",
+        messages=[{"role": "user", "content": "Is it supported?"}],
+        response_model=Verdict,
+        tier=tier,
+    )
+
+    assert plain.content
+    assert structured.parsed == Verdict(supported=True, reason="quoted")

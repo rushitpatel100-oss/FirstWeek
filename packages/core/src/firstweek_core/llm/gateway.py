@@ -136,7 +136,7 @@ class LLMGateway:
         budget_scope: str = "default",
         budget_usd: float | None = None,
         max_tokens: int = 2048,
-        temperature: float = 0.2,
+        temperature: float | None = None,
         prompt_version: str | None = None,
         allow_downgrade: bool = False,
         response_format: dict[str, Any] | None = None,
@@ -155,9 +155,13 @@ class LLMGateway:
             "model": model,
             "messages": messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "num_retries": 2,
+            # Newer models reject some sampling parameters (Claude 5.5 accepts only the
+            # default temperature). Drop what a model does not support instead of failing.
+            "drop_params": True,
         }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
         if response_format is not None:
             kwargs["response_format"] = response_format
 
