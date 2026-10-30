@@ -34,9 +34,16 @@ services:
 
   temporal:
     image: temporalio/temporal:latest
-    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/data/temporal.db"]
+    # In-memory dev server: workflow history resets when the container restarts, which is
+    # fine for development. (The image runs as a non-root user, so a root-owned volume for
+    # --db-filename stops it from starting.)
+    command: ["server", "start-dev", "--ip", "0.0.0.0"]
     ports: ["7233:7233", "8233:8233"]
-    volumes: [temporal-data:/data]
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
 
   migrate:
     build:
@@ -59,10 +66,11 @@ services:
         required: false
     environment: *python-env
     ports: ["8000:8000"]
+    restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
-      temporal: { condition: service_started }
+      temporal: { condition: service_healthy }
 
   worker:
     build:
@@ -74,17 +82,18 @@ services:
       - path: .env
         required: false
     environment: *python-env
+    restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
-      temporal: { condition: service_started }
+      temporal: { condition: service_healthy }
 
   web:
     build: { context: apps/web }
     environment:
       API_URL: http://api:8000
     ports: ["3000:3000"]
+    restart: unless-stopped
     depends_on: [api]
 
 volumes:
   pgdata:
-  temporal-data:

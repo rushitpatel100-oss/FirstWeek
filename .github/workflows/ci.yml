@@ -73,10 +73,37 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
 
-  docker:
-    name: Docker images build
+  stack:
+    name: Full stack (docker compose up + smoke test)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Build every service image
-        run: docker compose build
+      - name: Build and start every service
+        run: docker compose up -d --build
+      - name: Wait until the API reports every dependency ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/ready; then echo; exit 0; fi
+            sleep 3
+          done
+          echo "API never became ready"; exit 1
+      - name: Smoke workflow (API -> Temporal -> worker -> Postgres)
+        run: |
+          out=$(curl -fsS -X POST "http://localhost:8000/system/smoke?name=ci")
+          echo "$out"
+          echo "$out" | grep -q '"database_ok":true'
+      - name: Web app renders
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:3000 | grep -q FirstWeek; then exit 0; fi
+            sleep 3
+          done
+          exit 1
+      - name: Show service state and logs
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color
+      - name: Stop
+        if: always()
+        run: docker compose down -v
