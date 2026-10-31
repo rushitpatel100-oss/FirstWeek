@@ -36,3 +36,11 @@ Rules that follow from this:
 - **Adzuna snippets only:** too little text for reliable extraction.
 - **Scraping job aggregators (Indeed, LinkedIn):** forbidden by their terms.
 - **Paid job-data APIs** (for example TheirStack): good coverage, but cost money; worth revisiting if FirstWeek becomes a startup.
+
+## Update, 2026-10-31: the first live run
+
+The first live research run (GenAI Engineer) counted only 5 of 63 candidate postings as the role. Most candidates were generic Machine Learning Engineer jobs (self-driving, recommendations, hardware), which the classifier rightly rejected. The UK employers that use the title "GenAI Engineer" are mostly banks, consultancies and large enterprises, and we see those only as Adzuna snippets.
+
+- **Boards widened from 25 to 80** by probing 164 UK-relevant employers on Greenhouse, Lever and Ashby. On the same day's data, GenAI Engineer candidates rose from 64 to 86, and candidates with GenAI-type titles from about 17 to 32.
+- **Checked and not added:** SmartRecruiters and Recruitee (a handful of UK roles, none AI); Workable (rate-limited every request from our environment, so unverified); Greenhouse's EU-hosted boards (served by the same API, nothing extra found).
+- **Still open:** sample sizes stay small for any single day's UK postings. The levers are (a) collecting daily and keeping a rolling window, (b) using international postings for "what the work is" while keeping pay and demand UK-only, and (c) Workday career sites, which many UK enterprises use but which offer no official public API.
