@@ -23,7 +23,7 @@ next-env.d.ts
 
 # Local data
 dump.rdb
-data/
+/data/
 *.db
 .temporal/
 

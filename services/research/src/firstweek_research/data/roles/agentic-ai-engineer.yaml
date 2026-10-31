@@ -1,0 +1,31 @@
+# Golden role. See genai-engineer.yaml for what these fields mean.
+slug: agentic-ai-engineer
+name: Agentic AI Engineer
+trust_level: golden
+reviewed: false
+definition: >-
+  Builds AI agents: systems where a model plans and takes multi-step actions through tools,
+  APIs or other agents with limited human input. Core work: tool and function calling,
+  orchestration frameworks (for example LangGraph), memory and state management, multi-agent
+  coordination, guardrails and human-in-the-loop controls, and evaluating agent behaviour end
+  to end. A posting counts only if building or operating agents is a primary responsibility,
+  not a passing mention.
+aliases:
+  - Agentic AI Engineer
+  - Agentic Engineer
+  - Agentic Systems Engineer
+  - AI Agent Engineer
+  - AI Agents Engineer
+  - Agent Engineer
+  - AI Agent Developer
+  - Agentic AI Developer
+  - Multi-Agent Systems Engineer
+title_patterns:
+  - '\bagent(ic|s)?\b'
+  - '\bai engineer'
+  - '\b(applied )?ai\b.*\bengineer'
+  - '\bllms?\b'
+web_queries:
+  - 'what does an {name} do day to day'
+  - 'building AI agents in production lessons learned'
+  - 'agent engineer job what I actually work on'
