@@ -24,11 +24,17 @@ FUZZY_MIN = 92  # very close spellings only ('pytorh' -> PyTorch), never related
 FUZZY_MIN_LENGTH = 5  # short names ('Go', 'Git', 'SQL') must match exactly
 
 
+ESCO_URI = r"^http://data\.europa\.eu/esco/skill/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+
+
 class SkillEntry(BaseModel):
     slug: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
     label: str
     kind: Literal["skill", "tool"]
     aliases: list[str] = Field(default_factory=list)
+    # The equivalent ESCO skill, when one exists (see data/taxonomy header). None means the
+    # entry is part of FirstWeek's AI extension: ESCO has no equivalent concept yet.
+    esco_uri: str | None = Field(default=None, pattern=ESCO_URI)
 
 
 def normalize_term(term: str) -> str:
@@ -71,6 +77,9 @@ def load_taxonomy() -> Taxonomy:
     entries = {e.slug: e for e in (SkillEntry.model_validate(item) for item in raw)}
     if len(entries) != len(raw):
         raise ValueError("Duplicate slug in the skills taxonomy")
+    uris = [e.esco_uri for e in entries.values() if e.esco_uri]
+    if len(uris) != len(set(uris)):
+        raise ValueError("Two taxonomy entries link to the same ESCO skill")
     index: dict[str, str] = {}
     for entry in entries.values():
         for name in [entry.slug.replace("-", " "), entry.label, *entry.aliases]:
@@ -88,9 +97,11 @@ def seed_taxonomy(session: Session, taxonomy: Taxonomy | None = None) -> dict[st
     for entry in taxonomy.entries.values():
         row = existing.get(entry.slug)
         if row is None:
-            row = TaxonomySkill(slug=entry.slug, origin="ai_extension")
+            row = TaxonomySkill(slug=entry.slug)
             session.add(row)
             existing[entry.slug] = row
         row.label, row.kind, row.aliases = entry.label, entry.kind, entry.aliases
+        row.esco_uri = entry.esco_uri
+        row.origin = "esco" if entry.esco_uri else "ai_extension"
     session.flush()
     return {slug: row.id for slug, row in existing.items()}

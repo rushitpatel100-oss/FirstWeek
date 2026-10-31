@@ -260,6 +260,29 @@ def _print_extraction_eval(show: int) -> None:
             print(f"      not in taxonomy: {', '.join(p.unmapped[:8])}")
 
 
+def _print_esco_suggestions(show_linked: bool) -> None:
+    from firstweek_research.esco import ESCO_VERSION, suggest
+    from firstweek_research.sources.base import make_client
+    from firstweek_research.taxonomy import load_taxonomy
+
+    entries = [e for e in load_taxonomy().entries.values() if show_linked or not e.esco_uri]
+    print(f"ESCO {ESCO_VERSION} candidates for {len(entries)} taxonomy entries.")
+    print('"=" marks an ESCO skill with the same name as the entry. Link only true equivalents:')
+    print("write `esco_uri: <uri>` into the entry in ai_skills.yaml; leave AI-specific ones empty.")
+
+    async def run() -> None:
+        async with make_client() as client:
+            for entry in entries:
+                candidates = await suggest(client, entry)
+                linked = f"  (linked: {entry.esco_uri})" if entry.esco_uri else ""
+                print(f"\n{entry.slug} | {entry.label}{linked}")
+                for c in candidates[:5]:
+                    mark = "=" if c.same_name_as(entry) else " "
+                    print(f"  {mark} {c.uri.rsplit('/', 1)[-1]}  {c.label}")
+
+    asyncio.run(run())
+
+
 def _print_unmapped(limit: int) -> None:
     from sqlalchemy import func, select
 
@@ -313,6 +336,9 @@ def main(argv: list[str] | None = None) -> None:
     p_matches.add_argument("--country", default="GB")
     p_matches.add_argument("--urls", action="store_true", help="Also print each posting's link")
 
+    p_esco = sub.add_parser("esco-suggest", help="Suggest ESCO links for taxonomy entries")
+    p_esco.add_argument("--all", action="store_true", help="Include entries already linked")
+
     p_eval = sub.add_parser("eval-classifier", help="Score the classifier against hand labels")
     p_eval.add_argument(
         "--repeats", type=int, default=0, help="Re-ask N times to measure stability (costs money)"
@@ -329,6 +355,9 @@ def main(argv: list[str] | None = None) -> None:
         return
     if args.command == "review-skills":
         _print_unmapped(args.limit)
+        return
+    if args.command == "esco-suggest":
+        _print_esco_suggestions(args.all)
         return
     if args.command == "eval-classifier":
         _print_evaluation(args.repeats, args.budget, args.show)
