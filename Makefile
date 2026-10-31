@@ -1,0 +1,55 @@
+.DEFAULT_GOAL := help
+ALEMBIC := uv run alembic -c packages/core/alembic.ini
+
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+setup: ## First-time setup: Python deps, web deps, .env, git hooks
+	uv sync --all-packages
+	cd apps/web && pnpm install
+	@test -f .env || (cp .env.example .env && echo "Created .env from .env.example. Add your API keys.")
+	uv run pre-commit install
+
+up: ## Start the whole stack in Docker (web :3000, API :8000, Temporal UI :8233)
+	docker compose up --build
+
+down: ## Stop the stack
+	docker compose down
+
+logs: ## Follow logs from every service
+	docker compose logs -f
+
+migrate: ## Apply database migrations
+	$(ALEMBIC) upgrade head
+
+migration: ## Create a migration from model changes: make migration m="add x"
+	$(ALEMBIC) revision --autogenerate -m "$(m)"
+
+lint: ## Lint Python and web code
+	uv run ruff check .
+	uv run ruff format --check .
+	cd apps/web && pnpm lint
+
+format: ## Auto-format Python code
+	uv run ruff check . --fix
+	uv run ruff format .
+
+typecheck: ## Strict type checks for Python and TypeScript
+	uv run mypy packages/core/src packages/core/tests apps/api/src services/worker/src
+	cd apps/web && pnpm exec next typegen && pnpm typecheck
+
+test: ## Run all Python tests (database tests need a migrated Postgres)
+	uv run pytest
+
+check: lint typecheck test ## Everything CI runs, locally
+
+smoke: ## End-to-end check: API -> Temporal -> worker -> database
+	curl -s -X POST "http://localhost:8000/system/smoke?name=$$(whoami)" && echo
+
+smoke-llm: ## One real, traced model call (needs ANTHROPIC_API_KEY)
+	uv run python scripts/smoke_llm.py
+
+web: ## Run the web app with hot reload (API must be running)
+	cd apps/web && pnpm dev

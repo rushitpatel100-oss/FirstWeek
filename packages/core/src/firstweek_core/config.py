@@ -1,0 +1,75 @@
+"""Typed settings, read from environment variables or a local .env file."""
+
+import os
+from functools import lru_cache
+
+from pydantic import SecretStr, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # Infrastructure
+    database_url: str = "postgresql+psycopg://firstweek:firstweek@localhost:5432/firstweek"
+    redis_url: str = "redis://localhost:6379/0"
+    temporal_address: str = "localhost:7233"
+    temporal_namespace: str = "default"
+    temporal_task_queue: str = "firstweek-main"
+
+    # Model providers
+    anthropic_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+
+    # Model routing: LiteLLM model strings per tier
+    model_frontier: str = "anthropic/claude-opus-5-5"
+    model_mid: str = "anthropic/claude-sonnet-5-5"
+    model_small: str = "anthropic/claude-haiku-5-5"
+    model_judge: str = "openai/gpt-6-sol"
+    model_embedding: str = "openai/text-embedding-3-small"
+
+    # Budgets
+    default_budget_usd: float = 2.0
+
+    # Tracing
+    langfuse_public_key: SecretStr | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_base_url: str = "https://cloud.langfuse.com"
+
+    @field_validator(
+        "anthropic_api_key",
+        "openai_api_key",
+        "langfuse_public_key",
+        "langfuse_secret_key",
+        mode="before",
+    )
+    @classmethod
+    def _blank_is_unset(cls, value: object) -> object:
+        """`KEY=` in .env means 'not set', not an empty key."""
+        return None if value == "" else value
+
+    @property
+    def tracing_enabled(self) -> bool:
+        return self.langfuse_public_key is not None and self.langfuse_secret_key is not None
+
+    def export_credentials(self) -> None:
+        """LiteLLM and Langfuse read credentials from the process environment.
+
+        Settings can come from .env, which does not touch os.environ, so copy them across.
+        Values already in the environment win.
+        """
+        secrets = {
+            "ANTHROPIC_API_KEY": self.anthropic_api_key,
+            "OPENAI_API_KEY": self.openai_api_key,
+            "LANGFUSE_PUBLIC_KEY": self.langfuse_public_key,
+            "LANGFUSE_SECRET_KEY": self.langfuse_secret_key,
+        }
+        for name, value in secrets.items():
+            if value is not None:
+                os.environ.setdefault(name, value.get_secret_value())
+        os.environ.setdefault("LANGFUSE_BASE_URL", self.langfuse_base_url)
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

@@ -22,6 +22,7 @@ out/
 next-env.d.ts
 
 # Local data
+dump.rdb
 data/
 *.db
 .temporal/

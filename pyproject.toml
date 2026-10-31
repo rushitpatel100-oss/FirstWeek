@@ -1,0 +1,59 @@
+[project]
+name = "firstweek"
+version = "0.1.0"
+description = "FirstWeek: live your first week in a new AI role, grounded in real evidence."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/core", "apps/api", "services/worker"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17",
+    "mypy>=2.4",
+    "pytest>=9.2",
+    "pytest-asyncio>=1.4",
+    "pre-commit>=4.0",
+]
+
+# ---------- Ruff ----------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF", "N"]
+ignore = ["RUF012"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["firstweek_core", "firstweek_api", "firstweek_worker"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+"packages/core/migrations/**" = ["E501"]
+
+# ---------- Mypy ----------
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = true
+warn_unreachable = true
+exclude = ["migrations/", "apps/web/"]
+
+[[tool.mypy.overrides]]
+module = ["litellm.*", "langfuse.*", "pgvector.*"]
+ignore_missing_imports = true
+
+# ---------- Pytest ----------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["packages/core/tests", "apps/api/tests", "services/worker/tests"]
+addopts = "-ra --strict-markers"
+markers = ["db: needs a running Postgres with pgvector (DATABASE_URL)"]
