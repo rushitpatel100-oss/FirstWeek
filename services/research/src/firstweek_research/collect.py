@@ -9,6 +9,7 @@ import time
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import httpx
 
@@ -197,10 +198,11 @@ async def run_collect(
         web_docs = await gather_web(client, role, settings, summary, progress) if use_web else []
 
     progress(f"Saving {len(postings) + len(web_docs)} items and checking for duplicates...")
+    seen_at = datetime.now(UTC)  # one timestamp for the whole collection
     with session_scope() as session:
         seed_roles(session, roles)
         for item in postings:
-            summary.stats(item.raw.provider).record(upsert_posting(session, item))
+            summary.stats(item.raw.provider).record(upsert_posting(session, item, seen_at))
         for doc in web_docs:
             summary.stats("web").record(upsert_web_document(session, doc))
         result = apply_dedup(session, country)

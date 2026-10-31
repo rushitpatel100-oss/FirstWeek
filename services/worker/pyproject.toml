@@ -5,11 +5,13 @@ description = "Temporal worker running FirstWeek's long pipelines."
 requires-python = ">=3.12"
 dependencies = [
     "firstweek-core",
+    "firstweek-research",
     "temporalio>=1.35",
 ]
 
 [tool.uv.sources]
 firstweek-core = { workspace = true }
+firstweek-research = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

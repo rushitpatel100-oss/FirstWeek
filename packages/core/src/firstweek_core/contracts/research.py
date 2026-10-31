@@ -146,3 +146,6 @@ class ArchetypeStats(BaseModel):
     definition_hash: str | None = Field(
         default=None, description="Version of the role definition the sample was judged against"
     )
+    window_days: int | None = Field(
+        default=None, ge=1, description="Postings seen open within this many days of the run"
+    )

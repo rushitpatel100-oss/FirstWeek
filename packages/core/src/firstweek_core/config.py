@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     # Budgets
     default_budget_usd: float = 2.0
 
+    # Daily research: the worker keeps a Temporal schedule that collects and analyses every
+    # golden role. Off in CI. Times are in research_daily_timezone.
+    research_daily_enabled: bool = True
+    research_daily_cron: str = "17 7 * * *"
+    research_daily_timezone: str = "Europe/London"
+    research_budget_usd_per_role: float = 1.0
+
     # Tracing
     langfuse_public_key: SecretStr | None = None
     langfuse_secret_key: SecretStr | None = None

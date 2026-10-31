@@ -40,6 +40,7 @@ from firstweek_research.stats import (
     compute_stats,
     current_match,
     save_version,
+    window_start,
 )
 from firstweek_research.store import seed_roles
 from firstweek_research.taxonomy import load_taxonomy, seed_taxonomy
@@ -65,10 +66,12 @@ def _view(p: JobPosting) -> PostingView:
 
 
 def candidates(session: Session, role: RoleDefinition, country: str) -> list[JobPosting]:
-    """Full-text, unique postings whose title could be the role."""
+    """Full-text, unique postings seen within the statistics window whose title could be
+    the role. Older postings are never sent to a model: they could not enter the sample."""
     rows = session.scalars(
         select(JobPosting).where(
             JobPosting.country == country,
+            JobPosting.last_seen_at >= window_start(),
             JobPosting.is_full_text.is_(True),
             JobPosting.is_duplicate.is_(False),
         )

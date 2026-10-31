@@ -13,7 +13,7 @@ import statistics
 import unicodedata
 import uuid
 from collections import Counter, defaultdict
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import ColumnElement, and_, func, select
@@ -33,6 +33,9 @@ from firstweek_research.roles import RoleDefinition, resolve_role
 from firstweek_research.taxonomy import load_taxonomy
 
 MATCH_CONFIDENCE = 0.5
+# Statistics cover postings seen open at some point in this many days before the run.
+# Daily collection keeps adding postings, so the sample grows while staying current.
+WINDOW_DAYS = 183
 MIN_SALARY_POSTINGS = 3
 MAX_LISTED = 40
 
@@ -94,6 +97,10 @@ def _title_key(title: str) -> str:
     return " ".join(re.sub(r"[^\w]+", " ", text).split())
 
 
+def window_start(as_of: datetime | None = None, window_days: int = WINDOW_DAYS) -> datetime:
+    return (as_of or datetime.now(UTC)) - timedelta(days=window_days)
+
+
 def current_match(role: RoleDefinition) -> ColumnElement[bool]:
     """Decisions made by the current classifier against the role's current definition."""
     return and_(
@@ -112,8 +119,15 @@ def one_per_employer_title(postings: list[JobPosting]) -> list[JobPosting]:
 
 
 def compute_stats(
-    session: Session, role: RoleDefinition, archetype_id: uuid.UUID, country: str
+    session: Session,
+    role: RoleDefinition,
+    archetype_id: uuid.UUID,
+    country: str,
+    *,
+    as_of: datetime | None = None,
+    window_days: int = WINDOW_DAYS,
 ) -> ArchetypeStats:
+    since = window_start(as_of, window_days)
     matched = (
         session.execute(
             select(JobPosting)
@@ -121,6 +135,7 @@ def compute_stats(
             .join(ExtractionRun, ExtractionRun.source_id == JobPosting.source_id)
             .where(
                 JobPosting.country == country,
+                JobPosting.last_seen_at >= since,
                 JobPosting.is_duplicate.is_(False),
                 JobPosting.is_full_text.is_(True),
                 PostingRoleMatch.archetype_id == archetype_id,
@@ -168,6 +183,7 @@ def compute_stats(
             JobPosting.salary_currency,
         ).where(
             JobPosting.country == country,
+            JobPosting.last_seen_at >= since,
             JobPosting.is_full_text.is_(False),
             JobPosting.is_duplicate.is_(False),
         )
@@ -197,6 +213,7 @@ def compute_stats(
         classifier_version=CLASSIFIER_VERSION,
         extractor_version=EXTRACTOR_VERSION,
         definition_hash=role.definition_hash,
+        window_days=window_days,
     )
 
 

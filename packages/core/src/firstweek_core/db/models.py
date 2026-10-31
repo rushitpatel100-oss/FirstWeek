@@ -111,6 +111,15 @@ class JobPosting(IdMixin, Base):
     dedup_group: Mapped[uuid.UUID | None] = mapped_column(index=True)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
     text: Mapped[str] = mapped_column(Text)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), comment="First collection that found it"
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        index=True,
+        comment="Latest collection that found it still open; statistics use a window on this",
+    )
 
 
 class TaxonomySkill(IdMixin, Base):
