@@ -18,7 +18,7 @@ from firstweek_core.db.models import (
     Source,
 )
 from firstweek_core.db.session import get_engine, session_scope
-from firstweek_research.research import ResearchResult, run_research
+from firstweek_research.research import ResearchResult, match_decisions, run_research
 
 pytestmark = pytest.mark.db
 
@@ -96,6 +96,21 @@ async def test_budget_stops_paid_calls_without_crashing(monkeypatch: pytest.Monk
     result = await _run(budget_usd=0.0001)
     assert result.classified == 0
     assert result.failures and all("Budget" in v for v in result.failures.values())
+
+
+async def test_match_review_lists_decisions_and_unclassified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
+    await _run(budget_usd=0.0001)  # every classification fails on budget
+    pending = match_decisions("genai-engineer")
+    assert len(pending) == 2
+    assert all(r.is_match is None and not r.counted for r in pending)
+
+    await _run(collect=False)
+    decided = match_decisions("genai-engineer")
+    assert [r.counted for r in decided] == [True, True]
+    assert all(r.reason and r.url.startswith("https://") for r in decided)
 
 
 async def _no_sleep(_: float) -> None:

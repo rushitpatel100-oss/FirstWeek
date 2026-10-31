@@ -40,8 +40,15 @@ def seed_roles(session: Session, roles: dict[str, RoleDefinition]) -> dict[str, 
         archetype.seniority_levels = LEVELS
         session.flush()
         ids[role.slug] = archetype.id
-        for alias in dict.fromkeys([role.name, *role.aliases]):
-            key = normalize_title(alias)
+        wanted = {normalize_title(a): a for a in [role.name, *role.aliases]}
+        # Aliases removed from the YAML are removed here too (e.g. "AI Engineer", 2026-10-31).
+        session.execute(
+            delete(RoleAlias).where(
+                RoleAlias.archetype_id == archetype.id,
+                RoleAlias.normalized_alias.not_in(wanted),
+            )
+        )
+        for key, alias in wanted.items():
             existing = session.scalar(select(RoleAlias).where(RoleAlias.normalized_alias == key))
             if existing is None:
                 session.add(RoleAlias(archetype_id=archetype.id, alias=alias, normalized_alias=key))

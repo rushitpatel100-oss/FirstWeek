@@ -80,6 +80,22 @@ def test_seed_roles_is_idempotent() -> None:
         assert alias is not None and alias.archetype_id == first["genai-engineer"]
 
 
+def test_seed_roles_removes_aliases_dropped_from_the_yaml() -> None:
+    with session_scope() as session:
+        ids = seed_roles(session, load_roles())
+        session.add(
+            RoleAlias(
+                archetype_id=ids["genai-engineer"],
+                alias="AI Engineer",
+                normalized_alias="ai engineer",
+            )
+        )
+        session.flush()
+        seed_roles(session, load_roles())
+        stale = session.scalar(select(RoleAlias).where(RoleAlias.normalized_alias == "ai engineer"))
+        assert stale is None
+
+
 async def test_collect_stores_filters_and_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
     first = await run_collect("genai-engineer", _settings(), transport=_transport())

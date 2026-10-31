@@ -4,6 +4,7 @@ python -m firstweek_research resolve "Senior LLM Engineer"
 python -m firstweek_research collect --role "GenAI Engineer"
 python -m firstweek_research research --role "GenAI Engineer"
 python -m firstweek_research review-skills
+python -m firstweek_research review-matches --role "GenAI Engineer"
 """
 
 import argparse
@@ -81,6 +82,37 @@ def _print_research(r: ResearchResult) -> None:
         print(f"  Saved as draft version {r.version} for review.")
 
 
+def _print_matches(slug: str, country: str, show_urls: bool) -> None:
+    import textwrap
+
+    from firstweek_research.extract import CLASSIFIER_VERSION
+    from firstweek_research.research import match_decisions
+    from firstweek_research.stats import MATCH_CONFIDENCE
+
+    rows = match_decisions(slug, country)
+    groups = [
+        ("Counted in the statistics", [r for r in rows if r.counted]),
+        ("Not counted", [r for r in rows if r.is_match is not None and not r.counted]),
+        ("Not classified yet (re-run make research)", [r for r in rows if r.is_match is None]),
+    ]
+    pad = " " * 12
+    name = load_roles()[slug].name
+    print(f"Classifier decisions for {name} ({country}), {CLASSIFIER_VERSION}")
+    print(f"A posting counts if judged the role with confidence {MATCH_CONFIDENCE} or more.")
+    for heading, items in groups:
+        if not items:
+            continue
+        print(f"\n{heading} ({len(items)})")
+        for r in items:
+            verdict = "" if r.is_match is None else ("yes" if r.is_match else "no ")
+            conf = "" if r.confidence is None else f"{r.confidence:.2f}"
+            print(f"  {verdict:<3} {conf:<4}  {r.company or '?'} | {r.title}")
+            if r.reason:
+                print(textwrap.fill(r.reason, 96, initial_indent=pad, subsequent_indent=pad))
+            if show_urls and r.url:
+                print(pad + r.url)
+
+
 def _print_unmapped(limit: int) -> None:
     from sqlalchemy import func, select
 
@@ -127,11 +159,21 @@ def main(argv: list[str] | None = None) -> None:
     p_review = sub.add_parser("review-skills", help="List extracted labels not in the taxonomy")
     p_review.add_argument("--limit", type=int, default=40)
 
+    p_matches = sub.add_parser(
+        "review-matches", help="Show what the classifier decided for each posting, and why"
+    )
+    p_matches.add_argument("--role", required=True)
+    p_matches.add_argument("--country", default="GB")
+    p_matches.add_argument("--urls", action="store_true", help="Also print each posting's link")
+
     args = parser.parse_args(argv)
     if args.command == "review-skills":
         _print_unmapped(args.limit)
         return
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
+    if args.command == "review-matches":
+        _print_matches(slug, args.country.upper(), args.urls)
+        return
     if args.command == "research":
         from firstweek_core.llm import LLMGateway
         from firstweek_core.llm.recorder import record_to_db

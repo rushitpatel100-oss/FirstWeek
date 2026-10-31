@@ -21,6 +21,7 @@ from firstweek_core.db.models import (
     ExtractionRun,
     JobPosting,
     PostingRoleMatch,
+    Source,
 )
 from firstweek_core.db.session import session_scope
 from firstweek_core.llm import BudgetExceededError, LLMGateway, StructuredOutputError
@@ -68,6 +69,55 @@ def candidates(session: Session, role: RoleDefinition, country: str) -> list[Job
         )
     ).all()
     return [p for p in rows if role.title_matches(p.title)]
+
+
+@dataclass(frozen=True)
+class MatchDecision:
+    company: str | None
+    title: str
+    url: str
+    counted: bool  # in the statistics sample: judged the role, confidence >= MATCH_CONFIDENCE
+    is_match: bool | None  # None: not classified yet (for example, the call failed)
+    confidence: float | None
+    reason: str | None
+
+
+def match_decisions(role_slug: str, country: str = "GB") -> list[MatchDecision]:
+    """Every candidate posting for a role and what the classifier decided, for human review."""
+    role = load_roles()[role_slug]
+    with session_scope() as session:
+        archetype_id = seed_roles(session, load_roles())[role_slug]
+        decided = {
+            m.posting_id: m
+            for m in session.scalars(
+                select(PostingRoleMatch).where(
+                    PostingRoleMatch.archetype_id == archetype_id,
+                    PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+                )
+            )
+        }
+        pool = candidates(session, role, country)
+        urls = {
+            source_id: url
+            for source_id, url in session.execute(
+                select(Source.id, Source.url).where(Source.id.in_([p.source_id for p in pool]))
+            )
+        }
+        rows = []
+        for p in pool:
+            m = decided.get(p.id)
+            rows.append(
+                MatchDecision(
+                    company=p.company,
+                    title=p.title,
+                    url=urls.get(p.source_id, ""),
+                    counted=bool(m and m.is_match and m.confidence >= MATCH_CONFIDENCE),
+                    is_match=m.is_match if m else None,
+                    confidence=m.confidence if m else None,
+                    reason=m.reason if m else None,
+                )
+            )
+    return sorted(rows, key=lambda r: (not r.counted, r.is_match is None, -(r.confidence or 0)))
 
 
 async def _bounded[T](items: list[T], work: Callable[[T], Awaitable[None]]) -> None:
