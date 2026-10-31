@@ -5,6 +5,7 @@ python -m firstweek_research collect --role "GenAI Engineer"
 python -m firstweek_research research --role "GenAI Engineer"
 python -m firstweek_research review-skills
 python -m firstweek_research review-matches --role "GenAI Engineer"
+python -m firstweek_research eval-classifier [--repeats 2]
 """
 
 import argparse
@@ -128,6 +129,75 @@ def _print_matches(slug: str, country: str, show_urls: bool) -> None:
                 print(pad + r.url)
 
 
+def _pct(value: float | None) -> str:
+    return "  n/a" if value is None else f"{value:>5.0%}"
+
+
+def _print_evaluation(repeats: int, budget: float, show: int) -> None:
+    import textwrap
+
+    from firstweek_research.evaluate import evaluate, stability
+
+    result = evaluate()
+    labels = result.labels
+    print(
+        f"Classifier {result.classifier_version} against {len(labels.postings)} hand-labelled "
+        f"postings (labelled {labels.labelled_on}; {result.checked} checked by a person)."
+    )
+    if result.checked < len(labels.postings) / 2:
+        print("Most labels are unchecked drafts: read the scores as agreement with a second")
+        print("model, not as accuracy, until the disagreements below have been reviewed.")
+    print(
+        f"\n  {'role':<22}{'scored':>7}{'agree':>7}{'prec.':>7}{'recall':>7}{'F1':>7}"
+        f"{'unsure':>8}{'missing':>9}"
+    )
+    for r in result.roles:
+        print(
+            f"  {r.role:<22}{r.scored:>7}{_pct(r.agreement):>7}{_pct(r.precision):>7}"
+            f"{_pct(r.recall):>7}{_pct(r.f1):>7}{r.unsure:>8}{r.missing:>9}"
+        )
+    print('\n  "missing": labelled, but this database has no current decision for it (not')
+    print("  collected, outside the 6-month window, a duplicate, or not classified yet).")
+
+    pad = " " * 10
+    for r in result.roles:
+        if not r.disagreements:
+            continue
+        print(f"\n{r.role}: {len(r.disagreements)} disagreements (model vs label)")
+        for d in r.disagreements[:show]:
+            model = "counted" if d.counted else "not counted"
+            mark = "" if d.checked else " (label unchecked)"
+            print(f"  model {model} ({d.confidence:.2f}), label {d.label}{mark}")
+            print(f"    {d.company} | {d.title}")
+            for who, why in (("model", d.reason), ("label", d.note)):
+                print(textwrap.fill(f"{who}: {why}", 96, initial_indent=pad, subsequent_indent=pad))
+            print(pad + d.url)
+        if len(r.disagreements) > show:
+            print(f"  ...and {len(r.disagreements) - show} more (use --show)")
+
+    if repeats:
+        from firstweek_core.llm import LLMGateway
+        from firstweek_core.llm.recorder import record_to_db
+
+        settings = get_settings()
+        if settings.anthropic_api_key is None:
+            print("\nStability check skipped: set ANTHROPIC_API_KEY in .env.")
+            return
+        gateway = LLMGateway(settings=settings, recorder=record_to_db)
+        print(f"\nStability: asking the classifier {repeats} more time(s) per posting...")
+        runs = asyncio.run(stability(gateway, repeats, budget_usd=budget))
+        gateway.flush()
+        for st in runs:
+            print(
+                f"  {st.role:<22} {len(st.flipped)} of {st.postings} postings changed answer "
+                f"({_pct(st.flip_rate).strip()})"
+                + (f"; {st.failures} skipped after errors" if st.failures else "")
+            )
+            for company, title, verdicts in st.flipped[:show]:
+                answers = ", ".join("counted" if v else "not" for v in verdicts)
+                print(f"      {company} | {title}: {answers}")
+
+
 def _print_unmapped(limit: int) -> None:
     from sqlalchemy import func, select
 
@@ -181,9 +251,19 @@ def main(argv: list[str] | None = None) -> None:
     p_matches.add_argument("--country", default="GB")
     p_matches.add_argument("--urls", action="store_true", help="Also print each posting's link")
 
+    p_eval = sub.add_parser("eval-classifier", help="Score the classifier against hand labels")
+    p_eval.add_argument(
+        "--repeats", type=int, default=0, help="Re-ask N times to measure stability (costs money)"
+    )
+    p_eval.add_argument("--budget", type=float, default=1.0, help="Spend cap for --repeats, USD")
+    p_eval.add_argument("--show", type=int, default=15, help="Disagreements to list per role")
+
     args = parser.parse_args(argv)
     if args.command == "review-skills":
         _print_unmapped(args.limit)
+        return
+    if args.command == "eval-classifier":
+        _print_evaluation(args.repeats, args.budget, args.show)
         return
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
     if args.command == "review-matches":

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills review-matches research-now
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills review-matches research-now eval-classifier
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -68,6 +68,9 @@ review-skills: ## List extracted skill labels that the taxonomy does not know ye
 
 review-matches: ## Show each posting's classifier decision and reason: make review-matches role="GenAI Engineer"
 	uv run python -m firstweek_research review-matches --role "$(role)"
+
+eval-classifier: ## Score the classifier against hand labels; add repeats=2 to measure stability (costs ~$0.30)
+	uv run python -m firstweek_research eval-classifier --repeats $(or $(repeats),0)
 
 research-now: ## Run the daily research workflow for every golden role now (needs make up)
 	uv run python -m firstweek_worker.run_research_now
