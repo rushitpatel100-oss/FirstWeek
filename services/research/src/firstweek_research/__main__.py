@@ -143,9 +143,10 @@ def _print_evaluation(repeats: int, budget: float, show: int) -> None:
     labels = result.labels
     print(
         f"Classifier {result.classifier_version} against {len(labels.postings)} hand-labelled "
-        f"postings (labelled {labels.labelled_on}; {result.checked} checked by a person)."
+        f"postings (labelled {labels.labelled_on}; {result.checked_labels} of "
+        f"{result.total_labels} labels checked by a person)."
     )
-    if result.checked < len(labels.postings) / 2:
+    if result.checked_labels < result.total_labels / 2:
         print("Most labels are unchecked drafts: read the scores as agreement with a second")
         print("model, not as accuracy, until the disagreements below have been reviewed.")
     print(

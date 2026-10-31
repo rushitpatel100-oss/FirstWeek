@@ -39,7 +39,12 @@ class LabelledPosting(BaseModel):
     title: str
     labels: dict[str, Label]
     note: str = ""
-    checked: bool = False
+    # True: a person confirmed every label on this posting. A list of role slugs: only those
+    # labels were confirmed (for example, after settling one disagreement).
+    checked: bool | list[str] = False
+
+    def checked_for(self, role: str) -> bool:
+        return self.checked is True or (isinstance(self.checked, list) and role in self.checked)
 
     @field_validator("labels", mode="before")
     @classmethod
@@ -128,8 +133,12 @@ class Evaluation:
     roles: list[RoleScore]
 
     @property
-    def checked(self) -> int:
-        return sum(p.checked for p in self.labels.postings)
+    def total_labels(self) -> int:
+        return sum(len(p.labels) for p in self.labels.postings)
+
+    @property
+    def checked_labels(self) -> int:
+        return sum(p.checked_for(r) for p in self.labels.postings for r in p.labels)
 
 
 @dataclass(frozen=True)
@@ -225,7 +234,7 @@ def evaluate(labels: LabelSet | None = None) -> Evaluation:
                         confidence=match.confidence if match else None,
                         reason=match.reason if match else TITLE_FILTER_REASON,
                         note=item.note,
-                        checked=item.checked,
+                        checked=item.checked_for(slug),
                     )
                 )
         scores.append(score)
