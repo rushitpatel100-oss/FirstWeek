@@ -61,3 +61,49 @@ def test_title_pre_filter_is_loose_but_not_everything() -> None:
     assert genai.title_matches("Generative AI Developer")
     assert not genai.title_matches("Android Engineer")
     assert not genai.title_matches("Account Executive")
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        # Missed by the old per-role patterns (evaluation, 2026-10-31).
+        "Senior Software Engineer, GenAI Platform",
+        "Senior GenAI Engineer (UK)",
+        "Staff Software Engineer, Agentic Platform",
+        "Senior Software Engineer \u2014 Infra Agent Systems UK",
+        "Software Engineer, Codex Core Agents",
+        "Staff Data Engineer \u2013 Agentic Applications",
+    ],
+)
+def test_every_golden_role_shares_the_broad_ai_title_filter(title: str) -> None:
+    roles = load_roles()
+    assert {r.title_filter for r in roles.values()} == {"ai"}
+    assert all(r.title_matches(title) for r in roles.values()), title
+
+
+def test_shared_rule_on_building_roles_is_in_every_definition() -> None:
+    # Decided 2026-10-31: managers, advisers and vendor customer-delivery roles never count.
+    for role in load_roles().values():
+        text = " ".join(role.definition.split())
+        assert "Counts only when hands-on building is the main job." in text, role.slug
+        assert "consultancy do count" in text, role.slug
+
+
+def test_a_role_needs_a_title_filter() -> None:
+    from pydantic import ValidationError
+
+    from firstweek_research.roles import RoleDefinition
+
+    base = {
+        "slug": "x-engineer",
+        "name": "X Engineer",
+        "trust_level": "on_demand",
+        "definition": "Builds X systems for production use across the whole company.",
+        "aliases": ["X Engineer"],
+    }
+    with pytest.raises(ValidationError, match="title_filter or title_patterns"):
+        RoleDefinition.model_validate(base)
+    with pytest.raises(ValidationError, match="unknown title_filter"):
+        RoleDefinition.model_validate({**base, "title_filter": "nope"})
+    own = RoleDefinition.model_validate({**base, "title_patterns": [r"\bx engineer\b"]})
+    assert own.title_matches("Senior X Engineer") and not own.title_matches("Senior AI Engineer")

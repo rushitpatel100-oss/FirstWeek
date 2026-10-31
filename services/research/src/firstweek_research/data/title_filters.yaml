@@ -1,0 +1,15 @@
+# Job-board title pre-filters, shared by roles that name one with `title_filter`.
+#
+# Deliberately broad. A posting that fails the filter is never read, so a narrow filter
+# silently drops real matches (the 2026-10-31 evaluation found 9 such misses, e.g.
+# "Senior Software Engineer, GenAI Platform" failing a pattern that wanted "AI" as its own
+# word). Postings that pass are judged by the classifier from their text, for a fraction of
+# a penny each. Case-insensitive regular expressions on the job title.
+ai:
+  - '\b(gen(erative)?[\s-]?)?ai\b'          # AI, GenAI, Gen-AI, Generative AI
+  - '\bllms?\b'
+  - '\blarge language models?\b'
+  - '\bagent(ic|s)?\b'
+  - '\b(ml|machine learning|mlops|deep learning|nlp)\b'
+  - '\binference\b'
+  - '\bmodel (deployment|serving|platform|training|evaluation)\b'

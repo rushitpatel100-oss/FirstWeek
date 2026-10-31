@@ -13,7 +13,7 @@ from importlib import resources
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from rapidfuzz import fuzz, process
 
 # Words that describe level or contract, not the role itself.
@@ -36,8 +36,19 @@ class RoleDefinition(BaseModel):
     reviewed: bool = False
     definition: str = Field(min_length=40)
     aliases: list[str] = Field(min_length=1)
-    title_patterns: list[str] = Field(min_length=1)
+    # Job-board pre-filter: a shared filter from data/title_filters.yaml, extra patterns of
+    # the role's own, or both.
+    title_filter: str | None = None
+    title_patterns: list[str] = Field(default_factory=list)
     web_queries: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _has_a_title_filter(self) -> "RoleDefinition":
+        if not self.title_filter and not self.title_patterns:
+            raise ValueError("set title_filter or title_patterns")
+        if self.title_filter and self.title_filter not in load_title_filters():
+            raise ValueError(f"unknown title_filter {self.title_filter!r}")
+        return self
 
     @property
     def definition_hash(self) -> str:
@@ -46,7 +57,8 @@ class RoleDefinition(BaseModel):
         return hashlib.sha256(" ".join(self.definition.split()).encode()).hexdigest()[:16]
 
     def compiled_patterns(self) -> list[re.Pattern[str]]:
-        return [re.compile(p, re.IGNORECASE) for p in self.title_patterns]
+        shared = load_title_filters()[self.title_filter] if self.title_filter else []
+        return [re.compile(p, re.IGNORECASE) for p in [*shared, *self.title_patterns]]
 
     def title_matches(self, title: str) -> bool:
         """Job-board pre-filter. Deliberately loose; the classifier decides precisely later."""
@@ -63,6 +75,13 @@ def normalize_title(title: str) -> str:
     text = _PUNCT.sub(" ", text)
     text = _LEVEL_WORDS.sub(" ", text)
     return _SPACES.sub(" ", text).strip()
+
+
+@cache
+def load_title_filters() -> dict[str, list[str]]:
+    path = resources.files("firstweek_research") / "data" / "title_filters.yaml"
+    filters: dict[str, list[str]] = yaml.safe_load(path.read_text("utf-8"))
+    return filters
 
 
 @cache

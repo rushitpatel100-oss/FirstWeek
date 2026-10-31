@@ -10,11 +10,14 @@ definition: >-
   augmented generation (RAG), choosing and adapting models (fine-tuning, distillation),
   building evaluation sets and metrics for model output, and integrating model calls into
   applications with attention to latency, cost and safety. Distinct from ML research
-  (training new model architectures) and from data science (analysis and classical ML).
-  Not counted here: forward-deployed, applied-AI and solutions roles at AI vendors whose
-  main job is helping the vendor's customers adopt its models or product (customer
-  workshops, advising, pre-sales, deployment support). Those are a separate role. Engineers
-  who build these systems for clients at a consultancy do count.
+  (pretraining, research-scale post-training, new architectures) and from data science
+  (analysis and classical ML).
+  Counts only when hands-on building is the main job. Not counted: people managers whose
+  core is leading a team; advisory, strategy and pre-sales roles, at consultancies too; and
+  forward-deployed, applied-AI, solutions and agent-delivery roles at AI vendors whose main
+  job is delivering for the vendor's customers (advising, workshops, deployment support, or
+  building custom applications or agents for those customers). Those vendor roles are a
+  separate role. Engineers who build these systems for clients at a consultancy do count.
 aliases:
   - GenAI Engineer
   - Gen AI Engineer
@@ -24,16 +27,8 @@ aliases:
   - LLM Engineer
   - LLM Application Engineer
   - AI Engineer, Generative AI
-# Job-board pre-filter (case-insensitive regex on the title). Favours recall: the
-# classifier makes the precise call later.
-title_patterns:
-  - '\bgen(erative)?[\s-]?ai\b'
-  - '\bllms?\b'
-  - '\blarge language models?\b'
-  - '\b(applied )?ai engineer'
-  - '\bai developer\b'
-  - '\b(ml|machine learning) engineer'
-# Web research queries (blogs, docs, forums). {name} is replaced with the role name.
+# Job-board pre-filter: the shared broad AI filter in data/title_filters.yaml.
+title_filter: ai
 web_queries:
   - 'what does a {name} do day to day'
   - '{name} day in the life'
