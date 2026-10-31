@@ -31,6 +31,10 @@ def _resolve_or_exit(title: str) -> str:
     sys.exit(1)
 
 
+def _progress(message: str) -> None:
+    print(message, flush=True)
+
+
 def _print_summary(s: CollectSummary) -> None:
     print(f"\nCollection for {s.role} ({s.country})\n")
     print(f"  {'source':<12}{'fetched':>9}{'kept':>7}{'new':>7}{'updated':>9}{'same':>7}")
@@ -61,6 +65,9 @@ def _print_research(r: ResearchResult) -> None:
         return
     start, end = s.date_range or ("?", "?")
     print(f"\n  Sample: {s.sample_size} unique postings, {s.employers} employers, {start} to {end}")
+    if s.repeat_postings_merged:
+        repeats = s.repeat_postings_merged
+        print(f"  ({repeats} repeat postings of the same employer and title counted once)")
     print(f"  Sources: {s.sources}; Adzuna snippets with this title: {s.demand_snippets}")
     print(f"  Seniority: {s.seniority}")
     for sal in s.salary:
@@ -82,6 +89,9 @@ def _print_research(r: ResearchResult) -> None:
         print(f"  Saved as draft version {r.version} for review.")
 
 
+UNSURE_BELOW = 0.65
+
+
 def _print_matches(slug: str, country: str, show_urls: bool) -> None:
     import textwrap
 
@@ -99,14 +109,19 @@ def _print_matches(slug: str, country: str, show_urls: bool) -> None:
     name = load_roles()[slug].name
     print(f"Classifier decisions for {name} ({country}), {CLASSIFIER_VERSION}")
     print(f"A posting counts if judged the role with confidence {MATCH_CONFIDENCE} or more.")
+    unsure = sum(1 for r in rows if r.confidence is not None and r.confidence < UNSURE_BELOW)
+    if unsure:
+        print(f'"?" marks {unsure} decisions below {UNSURE_BELOW} confidence: worth a human look.')
     for heading, items in groups:
         if not items:
             continue
         print(f"\n{heading} ({len(items)})")
         for r in items:
-            verdict = "" if r.is_match is None else ("yes" if r.is_match else "no ")
+            verdict = "" if r.is_match is None else ("yes" if r.is_match else "no")
+            if r.confidence is not None and r.confidence < UNSURE_BELOW:
+                verdict += "?"
             conf = "" if r.confidence is None else f"{r.confidence:.2f}"
-            print(f"  {verdict:<3} {conf:<4}  {r.company or '?'} | {r.title}")
+            print(f"  {verdict:<4} {conf:<4}  {r.company or '?'} | {r.title}")
             if r.reason:
                 print(textwrap.fill(r.reason, 96, initial_indent=pad, subsequent_indent=pad))
             if show_urls and r.url:
@@ -191,6 +206,7 @@ def main(argv: list[str] | None = None) -> None:
                 country=args.country.upper(),
                 collect=not args.no_collect,
                 budget_usd=args.budget,
+                progress=_progress,
             )
         )
         gateway.flush()
@@ -206,6 +222,7 @@ def main(argv: list[str] | None = None) -> None:
                 use_adzuna=not args.no_adzuna,
                 use_web=not args.no_web,
                 adzuna_pages=args.adzuna_pages,
+                progress=_progress,
             )
         )
         _print_summary(summary)

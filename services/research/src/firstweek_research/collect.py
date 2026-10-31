@@ -5,7 +5,9 @@ command so collection can be tried and inspected on its own.
 """
 
 import asyncio
+import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import httpx
@@ -28,6 +30,13 @@ from firstweek_research.store import (
 )
 
 MIN_ROLE_TEXT = 80  # characters; shorter means the posting body was empty or all boilerplate
+
+# Progress messages for long runs, so a quiet terminal never looks frozen. The CLI prints them.
+Progress = Callable[[str], None]
+
+
+def quiet(_: str) -> None:
+    return None
 
 
 @dataclass
@@ -82,10 +91,15 @@ async def gather_postings(
     use_boards: bool,
     use_adzuna: bool,
     adzuna_pages: int,
+    progress: Progress = quiet,
 ) -> list[PreparedPosting]:
     prepared: list[PreparedPosting] = []
     if use_boards:
-        raws, errors = await fetch_boards(client, load_boards())
+        boards = load_boards()
+        progress(f"Fetching {len(boards)} company job boards...")
+        started = time.perf_counter()
+        raws, errors = await fetch_boards(client, boards)
+        progress(f"  {len(raws):,} postings in {time.perf_counter() - started:.0f}s")
         summary.errors.update({f"board:{k}": v for k, v in errors.items()})
         for raw in raws:
             summary.stats(raw.provider).fetched += 1
@@ -99,7 +113,10 @@ async def gather_postings(
             creds = AdzunaCredentials(
                 settings.adzuna_app_id, settings.adzuna_app_key.get_secret_value()
             )
-            for alias in dict.fromkeys([role.name, *role.aliases]):
+            aliases = list(dict.fromkeys([role.name, *role.aliases]))
+            progress(f"Searching Adzuna for {len(aliases)} job titles (a pause between each)...")
+            seen: set[str] = set()
+            for alias in aliases:
                 try:
                     raws = await search_adzuna(
                         client, creds, alias, country=country.lower(), max_pages=adzuna_pages
@@ -108,6 +125,10 @@ async def gather_postings(
                     summary.errors[f"adzuna:{alias}"] = str(exc)
                     continue
                 for raw in raws:
+                    # The same posting can come back for several titles: count it once.
+                    if raw.external_id in seen:
+                        continue
+                    seen.add(raw.external_id)
                     summary.stats("adzuna").fetched += 1
                     # Adzuna already matched the title words; the posting text is a snippet.
                     if item := prepare(raw, role, country, check_title=False):
@@ -120,13 +141,19 @@ async def gather_postings(
 
 
 async def gather_web(
-    client: httpx.AsyncClient, role: RoleDefinition, settings: Settings, summary: CollectSummary
+    client: httpx.AsyncClient,
+    role: RoleDefinition,
+    settings: Settings,
+    summary: CollectSummary,
+    progress: Progress = quiet,
 ) -> list[WebDocument]:
     if settings.firecrawl_api_key is None:
         summary.skipped["web"] = "FIRECRAWL_API_KEY not set in .env"
         return []
     docs: dict[str, WebDocument] = {}
-    for query in role.queries():
+    queries = role.queries()
+    progress(f"Searching blogs and forums ({len(queries)} searches)...")
+    for query in queries:
         try:
             for doc in await search_web(
                 client, settings.firecrawl_api_key.get_secret_value(), query
@@ -149,6 +176,7 @@ async def run_collect(
     use_web: bool = True,
     adzuna_pages: int = 2,
     transport: httpx.AsyncBaseTransport | None = None,
+    progress: Progress = quiet,
 ) -> CollectSummary:
     roles = load_roles()
     role = roles[role_slug]
@@ -164,9 +192,11 @@ async def run_collect(
             use_boards=use_boards,
             use_adzuna=use_adzuna,
             adzuna_pages=adzuna_pages,
+            progress=progress,
         )
-        web_docs = await gather_web(client, role, settings, summary) if use_web else []
+        web_docs = await gather_web(client, role, settings, summary, progress) if use_web else []
 
+    progress(f"Saving {len(postings) + len(web_docs)} items and checking for duplicates...")
     with session_scope() as session:
         seed_roles(session, roles)
         for item in postings:

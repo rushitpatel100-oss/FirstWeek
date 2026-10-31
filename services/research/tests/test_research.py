@@ -52,8 +52,11 @@ async def _run(**overrides: object) -> ResearchResult:
 
 async def test_research_run_end_to_end_and_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
-    first = await _run()
+    messages: list[str] = []
+    first = await _run(progress=messages.append)
 
+    assert any(m.startswith("Fetching") for m in messages)
+    assert "  2/2 classified" in messages and "  2/2 extracted" in messages
     assert first.classified == 2  # one unique board posting per sample job that fits the title
     assert first.matched == 2 and first.extracted == 2
     assert first.failures == {}
@@ -96,6 +99,36 @@ async def test_budget_stops_paid_calls_without_crashing(monkeypatch: pytest.Monk
     result = await _run(budget_usd=0.0001)
     assert result.classified == 0
     assert result.failures and all("Budget" in v for v in result.failures.values())
+
+
+async def test_interrupted_run_keeps_what_it_paid_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
+    gateway = fake_gateway()
+    real = gateway.completion_fn
+    assert real is not None
+    calls = 0
+
+    async def drops_the_second_call(**kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("connection lost")
+        return await real(**kwargs)
+
+    gateway.completion_fn = drops_the_second_call
+    with pytest.raises(RuntimeError):
+        await run_research(
+            "genai-engineer",
+            _settings(),
+            gateway,
+            use_web=False,
+            transport=samples.mock_transport(),
+        )
+    with session_scope() as session:
+        assert session.scalar(select(func.count()).select_from(PostingRoleMatch)) == 1
+
+    resumed = await _run(collect=False)
+    assert resumed.classified == 1  # only the one that was lost
 
 
 async def test_match_review_lists_decisions_and_unclassified(

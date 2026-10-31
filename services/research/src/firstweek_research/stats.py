@@ -2,10 +2,15 @@
 
 The sample is: postings in the country, not duplicates, full text (never snippets),
 judged to be the role with confidence >= 0.5, and extracted with the current extractor.
+An employer advertising the same title more than once counts once: reposts and
+per-location copies with small wording changes would otherwise weigh that employer's
+template more than everyone else's.
 """
 
 import math
+import re
 import statistics
+import unicodedata
 import uuid
 from collections import Counter, defaultdict
 from datetime import date
@@ -82,10 +87,26 @@ def _salaries(rows: list[tuple[Decimal | None, Decimal | None, str | None]]) -> 
     ]
 
 
+def _title_key(title: str) -> str:
+    """Ignores case, punctuation and spacing only. Seniority and team stay significant:
+    "Senior" and "Principal" at one employer are different jobs."""
+    text = unicodedata.normalize("NFKC", title).casefold()
+    return " ".join(re.sub(r"[^\w]+", " ", text).split())
+
+
+def one_per_employer_title(postings: list[JobPosting]) -> list[JobPosting]:
+    """Keeps the most recent posting for each (employer, title)."""
+    best: dict[tuple[str, str], JobPosting] = {}
+    ordered = sorted(postings, key=lambda p: (p.posted_at or date.min, str(p.id)), reverse=True)
+    for p in ordered:
+        best.setdefault(((p.company or "").casefold(), _title_key(p.title)), p)
+    return sorted(best.values(), key=lambda p: str(p.id))
+
+
 def compute_stats(
     session: Session, role: RoleDefinition, archetype_id: uuid.UUID, country: str
 ) -> ArchetypeStats:
-    sample = (
+    matched = (
         session.execute(
             select(JobPosting)
             .join(PostingRoleMatch, PostingRoleMatch.posting_id == JobPosting.id)
@@ -104,6 +125,7 @@ def compute_stats(
         .scalars()
         .all()
     )
+    sample = one_per_employer_title(list(matched))
     n = len(sample)
     source_ids = [p.source_id for p in sample]
 
@@ -150,6 +172,7 @@ def compute_stats(
         role=role.name,
         country=country,
         sample_size=n,
+        repeat_postings_merged=len(matched) - n,
         employers=len({p.company for p in sample if p.company}),
         date_range=date_range,
         sources=dict(Counter(p.provider for p in sample)),
