@@ -2,12 +2,15 @@
 
 from firstweek_core.contracts.research import (
     TIER_WEIGHTS,
+    ArchetypeStats,
     Citation,
     Claim,
     ExtractedItem,
     GapItem,
     PostingExtraction,
+    RoleMatch,
     RoleRealityReport,
+    SalaryStat,
     SkillStat,
 )
 from firstweek_core.contracts.runtime import CriterionScore, Decision, Evaluation, ProjectState
@@ -16,6 +19,7 @@ from firstweek_core.contracts.simulation import AnswerKey, Criterion, ProjectBlu
 __all__ = [
     "TIER_WEIGHTS",
     "AnswerKey",
+    "ArchetypeStats",
     "Citation",
     "Claim",
     "Criterion",
@@ -27,7 +31,9 @@ __all__ = [
     "PostingExtraction",
     "ProjectBlueprint",
     "ProjectState",
+    "RoleMatch",
     "RoleRealityReport",
+    "SalaryStat",
     "SkillStat",
     "Ticket",
 ]

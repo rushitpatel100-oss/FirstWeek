@@ -39,9 +39,13 @@ def test_resolves_known_titles(title: str, slug: str, method: str) -> None:
     assert result.method == method
 
 
-def test_ai_engineer_does_not_fuzzy_match_agentic() -> None:
-    # A subset of words must not count as the same role.
-    assert resolve_role("AI Engineer").slug == "genai-engineer"
+def test_generic_ai_engineer_is_not_a_genai_engineer() -> None:
+    # Decided 2026-10-31: "AI Engineer" is a different, broader title than GenAI Engineer.
+    # It is offered as a suggestion but never resolved silently.
+    for title in ("AI Engineer", "Senior AI Engineer", "Applied AI Engineer"):
+        result = resolve_role(title)
+        assert not result.resolved, title
+    assert resolve_role("AI Engineer, Generative AI").slug == "genai-engineer"
     assert resolve_role("Agentic AI Engineer").slug == "agentic-ai-engineer"
 
 

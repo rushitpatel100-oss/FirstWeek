@@ -78,8 +78,9 @@ ASHBY: dict[str, Any] = {
             "isRemote": False,
             "isListed": True,
             "publishedAt": "2026-10-10T12:00:00.000+00:00",
-            "descriptionHtml": "<p>Build tool-using agents with LangGraph.</p>",
-            "descriptionPlain": "Build tool-using agents with LangGraph.",
+            "descriptionHtml": "<p>Build tool-using agents with LangGraph and evaluate them "
+            "end to end, with guardrails and human review for risky actions.</p>",
+            "descriptionPlain": "Build tool-using agents with LangGraph and evaluate them.",
             "compensation": {
                 "summaryComponents": [
                     {
@@ -146,3 +147,30 @@ FIRECRAWL_SEARCH: dict[str, Any] = {
         ]
     },
 }
+
+
+def mock_transport() -> Any:
+    """Serves the samples above for every source; each job board gets its own URLs."""
+    import copy
+
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        host = request.url.host
+        if host == "boards-api.greenhouse.io":
+            data = copy.deepcopy(GREENHOUSE)
+            token = request.url.path.split("/")[3]
+            for job in data["jobs"]:
+                job["absolute_url"] = job["absolute_url"].replace("/acme/", f"/{token}/")
+            return httpx.Response(200, json=data)
+        if host == "api.lever.co":
+            return httpx.Response(200, json=LEVER)
+        if host == "api.ashbyhq.com":
+            return httpx.Response(200, json=ASHBY)
+        if host == "api.adzuna.com":
+            return httpx.Response(200, json=ADZUNA_PAGE)
+        if host == "api.firecrawl.dev":
+            return httpx.Response(200, json=FIRECRAWL_SEARCH)
+        return httpx.Response(404)
+
+    return httpx.MockTransport(handler)

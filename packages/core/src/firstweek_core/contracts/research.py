@@ -39,22 +39,41 @@ class Claim(BaseModel):
 
 
 class ExtractedItem(BaseModel):
-    label: str = Field(min_length=1, description="As written in the source.")
-    quote: str = Field(min_length=1, description="Exact span, used later for verification.")
-    skill_id: str | None = Field(default=None, description="Filled in by normalisation.")
+    """One skill, tool or responsibility, exactly as an LLM extracted it."""
+
+    label: str = Field(
+        min_length=1,
+        max_length=120,
+        description="Short canonical name. Use the vocabulary label when one applies.",
+    )
+    quote: str = Field(
+        min_length=1,
+        max_length=300,
+        description="Exact, verbatim span from the posting that supports this item.",
+    )
 
 
 class PostingExtraction(BaseModel):
+    """What a posting asks for. Independent of any role, so it is extracted once."""
+
+    seniority: Level | None = Field(description="null if the posting does not make it clear")
+    responsibilities: list[ExtractedItem] = Field(max_length=25)
+    tools: list[ExtractedItem] = Field(max_length=40)
+    skills: list[ExtractedItem] = Field(max_length=40)
+
+
+class RoleMatch(BaseModel):
+    """Does this posting describe the target role, judged against its definition?"""
+
     is_target_role: bool
-    seniority: Level
-    responsibilities: list[ExtractedItem]
-    tools: list[ExtractedItem]
-    skills: list[ExtractedItem]
+    confidence: float = Field(ge=0, le=1)
+    reason: str = Field(min_length=1, max_length=400)
 
 
 class SkillStat(BaseModel):
     skill_id: str
     label: str
+    count: int = Field(ge=0, description="Postings mentioning it.")
     share: float = Field(ge=0, le=1, description="Share of postings mentioning it.")
     ci_low: float = Field(ge=0, le=1)
     ci_high: float = Field(ge=0, le=1)
@@ -92,3 +111,32 @@ class RoleRealityReport(BaseModel):
         if self.date_range[0] > self.date_range[1]:
             raise ValueError("date_range must run from earlier to later")
         return self
+
+
+class SalaryStat(BaseModel):
+    currency: str
+    postings: int = Field(ge=1)
+    median_min: float
+    median_max: float
+
+
+class ArchetypeStats(BaseModel):
+    """Statistics for one role from one research run. Every number carries its sample."""
+
+    role: str
+    country: str
+    sample_size: int = Field(ge=0, description="Unique full-text postings judged to be the role")
+    employers: int = Field(ge=0)
+    date_range: tuple[date, date] | None
+    sources: dict[str, int] = Field(description="Postings in the sample per provider")
+    skills: list[SkillStat]
+    tools: list[SkillStat]
+    seniority: dict[str, int]
+    salary: list[SalaryStat]
+    demand_snippets: int = Field(ge=0, description="Adzuna snippet postings for the role's titles")
+    unverified_items_dropped: int = Field(
+        ge=0, description="Extracted items whose quote was not found in the posting"
+    )
+    unmapped_terms: int = Field(ge=0, description="Labels not yet in the skills taxonomy")
+    classifier_version: str
+    extractor_version: str

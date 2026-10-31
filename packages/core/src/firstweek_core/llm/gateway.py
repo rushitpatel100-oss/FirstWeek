@@ -127,6 +127,11 @@ class LLMGateway:
 
     # ------------------------------------------------------------ public API
 
+    def budget(self, scope: str, limit_usd: Decimal | None = None) -> Budget:
+        """The budget for a scope, created (or its limit changed) on request."""
+        assert self.budgets is not None
+        return self.budgets.get(scope, limit_usd)
+
     async def complete(
         self,
         *,

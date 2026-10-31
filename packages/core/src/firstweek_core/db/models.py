@@ -115,8 +115,13 @@ class JobPosting(IdMixin, Base):
 
 class TaxonomySkill(IdMixin, Base):
     __tablename__ = "taxonomy_skills"
-    __table_args__ = (CheckConstraint("origin IN ('esco', 'ai_extension')", name="origin"),)
+    __table_args__ = (
+        CheckConstraint("origin IN ('esco', 'ai_extension')", name="origin"),
+        CheckConstraint("kind IN ('skill', 'tool')", name="kind"),
+    )
 
+    slug: Mapped[str] = mapped_column(String(80), unique=True, comment="Stable id, e.g. 'rag'")
+    kind: Mapped[str] = mapped_column(String(16), default="skill")
     esco_uri: Mapped[str | None] = mapped_column(Text, unique=True)
     label: Mapped[str] = mapped_column(String(300))
     aliases: Mapped[JSONList] = mapped_column(JSONB, default=list)
@@ -142,6 +147,43 @@ class Extraction(IdMixin, TimestampMixin, Base):
         ForeignKey("taxonomy_skills.id", ondelete="SET NULL"), index=True
     )
     extractor_version: Mapped[str] = mapped_column(String(64))
+
+
+class ExtractionRun(IdMixin, TimestampMixin, Base):
+    """One extraction of one source by one extractor version, even if it found nothing."""
+
+    __tablename__ = "extraction_runs"
+    __table_args__ = (UniqueConstraint("source_id", "extractor_version"),)
+
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+    extractor_version: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(128))
+    items_kept: Mapped[int] = mapped_column(Integer, default=0)
+    items_dropped: Mapped[int] = mapped_column(
+        Integer, default=0, comment="Quote not found verbatim in the posting"
+    )
+
+
+class PostingRoleMatch(IdMixin, TimestampMixin, Base):
+    """Whether a posting describes a role, as judged against the role's definition."""
+
+    __tablename__ = "posting_role_matches"
+    __table_args__ = (
+        UniqueConstraint("posting_id", "archetype_id", "classifier_version"),
+        CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence_range"),
+    )
+
+    posting_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("job_postings.id", ondelete="CASCADE"), index=True
+    )
+    archetype_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("role_archetypes.id", ondelete="CASCADE"), index=True
+    )
+    is_match: Mapped[bool] = mapped_column(Boolean)
+    confidence: Mapped[float] = mapped_column(Float)
+    reason: Mapped[str] = mapped_column(Text)
+    classifier_version: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(128))
 
 
 class EvidencePassage(IdMixin, Base):

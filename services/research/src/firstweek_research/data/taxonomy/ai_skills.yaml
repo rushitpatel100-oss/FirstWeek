@@ -1,0 +1,133 @@
+# FirstWeek's AI skills taxonomy (the "AI extension" to ESCO).
+# kind: skill = a practice or competency; tool = a named technology, language or product.
+# The extractor is shown these labels and asked to reuse them, so wording matters.
+# Unknown labels are not dropped: they wait in a review queue (`make review-skills`).
+skills:
+  # --- Building on foundation models
+  - {slug: llms, label: Large language models, kind: skill, aliases: [LLMs, LLM, large language model, foundation models, generative AI, GenAI]}
+  - {slug: rag, label: RAG, kind: skill, aliases: [retrieval-augmented generation, retrieval augmented generation, retrieval pipelines]}
+  - {slug: prompt-engineering, label: Prompt engineering, kind: skill, aliases: [prompting, prompt design, context engineering]}
+  - {slug: llm-evaluation, label: LLM evaluation, kind: skill, aliases: [evals, model evaluation, evaluation frameworks, LLM evals, evaluation harnesses]}
+  - {slug: fine-tuning, label: Fine-tuning, kind: skill, aliases: [fine tuning, finetuning, model fine-tuning, LoRA, PEFT, SFT, supervised fine-tuning]}
+  - {slug: rlhf, label: RLHF, kind: skill, aliases: [reinforcement learning from human feedback, preference tuning, DPO]}
+  - {slug: embeddings, label: Embeddings, kind: skill, aliases: [vector embeddings, text embeddings]}
+  - {slug: vector-search, label: Vector search, kind: skill, aliases: [semantic search, similarity search, hybrid search]}
+  - {slug: information-retrieval, label: Information retrieval, kind: skill, aliases: [search, ranking, search relevance, reranking]}
+  - {slug: inference-optimization, label: Inference optimisation, kind: skill, aliases: [inference optimization, model serving optimisation, quantization, quantisation, distillation, latency optimisation]}
+  - {slug: model-serving, label: Model serving, kind: skill, aliases: [model deployment, inference serving, serving models in production]}
+  - {slug: multimodal, label: Multimodal models, kind: skill, aliases: [multimodal, vision-language models, VLMs]}
+  - {slug: guardrails, label: Guardrails and AI safety, kind: skill, aliases: [guardrails, AI safety, safety evaluations, red teaming, content moderation]}
+  - {slug: responsible-ai, label: Responsible AI, kind: skill, aliases: [AI ethics, AI governance, fairness, bias mitigation]}
+  - {slug: hallucination-mitigation, label: Hallucination mitigation, kind: skill, aliases: [grounding, factuality]}
+  # --- Agents
+  - {slug: ai-agents, label: AI agents, kind: skill, aliases: [agents, agentic AI, agentic systems, autonomous agents, agentic workflows, LLM agents]}
+  - {slug: multi-agent-systems, label: Multi-agent systems, kind: skill, aliases: [multi-agent, multi agent systems, agent orchestration]}
+  - {slug: tool-calling, label: Tool calling, kind: skill, aliases: [function calling, tool use]}
+  - {slug: agent-memory, label: Agent memory and state, kind: skill, aliases: [memory management, conversation state, long-term memory]}
+  - {slug: human-in-the-loop, label: Human-in-the-loop, kind: skill, aliases: [human in the loop, HITL]}
+  # --- Machine learning
+  - {slug: machine-learning, label: Machine learning, kind: skill, aliases: [ML, machine learning models, applied machine learning]}
+  - {slug: deep-learning, label: Deep learning, kind: skill, aliases: [neural networks, DL]}
+  - {slug: nlp, label: NLP, kind: skill, aliases: [natural language processing]}
+  - {slug: computer-vision, label: Computer vision, kind: skill, aliases: [CV, image recognition, vision models]}
+  - {slug: speech, label: Speech and audio ML, kind: skill, aliases: [speech recognition, ASR, text-to-speech, TTS, audio models]}
+  - {slug: reinforcement-learning, label: Reinforcement learning, kind: skill, aliases: [RL]}
+  - {slug: recommender-systems, label: Recommender systems, kind: skill, aliases: [recommendations, recommendation systems, personalisation]}
+  - {slug: model-training, label: Model training, kind: skill, aliases: [training models, pretraining, pre-training, distributed training, large-scale training]}
+  - {slug: mlops, label: MLOps, kind: skill, aliases: [ML ops, machine learning operations, LLMOps, ML pipelines, ML infrastructure]}
+  - {slug: statistics, label: Statistics, kind: skill, aliases: [statistical analysis, probability, statistical modelling]}
+  - {slug: experimentation, label: Experimentation and A/B testing, kind: skill, aliases: [A/B testing, AB testing, experiments, experimentation]}
+  - {slug: data-analysis, label: Data analysis, kind: skill, aliases: [analytics, data analytics, exploratory data analysis]}
+  - {slug: synthetic-data, label: Synthetic data, kind: skill, aliases: [data generation, synthetic data generation]}
+  - {slug: gpu-programming, label: GPU programming, kind: skill, aliases: [GPU kernels, kernel optimisation, accelerator programming]}
+  # --- Software engineering
+  - {slug: software-engineering, label: Software engineering, kind: skill, aliases: [software development, production software, writing production code]}
+  - {slug: backend-development, label: Backend development, kind: skill, aliases: [backend engineering, server-side development, backend services]}
+  - {slug: frontend-development, label: Frontend development, kind: skill, aliases: [frontend engineering, UI development, web development]}
+  - {slug: full-stack-development, label: Full-stack development, kind: skill, aliases: [full stack, full-stack engineering]}
+  - {slug: api-design, label: API design, kind: skill, aliases: [APIs, REST APIs, API development, building APIs]}
+  - {slug: system-design, label: System design, kind: skill, aliases: [systems design, architecture, software architecture, designing scalable systems]}
+  - {slug: distributed-systems, label: Distributed systems, kind: skill, aliases: [scalable systems, high-scale systems]}
+  - {slug: data-engineering, label: Data engineering, kind: skill, aliases: [data pipelines, ETL, data infrastructure, data processing]}
+  - {slug: cloud-infrastructure, label: Cloud infrastructure, kind: skill, aliases: [cloud, cloud platforms, cloud computing, infrastructure]}
+  - {slug: ci-cd, label: CI/CD, kind: skill, aliases: [continuous integration, continuous delivery, continuous deployment, CI CD]}
+  - {slug: testing, label: Software testing, kind: skill, aliases: [testing, unit testing, test automation, automated testing]}
+  - {slug: observability, label: Observability and monitoring, kind: skill, aliases: [monitoring, observability, logging, alerting, tracing]}
+  - {slug: performance-optimization, label: Performance optimisation, kind: skill, aliases: [performance optimization, latency, scalability, cost optimisation]}
+  - {slug: security, label: Security, kind: skill, aliases: [application security, secure coding, cybersecurity]}
+  - {slug: on-call, label: On-call and incident response, kind: skill, aliases: [on-call, incident response, production support]}
+  # --- Working with people
+  - {slug: stakeholder-communication, label: Stakeholder communication, kind: skill, aliases: [communication, communication skills, working with stakeholders, explaining technical concepts]}
+  - {slug: cross-functional-collaboration, label: Cross-functional collaboration, kind: skill, aliases: [collaboration, working with product and design, cross-functional teams]}
+  - {slug: product-sense, label: Product sense, kind: skill, aliases: [product thinking, product mindset, user focus, customer focus]}
+  - {slug: mentoring, label: Mentoring, kind: skill, aliases: [mentorship, coaching engineers, technical leadership]}
+  - {slug: technical-writing, label: Technical writing, kind: skill, aliases: [documentation, design documents, writing design docs]}
+  - {slug: customer-facing, label: Customer-facing work, kind: skill, aliases: [working with customers, client-facing, customer engagement, pre-sales]}
+  - {slug: research, label: Research, kind: skill, aliases: [research skills, reading papers, publishing research]}
+
+  # --- Languages
+  - {slug: python, label: Python, kind: tool, aliases: []}
+  - {slug: typescript, label: TypeScript, kind: tool, aliases: [TS]}
+  - {slug: javascript, label: JavaScript, kind: tool, aliases: [JS]}
+  - {slug: java, label: Java, kind: tool, aliases: []}
+  - {slug: go, label: Go, kind: tool, aliases: [Golang]}
+  - {slug: rust, label: Rust, kind: tool, aliases: []}
+  - {slug: cpp, label: C++, kind: tool, aliases: [cpp]}
+  - {slug: scala, label: Scala, kind: tool, aliases: []}
+  - {slug: kotlin, label: Kotlin, kind: tool, aliases: []}
+  - {slug: sql, label: SQL, kind: tool, aliases: []}
+  # --- ML and LLM frameworks
+  - {slug: pytorch, label: PyTorch, kind: tool, aliases: [torch]}
+  - {slug: tensorflow, label: TensorFlow, kind: tool, aliases: [Keras]}
+  - {slug: jax, label: JAX, kind: tool, aliases: []}
+  - {slug: hugging-face, label: Hugging Face, kind: tool, aliases: [HuggingFace, Transformers, Hugging Face Transformers]}
+  - {slug: scikit-learn, label: scikit-learn, kind: tool, aliases: [sklearn]}
+  - {slug: pandas, label: pandas, kind: tool, aliases: [NumPy, numpy]}
+  - {slug: langchain, label: LangChain, kind: tool, aliases: []}
+  - {slug: langgraph, label: LangGraph, kind: tool, aliases: []}
+  - {slug: llamaindex, label: LlamaIndex, kind: tool, aliases: [Llama Index]}
+  - {slug: dspy, label: DSPy, kind: tool, aliases: []}
+  - {slug: openai-api, label: OpenAI API, kind: tool, aliases: [OpenAI, GPT models, GPT-4, ChatGPT API]}
+  - {slug: anthropic-api, label: Anthropic API, kind: tool, aliases: [Anthropic, Claude, Claude API]}
+  - {slug: mcp, label: MCP, kind: tool, aliases: [Model Context Protocol]}
+  - {slug: vllm, label: vLLM, kind: tool, aliases: []}
+  - {slug: triton, label: Triton, kind: tool, aliases: [Triton Inference Server, NVIDIA Triton]}
+  - {slug: cuda, label: CUDA, kind: tool, aliases: []}
+  - {slug: ray, label: Ray, kind: tool, aliases: []}
+  - {slug: mlflow, label: MLflow, kind: tool, aliases: []}
+  - {slug: weights-and-biases, label: Weights & Biases, kind: tool, aliases: [W&B, wandb]}
+  - {slug: llm-observability-tools, label: LLM observability tools, kind: tool, aliases: [Langfuse, LangSmith, Arize, Phoenix]}
+  # --- Data stores and search
+  - {slug: postgres, label: PostgreSQL, kind: tool, aliases: [Postgres]}
+  - {slug: pgvector, label: pgvector, kind: tool, aliases: []}
+  - {slug: vector-databases, label: Vector databases, kind: tool, aliases: [Pinecone, Weaviate, Qdrant, Chroma, Milvus, FAISS]}
+  - {slug: redis, label: Redis, kind: tool, aliases: []}
+  - {slug: elasticsearch, label: Elasticsearch, kind: tool, aliases: [OpenSearch]}
+  - {slug: mongodb, label: MongoDB, kind: tool, aliases: []}
+  - {slug: kafka, label: Kafka, kind: tool, aliases: [Apache Kafka]}
+  - {slug: spark, label: Spark, kind: tool, aliases: [Apache Spark, PySpark]}
+  - {slug: airflow, label: Airflow, kind: tool, aliases: [Apache Airflow]}
+  - {slug: dbt, label: dbt, kind: tool, aliases: []}
+  - {slug: databricks, label: Databricks, kind: tool, aliases: []}
+  - {slug: snowflake, label: Snowflake, kind: tool, aliases: []}
+  - {slug: bigquery, label: BigQuery, kind: tool, aliases: []}
+  # --- Cloud and infrastructure
+  - {slug: aws, label: AWS, kind: tool, aliases: [Amazon Web Services]}
+  - {slug: aws-bedrock, label: AWS Bedrock, kind: tool, aliases: [Amazon Bedrock, Bedrock]}
+  - {slug: sagemaker, label: SageMaker, kind: tool, aliases: [AWS SageMaker, Amazon SageMaker]}
+  - {slug: gcp, label: Google Cloud, kind: tool, aliases: [GCP, Google Cloud Platform]}
+  - {slug: vertex-ai, label: Vertex AI, kind: tool, aliases: [Google Vertex AI]}
+  - {slug: azure, label: Azure, kind: tool, aliases: [Microsoft Azure]}
+  - {slug: azure-openai, label: Azure OpenAI, kind: tool, aliases: [Azure AI Foundry, Azure AI]}
+  - {slug: kubernetes, label: Kubernetes, kind: tool, aliases: [K8s]}
+  - {slug: docker, label: Docker, kind: tool, aliases: [containers, containerisation]}
+  - {slug: terraform, label: Terraform, kind: tool, aliases: [infrastructure as code, IaC]}
+  - {slug: linux, label: Linux, kind: tool, aliases: [Unix]}
+  - {slug: git, label: Git, kind: tool, aliases: [GitHub, version control]}
+  # --- Application frameworks
+  - {slug: fastapi, label: FastAPI, kind: tool, aliases: []}
+  - {slug: django, label: Django, kind: tool, aliases: [Flask]}
+  - {slug: react, label: React, kind: tool, aliases: [ReactJS, React.js]}
+  - {slug: nextjs, label: Next.js, kind: tool, aliases: [NextJS]}
+  - {slug: nodejs, label: Node.js, kind: tool, aliases: [Node, NodeJS]}
+  - {slug: graphql, label: GraphQL, kind: tool, aliases: []}

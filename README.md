@@ -2,7 +2,7 @@
 
 **Live your first week in a new AI role.** Type any job title, such as GenAI Engineer or Agentic AI Engineer, and FirstWeek shows what the job really involves, backed by evidence from real job postings and practitioner sources. Then you do the job: a five-day simulated project with tickets, a codebase, and AI colleagues (a Tech Lead who reviews your pull requests, a PM who changes priorities mid-week) who react to your work. You leave with a portfolio repo and a skill matrix where every score links to evidence.
 
-> Status: **M1 Research pipeline, part 1 (collection).** Real UK postings are collected from company job boards and Adzuna, cleaned and de-duplicated. See the [roadmap](#roadmap).
+> Status: **M1 Research pipeline, part 2.** Postings are collected, classified against role definitions, and mined for skills with quote-verified extraction, giving skill shares with 95% intervals. See the [roadmap](#roadmap).
 
 ## Why
 
@@ -56,7 +56,11 @@ Collect real UK job postings for a role (company job boards need no key; add Adz
 ```bash
 make resolve title="Senior LLM Engineer"   # which known role does a title map to?
 make collect role="GenAI Engineer"         # fetch, clean, de-duplicate and store
+make research role="GenAI Engineer"        # collect, classify, extract, then skill statistics
+make review-skills                         # extracted labels the taxonomy does not know yet
 ```
+
+`make research` needs `ANTHROPIC_API_KEY`. Re-runs only pay for new postings.
 
 Check the whole path works (API → Temporal → worker → database):
 
@@ -82,7 +86,7 @@ make migrate
 | Path | What lives there |
 | --- | --- |
 | `packages/core` | Typed contracts, database models and migrations, the LLM gateway |
-| `services/research` | Role definitions, collectors, cleaning, de-duplication |
+| `services/research` | Role definitions, collectors, cleaning, de-duplication, classification, extraction, statistics; prompts in `firstweek_research/prompts` |
 | `apps/api` | FastAPI service |
 | `services/worker` | Temporal worker and workflows |
 | `apps/web` | Next.js frontend |
@@ -94,7 +98,7 @@ make migrate
 | Milestone | Outcome |
 | --- | --- |
 | M0 Foundations ✅ | Monorepo, local stack, contracts, data model, LLM gateway, CI |
-| **M1 Research pipeline** | Postings and sources collected, cleaned, extracted and counted (collection done) |
+| **M1 Research pipeline** | Postings and sources collected, cleaned, extracted and counted (collection, extraction and statistics done; workflow next) |
 | M2 Role Reality Report | Evidence-backed reports with verified claims |
 | M3 Blueprints and sandbox | Generated projects that pass a validation gate |
 | M4 Workspace and Tech Lead | Real code review in the browser |
