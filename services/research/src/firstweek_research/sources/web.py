@@ -59,6 +59,12 @@ EXCLUDED_DOMAINS = [
     "springboard.com",
     "365datascience.com",
     "emeritus.org",
+    # Training providers whose "day in the life" pages sell courses (ADR 0013 addendum).
+    "cloudthat.com",
+    "bigblue.academy",
+    "aiengineeringfromscratch.com",
+    # Research papers: not practitioner accounts of the work (ADR 0013 addendum).
+    "arxiv.org",
 ]
 LICENCE = (
     "Public web page fetched via Firecrawl for research. Quote briefly, attribute the "

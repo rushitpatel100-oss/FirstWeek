@@ -130,5 +130,7 @@ def test_course_sellers_and_job_boards_are_not_evidence() -> None:
     assert is_excluded("https://www.udacity.com/topic/what-is-an-agentic-ai-engineer")
     assert is_excluded("https://blog.coursera.org/ai-engineer")  # subdomains too
     assert is_excluded("https://uk.linkedin.com/jobs/view/1")
+    assert is_excluded("https://www.cloudthat.com/resources/blog/what-does-an-ai-engineer-do")
+    assert is_excluded("https://arxiv.org/html/2510.10819v1")  # papers aren't practitioners
     assert not is_excluded("https://dev.to/marianocodes/lessons-from-building-ai-agents")
     assert not is_excluded("https://notudacity.com/post")  # a suffix match, not a substring
