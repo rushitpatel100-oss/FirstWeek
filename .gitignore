@@ -33,3 +33,6 @@ dump.rdb
 .idea/
 .DS_Store
 Thumbs.db
+
+# Report drafts from `make report`: generated, and full of third-party quotes
+reports/

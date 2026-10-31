@@ -9,6 +9,7 @@ python -m firstweek_research eval-classifier [--repeats 2]
 python -m firstweek_research eval-extraction
 python -m firstweek_research index-evidence
 python -m firstweek_research search "how is LLM output evaluated" [--role "GenAI Engineer"]
+python -m firstweek_research report --role "GenAI Engineer" [--out report.md]
 """
 
 import argparse
@@ -356,6 +357,30 @@ def _search(query: str, slug: str | None, country: str, k: int, per_source: int 
             print(textwrap.fill(line, 96, initial_indent="   ", subsequent_indent="   "))
 
 
+def _report(slug: str, budget: float, out: str | None) -> None:
+    from firstweek_research.report import NoStatisticsError, draft_report, to_markdown
+
+    if get_settings().anthropic_api_key is None:
+        print("Set ANTHROPIC_API_KEY in .env first: the report is written by Claude.")
+        sys.exit(1)
+    gateway = _gateway()
+    try:
+        draft = asyncio.run(draft_report(gateway, slug, budget_usd=budget, progress=_progress))
+    except NoStatisticsError as exc:
+        print(exc)
+        sys.exit(1)
+    finally:
+        gateway.flush()
+    text = to_markdown(draft)
+    print("\n" + text)
+    if out:
+        from pathlib import Path
+
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_text(text, encoding="utf-8")
+        print(f"Saved to {out}")
+
+
 def database_unreachable(exc: BaseException) -> str | None:
     """One line instead of a traceback when Postgres isn't running (no credentials shown)."""
     from sqlalchemy.engine import make_url
@@ -435,6 +460,11 @@ def _main(argv: list[str] | None) -> None:
         "--per-source", type=int, default=2, help="Most passages from one source (0: no limit)"
     )
 
+    p_report = sub.add_parser("report", help="Draft a Role Reality Report from the evidence")
+    p_report.add_argument("--role", required=True)
+    p_report.add_argument("--budget", type=float, default=1.5, help="Model spend cap in USD")
+    p_report.add_argument("--out", help="Also save the draft as markdown to this file")
+
     args = parser.parse_args(argv)
     if args.command == "index-evidence":
         _index_evidence()
@@ -456,6 +486,9 @@ def _main(argv: list[str] | None) -> None:
         _print_evaluation(args.repeats, args.budget, args.show)
         return
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
+    if args.command == "report":
+        _report(slug, args.budget, args.out)
+        return
     if args.command == "review-matches":
         _print_matches(slug, args.country.upper(), args.urls)
         return
