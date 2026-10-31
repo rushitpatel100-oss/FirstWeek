@@ -19,8 +19,6 @@ aliases:
   - Generative AI Developer
   - LLM Engineer
   - LLM Application Engineer
-  - AI Engineer
-  - Applied AI Engineer
   - AI Engineer, Generative AI
 # Job-board pre-filter (case-insensitive regex on the title). Favours recall: the
 # classifier makes the precise call later.
