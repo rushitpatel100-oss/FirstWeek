@@ -126,6 +126,9 @@ class ArchetypeStats(BaseModel):
     role: str
     country: str
     sample_size: int = Field(ge=0, description="Unique full-text postings judged to be the role")
+    repeat_postings_merged: int = Field(
+        default=0, ge=0, description="Same employer and title advertised again; counted once"
+    )
     employers: int = Field(ge=0)
     date_range: tuple[date, date] | None
     sources: dict[str, int] = Field(description="Postings in the sample per provider")

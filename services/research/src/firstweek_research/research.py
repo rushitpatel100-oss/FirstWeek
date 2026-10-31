@@ -15,16 +15,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from firstweek_core.config import Settings
-from firstweek_core.contracts import ArchetypeStats, RoleMatch
+from firstweek_core.contracts import ArchetypeStats
 from firstweek_core.db.models import (
     Extraction,
     ExtractionRun,
     JobPosting,
     PostingRoleMatch,
+    Source,
 )
 from firstweek_core.db.session import session_scope
 from firstweek_core.llm import BudgetExceededError, LLMGateway, StructuredOutputError
-from firstweek_research.collect import CollectSummary, run_collect
+from firstweek_research.collect import CollectSummary, Progress, quiet, run_collect
 from firstweek_research.extract import (
     CLASSIFIER_VERSION,
     EXTRACTOR_VERSION,
@@ -70,6 +71,55 @@ def candidates(session: Session, role: RoleDefinition, country: str) -> list[Job
     return [p for p in rows if role.title_matches(p.title)]
 
 
+@dataclass(frozen=True)
+class MatchDecision:
+    company: str | None
+    title: str
+    url: str
+    counted: bool  # in the statistics sample: judged the role, confidence >= MATCH_CONFIDENCE
+    is_match: bool | None  # None: not classified yet (for example, the call failed)
+    confidence: float | None
+    reason: str | None
+
+
+def match_decisions(role_slug: str, country: str = "GB") -> list[MatchDecision]:
+    """Every candidate posting for a role and what the classifier decided, for human review."""
+    role = load_roles()[role_slug]
+    with session_scope() as session:
+        archetype_id = seed_roles(session, load_roles())[role_slug]
+        decided = {
+            m.posting_id: m
+            for m in session.scalars(
+                select(PostingRoleMatch).where(
+                    PostingRoleMatch.archetype_id == archetype_id,
+                    PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+                )
+            )
+        }
+        pool = candidates(session, role, country)
+        urls = {
+            source_id: url
+            for source_id, url in session.execute(
+                select(Source.id, Source.url).where(Source.id.in_([p.source_id for p in pool]))
+            )
+        }
+        rows = []
+        for p in pool:
+            m = decided.get(p.id)
+            rows.append(
+                MatchDecision(
+                    company=p.company,
+                    title=p.title,
+                    url=urls.get(p.source_id, ""),
+                    counted=bool(m and m.is_match and m.confidence >= MATCH_CONFIDENCE),
+                    is_match=m.is_match if m else None,
+                    confidence=m.confidence if m else None,
+                    reason=m.reason if m else None,
+                )
+            )
+    return sorted(rows, key=lambda r: (not r.counted, r.is_match is None, -(r.confidence or 0)))
+
+
 async def _bounded[T](items: list[T], work: Callable[[T], Awaitable[None]]) -> None:
     gate = asyncio.Semaphore(CONCURRENCY)
 
@@ -78,6 +128,49 @@ async def _bounded[T](items: list[T], work: Callable[[T], Awaitable[None]]) -> N
             await work(item)
 
     await asyncio.gather(*(one(i) for i in items))
+
+
+def _ticker(total: int, verb: str, progress: Progress, every: int = 5) -> Callable[[], None]:
+    """Reports "n/total <verb>" every few items and at the end."""
+    count = 0
+
+    def tick() -> None:
+        nonlocal count
+        count += 1
+        if count % every == 0 or count == total:
+            progress(f"  {count}/{total} {verb}")
+
+    return tick
+
+
+def _save_extraction(
+    view: PostingView, outcome: ExtractionOutcome, skill_ids: dict[str, uuid.UUID]
+) -> None:
+    source_id = uuid.UUID(view.source_id)
+    with session_scope() as session:
+        for item in outcome.items:
+            session.add(
+                Extraction(
+                    source_id=source_id,
+                    kind=item.kind,
+                    raw_text=item.label,
+                    quote=item.quote,
+                    skill_id=skill_ids.get(item.skill_slug) if item.skill_slug else None,
+                    extractor_version=EXTRACTOR_VERSION,
+                )
+            )
+        session.add(
+            ExtractionRun(
+                source_id=source_id,
+                extractor_version=EXTRACTOR_VERSION,
+                model=outcome.model,
+                items_kept=len(outcome.items),
+                items_dropped=len(outcome.dropped),
+            )
+        )
+        posting = session.get(JobPosting, uuid.UUID(view.id))
+        if posting is not None:
+            posting.seniority = outcome.seniority
 
 
 async def run_research(
@@ -93,6 +186,7 @@ async def run_research(
     use_web: bool = True,
     adzuna_pages: int = 2,
     transport: httpx.AsyncBaseTransport | None = None,
+    progress: Progress = quiet,
 ) -> ResearchResult:
     roles = load_roles()
     role = roles[role_slug]
@@ -111,6 +205,7 @@ async def run_research(
             use_web=use_web,
             adzuna_pages=adzuna_pages,
             transport=transport,
+            progress=progress,
         )
 
     with session_scope() as session:
@@ -127,30 +222,37 @@ async def run_research(
         )
         to_classify = [_view(p) for p in pool if p.id not in done]
 
-    # 1. Classify (role-specific).
-    matches: dict[str, tuple[RoleMatch, str]] = {}
+    # 1. Classify (role-specific). Each result is saved as soon as it arrives, so an
+    # interrupted run keeps everything it has already paid for.
+    progress(
+        f"Classifying {len(to_classify)} new postings with {gateway.model_for('small')} "
+        f"({len(pool) - len(to_classify)} already done)..."
+    )
+    tick = _ticker(len(to_classify), "classified", progress)
 
     async def do_classify(view: PostingView) -> None:
         try:
-            matches[view.id] = await classify(gateway, role, view, budget_scope=scope)
+            match, model = await classify(gateway, role, view, budget_scope=scope)
         except (StructuredOutputError, BudgetExceededError) as exc:
             result.failures[f"classify:{view.title}"] = str(exc)[:200]
+        else:
+            with session_scope() as session:
+                session.add(
+                    PostingRoleMatch(
+                        posting_id=uuid.UUID(view.id),
+                        archetype_id=archetype_id,
+                        is_match=match.is_target_role,
+                        confidence=match.confidence,
+                        reason=match.reason,
+                        classifier_version=CLASSIFIER_VERSION,
+                        model=model,
+                    )
+                )
+            result.classified += 1
+        tick()
 
     await _bounded(to_classify, do_classify)
     with session_scope() as session:
-        for posting_id, (match, model) in matches.items():
-            session.add(
-                PostingRoleMatch(
-                    posting_id=uuid.UUID(posting_id),
-                    archetype_id=archetype_id,
-                    is_match=match.is_target_role,
-                    confidence=match.confidence,
-                    reason=match.reason,
-                    classifier_version=CLASSIFIER_VERSION,
-                    model=model,
-                )
-            )
-        result.classified = len(matches)
         matched = session.scalars(
             select(JobPosting)
             .join(PostingRoleMatch, PostingRoleMatch.posting_id == JobPosting.id)
@@ -172,46 +274,27 @@ async def run_research(
         )
         to_extract = [_view(p) for p in matched if p.source_id not in extracted]
 
-    # 2. Extract (role-independent, once per posting).
-    outcomes: dict[str, ExtractionOutcome] = {}
+    # 2. Extract (role-independent, once per posting), also saved one posting at a time.
+    progress(
+        f"Extracting skills from {len(to_extract)} postings with {gateway.model_for('mid')} "
+        f"({len(matched) - len(to_extract)} already done)..."
+    )
+    tick = _ticker(len(to_extract), "extracted", progress)
 
     async def do_extract(view: PostingView) -> None:
         try:
-            outcomes[view.id] = await extract(gateway, view, taxonomy, budget_scope=scope)
+            outcome = await extract(gateway, view, taxonomy, budget_scope=scope)
         except (StructuredOutputError, BudgetExceededError) as exc:
             result.failures[f"extract:{view.title}"] = str(exc)[:200]
+        else:
+            _save_extraction(view, outcome, skill_ids)
+            result.extracted += 1
+        tick()
 
     await _bounded(to_extract, do_extract)
-    views = {v.id: v for v in to_extract}
-    with session_scope() as session:
-        for posting_id, outcome in outcomes.items():
-            source_id = uuid.UUID(views[posting_id].source_id)
-            for item in outcome.items:
-                session.add(
-                    Extraction(
-                        source_id=source_id,
-                        kind=item.kind,
-                        raw_text=item.label,
-                        quote=item.quote,
-                        skill_id=skill_ids.get(item.skill_slug) if item.skill_slug else None,
-                        extractor_version=EXTRACTOR_VERSION,
-                    )
-                )
-            session.add(
-                ExtractionRun(
-                    source_id=source_id,
-                    extractor_version=EXTRACTOR_VERSION,
-                    model=outcome.model,
-                    items_kept=len(outcome.items),
-                    items_dropped=len(outcome.dropped),
-                )
-            )
-            posting = session.get(JobPosting, uuid.UUID(posting_id))
-            if posting is not None:
-                posting.seniority = outcome.seniority
-        result.extracted = len(outcomes)
 
     # 3. Statistics, saved as a draft version for human review.
+    progress("Computing statistics...")
     with session_scope() as session:
         result.stats = compute_stats(session, role, archetype_id, country)
         version = save_version(session, archetype_id, result.stats)

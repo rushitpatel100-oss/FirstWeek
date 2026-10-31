@@ -25,8 +25,9 @@ AB = BoardConfig(company="Acme AI", ats="ashby", token="acme")
 
 def test_board_list_loads_with_unique_tokens() -> None:
     boards = load_boards()
-    assert len(boards) >= 20
+    assert len(boards) >= 80
     assert len({(b.ats, b.token) for b in boards}) == len(boards)
+    assert len({b.company for b in boards}) == len(boards)
 
 
 def test_parse_greenhouse_unescapes_html_and_keeps_metadata() -> None:

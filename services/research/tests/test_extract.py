@@ -20,7 +20,7 @@ from firstweek_research.extract import (
     verify,
 )
 from firstweek_research.roles import load_roles
-from firstweek_research.stats import wilson_interval
+from firstweek_research.stats import one_per_employer_title, wilson_interval
 from firstweek_research.taxonomy import load_taxonomy
 
 TEXT = (
@@ -193,3 +193,23 @@ async def test_prompts_pass_litellm_parameter_checks(
     else:
         outcome = await extract(gateway, POSTING, load_taxonomy(), budget_scope="t")
         assert outcome.items == []
+
+
+def test_an_employer_repeating_a_title_counts_once() -> None:
+    # Seen live: Elastic advertised "Principal AI Engineer - Context" twice with small wording
+    # changes, so de-duplication kept both and the role counted twice.
+    from datetime import date
+
+    from firstweek_core.db.models import JobPosting
+
+    def posting(company: str, title: str, day: int) -> JobPosting:
+        return JobPosting(company=company, title=title, posted_at=date(2026, 10, day))
+
+    older = posting("Elastic", "Principal AI Engineer - Context - Agents and Context", 1)
+    newer = posting("Elastic", "Principal AI Engineer \u2013 Context \u2013 Agents and Context", 20)
+    senior = posting("Elastic", "Senior AI Engineer - Context - Agents and Context", 3)
+    other = posting("Juro", "AI Engineer", 5)
+    kept = one_per_employer_title([older, newer, senior, other])
+    assert len(kept) == 3
+    assert newer in kept and older not in kept  # the most recent copy is kept
+    assert senior in kept  # a different seniority is a different job

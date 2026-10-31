@@ -20,11 +20,18 @@ from firstweek_core.llm import (
 )
 
 
-def _response(content: str, tokens_in: int = 1000, tokens_out: int = 200) -> SimpleNamespace:
+def _response(
+    content: str, tokens_in: int = 1000, tokens_out: int = 200, finish_reason: str = "stop"
+) -> SimpleNamespace:
     return SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+        choices=[
+            SimpleNamespace(message=SimpleNamespace(content=content), finish_reason=finish_reason)
+        ],
         usage=SimpleNamespace(prompt_tokens=tokens_in, completion_tokens=tokens_out),
     )
+
+
+CUT_OFF = "<cut off>"  # a reply prefixed with this comes back with finish_reason="length"
 
 
 class FakeLLM:
@@ -34,7 +41,10 @@ class FakeLLM:
 
     async def __call__(self, **kwargs: Any) -> SimpleNamespace:
         self.calls.append(kwargs)
-        return _response(self.replies.pop(0))
+        reply = self.replies.pop(0)
+        if reply.startswith(CUT_OFF):
+            return _response(reply.removeprefix(CUT_OFF), finish_reason="length")
+        return _response(reply)
 
 
 class FakeHandle:
@@ -159,6 +169,43 @@ async def test_structured_gives_up_after_retries() -> None:
             max_validation_retries=2,
         )
     assert len(llm.calls) == 3
+
+
+async def test_cut_off_reply_is_retried_with_more_room() -> None:
+    # Seen live on 2026-10-31: Claude Haiku 5.5 thinks by default, thinking counts towards
+    # max_tokens, and a 400-token limit cut the JSON off mid-string on all three attempts.
+    llm = FakeLLM(
+        [f'{CUT_OFF}{{"supported": true, "rea', '{"supported": true, "reason": "quoted"}']
+    )
+    gateway, records, _ = _gateway(llm)
+
+    result = await gateway.structured(
+        purpose="verify-claim",
+        messages=[{"role": "user", "content": "Is it supported?"}],
+        response_model=Verdict,
+        tier="small",
+        max_tokens=400,
+    )
+
+    assert result.parsed == Verdict(supported=True, reason="quoted")
+    assert [c["max_tokens"] for c in llm.calls] == [400, 800]
+    # The cut-off text is not sent back as if the model had made a mistake.
+    assert llm.calls[1]["messages"] == llm.calls[0]["messages"]
+    assert len(records) == 2
+
+
+async def test_cut_off_stops_at_the_ceiling() -> None:
+    llm = FakeLLM([f"{CUT_OFF}{{"] * 3)
+    gateway, _, _ = _gateway(llm, limit="5")
+
+    with pytest.raises(StructuredOutputError, match="cut off at max_tokens=32000"):
+        await gateway.structured(
+            purpose="verify-claim",
+            messages=[{"role": "user", "content": "?"}],
+            response_model=Verdict,
+            max_tokens=16_000,
+        )
+    assert [c["max_tokens"] for c in llm.calls] == [16_000, 32_000]
 
 
 async def test_failed_call_is_recorded_and_reraised() -> None:

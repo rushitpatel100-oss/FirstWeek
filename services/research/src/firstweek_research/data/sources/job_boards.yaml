@@ -1,33 +1,101 @@
 # Public job-board APIs that companies use to publish their own openings. They return the
-# full posting text without a key. Each board was checked on 2026-10-31 for UK openings.
+# full posting text without a key. Each board was checked for UK openings: the first 25 on
+# 2026-10-31 (morning), the rest the same afternoon by probing 164 UK-relevant employers.
 #
-# Known bias: this list leans towards AI-native companies and scale-ups. Adzuna adds the
-# wider UK market (banks, consultancies, agencies) but only as ~500-character snippets.
+# Known bias: this list leans towards AI-native companies and tech scale-ups. Banks,
+# consultancies and large enterprises mostly use Workday or their own systems, which have
+# no public posting API; Adzuna covers them, but only as ~500-character snippets.
+# Not reachable this way (checked 2026-10-31): Google DeepMind, Mistral, Hugging Face
+# (Workable), Revolut, Skyscanner, Octopus Energy, Ocado, Sky, BBC, LSEG and the large
+# consultancies.
+#
 # Add a company: find its board token in its careers-page URL, e.g.
 #   job-boards.greenhouse.io/<token>, jobs.lever.co/<token>, jobs.ashbyhq.com/<token>
+# Check the token belongs to the right company: "peak" on Greenhouse is a US physio clinic.
 boards:
+  # AI labs, model and AI-product companies
   - {company: Anthropic, ats: greenhouse, token: anthropic}
-  - {company: Databricks, ats: greenhouse, token: databricks}
-  - {company: Deliveroo, ats: greenhouse, token: deliveroo}
-  - {company: Graphcore, ats: greenhouse, token: graphcore}
-  - {company: Intercom, ats: greenhouse, token: intercom}
-  - {company: Isomorphic Labs, ats: greenhouse, token: isomorphiclabs}
-  - {company: Monzo, ats: greenhouse, token: monzo}
-  - {company: PhysicsX, ats: greenhouse, token: physicsx}
-  - {company: Scale AI, ats: greenhouse, token: scaleai}
-  - {company: Speechmatics, ats: greenhouse, token: speechmatics}
-  - {company: Palantir, ats: lever, token: palantir}
-  - {company: Spotify, ats: lever, token: spotify}
-  - {company: Cohere, ats: ashby, token: cohere}
-  - {company: ElevenLabs, ats: ashby, token: elevenlabs}
-  - {company: Faculty, ats: ashby, token: faculty}
-  - {company: Granola, ats: ashby, token: granola}
-  - {company: Harvey, ats: ashby, token: harvey}
-  - {company: LangChain, ats: ashby, token: langchain}
-  - {company: Lovable, ats: ashby, token: lovable}
   - {company: OpenAI, ats: ashby, token: openai}
+  - {company: Cohere, ats: ashby, token: cohere}
+  - {company: Scale AI, ats: greenhouse, token: scaleai}
+  - {company: Together AI, ats: greenhouse, token: togetherai}
+  - {company: Poolside, ats: ashby, token: poolside}
   - {company: Perplexity, ats: ashby, token: perplexity}
-  - {company: Quantexa, ats: ashby, token: quantexa}
+  - {company: ElevenLabs, ats: ashby, token: elevenlabs}
   - {company: Synthesia, ats: ashby, token: synthesia}
-  - {company: Wayve, ats: ashby, token: wayve}
+  - {company: PolyAI, ats: greenhouse, token: polyai}
+  - {company: Speechmatics, ats: greenhouse, token: speechmatics}
+  - {company: Sierra, ats: ashby, token: sierra}
+  - {company: Decagon, ats: ashby, token: decagon}
   - {company: Writer, ats: ashby, token: writer}
+  - {company: Glean, ats: greenhouse, token: gleanwork}
+  - {company: Harvey, ats: ashby, token: harvey}
+  - {company: Wordsmith, ats: ashby, token: wordsmith}
+  - {company: Lawhive, ats: ashby, token: lawhive}
+  - {company: Juro, ats: ashby, token: juro}
+  - {company: Granola, ats: ashby, token: granola}
+  - {company: Fyxer AI, ats: ashby, token: fyxer}
+  - {company: Conveo, ats: ashby, token: conveo}
+  - {company: Signal AI, ats: ashby, token: signal-ai}
+  - {company: Lovable, ats: ashby, token: lovable}
+  - {company: Anysphere (Cursor), ats: ashby, token: cursor}
+  - {company: Replit, ats: ashby, token: replit}
+  - {company: LangChain, ats: ashby, token: langchain}
+  - {company: Modal, ats: ashby, token: modal}
+  - {company: Faculty, ats: ashby, token: faculty}
+  - {company: Datatonic, ats: ashby, token: datatonic}
+  - {company: Apollo Research, ats: lever, token: apolloresearch}
+  # AI for science, robotics and hardware
+  - {company: Isomorphic Labs, ats: greenhouse, token: isomorphiclabs}
+  - {company: CuspAI, ats: ashby, token: cuspai}
+  - {company: Basecamp Research, ats: ashby, token: basecamp-research}
+  - {company: PhysicsX, ats: greenhouse, token: physicsx}
+  - {company: Wayve, ats: ashby, token: wayve}
+  - {company: Dexory, ats: greenhouse, token: dexory}
+  - {company: Helsing, ats: greenhouse, token: helsing}
+  - {company: Graphcore, ats: greenhouse, token: graphcore}
+  - {company: Palantir, ats: lever, token: palantir}
+  # Data and developer platforms
+  - {company: Databricks, ats: greenhouse, token: databricks}
+  - {company: Snowflake, ats: ashby, token: snowflake}
+  - {company: Elastic, ats: greenhouse, token: elastic}
+  - {company: MongoDB, ats: greenhouse, token: mongodb}
+  - {company: Datadog, ats: greenhouse, token: datadog}
+  - {company: Cloudflare, ats: greenhouse, token: cloudflare}
+  - {company: Vercel, ats: greenhouse, token: vercel}
+  - {company: GitLab, ats: greenhouse, token: gitlab}
+  - {company: JetBrains, ats: greenhouse, token: jetbrains}
+  - {company: Canonical, ats: greenhouse, token: canonical}
+  - {company: Snyk, ats: ashby, token: snyk}
+  - {company: Dataiku, ats: greenhouse, token: dataiku}
+  - {company: UiPath, ats: ashby, token: uipath}
+  - {company: Celonis, ats: greenhouse, token: celonis}
+  - {company: Quantexa, ats: ashby, token: quantexa}
+  # Product companies with UK engineering teams
+  - {company: Intercom, ats: greenhouse, token: intercom}
+  - {company: Figma, ats: greenhouse, token: figma}
+  - {company: Notion, ats: ashby, token: notion}
+  - {company: Pigment, ats: lever, token: pigment}
+  - {company: Spotify, ats: lever, token: spotify}
+  - {company: Deliveroo, ats: greenhouse, token: deliveroo}
+  - {company: Trainline, ats: ashby, token: trainline}
+  - {company: Motorway, ats: ashby, token: motorway}
+  - {company: Multiverse, ats: ashby, token: multiverse}
+  - {company: The Economist, ats: greenhouse, token: theeconomistgroup}
+  # Finance and fintech
+  - {company: Monzo, ats: greenhouse, token: monzo}
+  - {company: Stripe, ats: greenhouse, token: stripe}
+  - {company: Tide, ats: greenhouse, token: tide}
+  - {company: Paddle, ats: ashby, token: paddle}
+  - {company: GoCardless, ats: greenhouse, token: gocardless}
+  - {company: Zopa, ats: lever, token: zopa}
+  - {company: Ramp, ats: ashby, token: ramp}
+  - {company: Thought Machine, ats: ashby, token: thought-machine}
+  - {company: Marshmallow, ats: ashby, token: marshmallow}
+  - {company: Zego, ats: ashby, token: zego}
+  - {company: Man Group, ats: greenhouse, token: mangroup}
+  - {company: Jane Street, ats: greenhouse, token: janestreet}
+  - {company: Hudson River Trading, ats: greenhouse, token: wehrtyou}
+  # Consultancies with public boards
+  - {company: Thoughtworks, ats: greenhouse, token: thoughtworks}
+  - {company: Equal Experts, ats: greenhouse, token: equalexperts}

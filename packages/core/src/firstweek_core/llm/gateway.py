@@ -34,6 +34,10 @@ DOWNGRADE: dict[Tier, Tier | None] = {
 
 CHARS_PER_TOKEN = 3  # deliberately pessimistic, so pre-call estimates overshoot
 
+# Claude 5.5 models think by default, and thinking counts towards max_tokens. A reply that
+# runs out of room is retried with a larger limit, up to this ceiling.
+MAX_TOKENS_CEILING = 32_000
+
 
 class StructuredOutputError(Exception):
     """The model never produced output that validates against the requested schema."""
@@ -67,6 +71,8 @@ class LLMResult[T]:
     latency_ms: int
     attempts: int
     trace_id: str | None = None
+    # "stop" normally; "length" when the reply hit max_tokens and was cut off.
+    finish_reason: str | None = None
 
 
 Recorder = Callable[[CallRecord], None]
@@ -202,6 +208,7 @@ class LLMGateway:
                 raise
             latency = int((time.perf_counter() - started) * 1000)
             content = response.choices[0].message.content or ""
+            finish_reason = getattr(response.choices[0], "finish_reason", None)
             tokens_in = int(getattr(response.usage, "prompt_tokens", 0) or 0)
             tokens_out = int(getattr(response.usage, "completion_tokens", 0) or 0)
             cost = cost_usd(model, tokens_in, tokens_out)
@@ -234,6 +241,7 @@ class LLMGateway:
             latency_ms=latency,
             attempts=1,
             trace_id=trace_id,
+            finish_reason=finish_reason,
         )
 
     async def structured[M: BaseModel](
@@ -243,11 +251,14 @@ class LLMGateway:
         messages: list[Message],
         response_model: type[M],
         max_validation_retries: int = 2,
+        max_tokens: int = 2048,
         **kwargs: Any,
     ) -> LLMResult[M]:
         """A call whose reply must validate against `response_model`.
 
         On invalid output, the validation errors go back to the model and it tries again.
+        A reply cut off at max_tokens is not the model's mistake, so it is retried with
+        double the limit instead (up to MAX_TOKENS_CEILING).
         """
         schema = response_model.model_json_schema()
         instruction = (
@@ -264,12 +275,22 @@ class LLMGateway:
         last_error = ""
         for attempt in range(1, max_validation_retries + 2):
             result = await self.complete(
-                purpose=purpose, messages=convo, response_format=response_format, **kwargs
+                purpose=purpose,
+                messages=convo,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                **kwargs,
             )
             totals_in += result.tokens_in
             totals_out += result.tokens_out
             total_cost += result.cost_usd
             latency += result.latency_ms
+            if result.finish_reason == "length":
+                last_error = f"reply cut off at max_tokens={max_tokens}"
+                if max_tokens >= MAX_TOKENS_CEILING:
+                    break
+                max_tokens = min(max_tokens * 2, MAX_TOKENS_CEILING)
+                continue
             try:
                 parsed = response_model.model_validate_json(_strip_fences(result.content))
             except (ValidationError, ValueError) as exc:
@@ -298,7 +319,7 @@ class LLMGateway:
             )
         raise StructuredOutputError(
             f"{purpose}: no valid {response_model.__name__} after "
-            f"{max_validation_retries + 1} attempts. Last error: {last_error}"
+            f"{attempt} attempts. Last error: {last_error}"
         )
 
     def flush(self) -> None:

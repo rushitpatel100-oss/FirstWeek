@@ -4,6 +4,7 @@ python -m firstweek_research resolve "Senior LLM Engineer"
 python -m firstweek_research collect --role "GenAI Engineer"
 python -m firstweek_research research --role "GenAI Engineer"
 python -m firstweek_research review-skills
+python -m firstweek_research review-matches --role "GenAI Engineer"
 """
 
 import argparse
@@ -28,6 +29,10 @@ def _resolve_or_exit(title: str) -> str:
         print(f"  Did you mean {name}? (matched '{s.matched_alias}', {s.score:.0f})")
     print("New roles are researched on demand from M1's second part onwards.")
     sys.exit(1)
+
+
+def _progress(message: str) -> None:
+    print(message, flush=True)
 
 
 def _print_summary(s: CollectSummary) -> None:
@@ -60,6 +65,9 @@ def _print_research(r: ResearchResult) -> None:
         return
     start, end = s.date_range or ("?", "?")
     print(f"\n  Sample: {s.sample_size} unique postings, {s.employers} employers, {start} to {end}")
+    if s.repeat_postings_merged:
+        repeats = s.repeat_postings_merged
+        print(f"  ({repeats} repeat postings of the same employer and title counted once)")
     print(f"  Sources: {s.sources}; Adzuna snippets with this title: {s.demand_snippets}")
     print(f"  Seniority: {s.seniority}")
     for sal in s.salary:
@@ -79,6 +87,45 @@ def _print_research(r: ResearchResult) -> None:
     print(f"  was not in the posting; {s.unmapped_terms} terms await review (make review-skills).")
     if r.version:
         print(f"  Saved as draft version {r.version} for review.")
+
+
+UNSURE_BELOW = 0.65
+
+
+def _print_matches(slug: str, country: str, show_urls: bool) -> None:
+    import textwrap
+
+    from firstweek_research.extract import CLASSIFIER_VERSION
+    from firstweek_research.research import match_decisions
+    from firstweek_research.stats import MATCH_CONFIDENCE
+
+    rows = match_decisions(slug, country)
+    groups = [
+        ("Counted in the statistics", [r for r in rows if r.counted]),
+        ("Not counted", [r for r in rows if r.is_match is not None and not r.counted]),
+        ("Not classified yet (re-run make research)", [r for r in rows if r.is_match is None]),
+    ]
+    pad = " " * 12
+    name = load_roles()[slug].name
+    print(f"Classifier decisions for {name} ({country}), {CLASSIFIER_VERSION}")
+    print(f"A posting counts if judged the role with confidence {MATCH_CONFIDENCE} or more.")
+    unsure = sum(1 for r in rows if r.confidence is not None and r.confidence < UNSURE_BELOW)
+    if unsure:
+        print(f'"?" marks {unsure} decisions below {UNSURE_BELOW} confidence: worth a human look.')
+    for heading, items in groups:
+        if not items:
+            continue
+        print(f"\n{heading} ({len(items)})")
+        for r in items:
+            verdict = "" if r.is_match is None else ("yes" if r.is_match else "no")
+            if r.confidence is not None and r.confidence < UNSURE_BELOW:
+                verdict += "?"
+            conf = "" if r.confidence is None else f"{r.confidence:.2f}"
+            print(f"  {verdict:<4} {conf:<4}  {r.company or '?'} | {r.title}")
+            if r.reason:
+                print(textwrap.fill(r.reason, 96, initial_indent=pad, subsequent_indent=pad))
+            if show_urls and r.url:
+                print(pad + r.url)
 
 
 def _print_unmapped(limit: int) -> None:
@@ -127,11 +174,21 @@ def main(argv: list[str] | None = None) -> None:
     p_review = sub.add_parser("review-skills", help="List extracted labels not in the taxonomy")
     p_review.add_argument("--limit", type=int, default=40)
 
+    p_matches = sub.add_parser(
+        "review-matches", help="Show what the classifier decided for each posting, and why"
+    )
+    p_matches.add_argument("--role", required=True)
+    p_matches.add_argument("--country", default="GB")
+    p_matches.add_argument("--urls", action="store_true", help="Also print each posting's link")
+
     args = parser.parse_args(argv)
     if args.command == "review-skills":
         _print_unmapped(args.limit)
         return
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
+    if args.command == "review-matches":
+        _print_matches(slug, args.country.upper(), args.urls)
+        return
     if args.command == "research":
         from firstweek_core.llm import LLMGateway
         from firstweek_core.llm.recorder import record_to_db
@@ -149,6 +206,7 @@ def main(argv: list[str] | None = None) -> None:
                 country=args.country.upper(),
                 collect=not args.no_collect,
                 budget_usd=args.budget,
+                progress=_progress,
             )
         )
         gateway.flush()
@@ -164,6 +222,7 @@ def main(argv: list[str] | None = None) -> None:
                 use_adzuna=not args.no_adzuna,
                 use_web=not args.no_web,
                 adzuna_pages=args.adzuna_pages,
+                progress=_progress,
             )
         )
         _print_summary(summary)

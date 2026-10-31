@@ -25,6 +25,10 @@ CLASSIFIER_VERSION = "classify-role.v1"
 EXTRACTOR_VERSION = "extract-posting.v1"
 MAX_TEXT_CHARS = 12_000  # long postings are cut to bound cost; role text comes first
 SPLIT = "=== user ==="
+# Output limits include the model's thinking (on by default for Claude 5.5), so they leave
+# room well beyond the JSON itself. The gateway doubles them if a reply is still cut off.
+CLASSIFY_MAX_TOKENS = 4_000
+EXTRACT_MAX_TOKENS = 16_000
 
 ItemKind = Literal["skill", "tool", "responsibility"]
 
@@ -139,7 +143,7 @@ async def classify(
         ],
         response_model=RoleMatch,
         tier="small",
-        max_tokens=400,
+        max_tokens=CLASSIFY_MAX_TOKENS,
         budget_scope=budget_scope,
         prompt_version=CLASSIFIER_VERSION,
     )
@@ -166,7 +170,7 @@ async def extract(
         ],
         response_model=PostingExtraction,
         tier="mid",
-        max_tokens=4000,
+        max_tokens=EXTRACT_MAX_TOKENS,
         budget_scope=budget_scope,
         prompt_version=EXTRACTOR_VERSION,
     )
