@@ -2,6 +2,10 @@
 # kind: skill = a practice or competency; tool = a named technology, language or product.
 # The extractor is shown these labels and asked to reuse them, so wording matters.
 # Unknown labels are not dropped: they wait in a review queue (`make review-skills`).
+# esco_uri: the equivalent skill in ESCO v1.2.0, the EU's skills classification, when a true
+# equivalent exists (`make esco-suggest` lists candidates; a person picks). Entries without
+# one are FirstWeek's AI extension: ESCO has no concept for RAG, prompt engineering, agents
+# and most AI tooling yet. 18 entries linked on 2026-10-31.
 skills:
   # --- Building on foundation models
   - {slug: llms, label: Large language models, kind: skill, aliases: [LLMs, LLM, large language model, foundation models, generative AI, GenAI]}
@@ -26,18 +30,18 @@ skills:
   - {slug: agent-memory, label: Agent memory and state, kind: skill, aliases: [memory management, conversation state, long-term memory]}
   - {slug: human-in-the-loop, label: Human-in-the-loop, kind: skill, aliases: [human in the loop, HITL]}
   # --- Machine learning
-  - {slug: machine-learning, label: Machine learning, kind: skill, aliases: [ML, machine learning models, applied machine learning]}
-  - {slug: deep-learning, label: Deep learning, kind: skill, aliases: [neural networks, DL]}
-  - {slug: nlp, label: NLP, kind: skill, aliases: [natural language processing]}
-  - {slug: computer-vision, label: Computer vision, kind: skill, aliases: [CV, image recognition, vision models]}
+  - {slug: machine-learning, label: Machine learning, kind: skill, aliases: [ML, machine learning models, applied machine learning], esco_uri: http://data.europa.eu/esco/skill/3a2d5b45-56e4-4f5a-a55a-4a4a65afdc43}
+  - {slug: deep-learning, label: Deep learning, kind: skill, aliases: [neural networks, DL], esco_uri: http://data.europa.eu/esco/skill/ecc4552a-92c5-4222-b18d-faf5ac841080}
+  - {slug: nlp, label: NLP, kind: skill, aliases: [natural language processing], esco_uri: http://data.europa.eu/esco/skill/fff0e2cd-d0bd-4b02-9daf-158b79d9688a}
+  - {slug: computer-vision, label: Computer vision, kind: skill, aliases: [CV, image recognition, vision models], esco_uri: http://data.europa.eu/esco/skill/7b0d5000-00da-4864-b776-6de49a87a669}
   - {slug: speech, label: Speech and audio ML, kind: skill, aliases: [speech recognition, ASR, text-to-speech, TTS, audio models]}
   - {slug: reinforcement-learning, label: Reinforcement learning, kind: skill, aliases: [RL]}
-  - {slug: recommender-systems, label: Recommender systems, kind: skill, aliases: [recommendations, recommendation systems, personalisation]}
+  - {slug: recommender-systems, label: Recommender systems, kind: skill, aliases: [recommendations, recommendation systems, personalisation], esco_uri: http://data.europa.eu/esco/skill/505e4ef3-7ce4-437d-b7b4-5c608f71c258}
   - {slug: model-training, label: Model training, kind: skill, aliases: [training models, pretraining, pre-training, distributed training, large-scale training]}
   - {slug: mlops, label: MLOps, kind: skill, aliases: [ML ops, machine learning operations, LLMOps, ML pipelines, ML infrastructure]}
-  - {slug: statistics, label: Statistics, kind: skill, aliases: [statistical analysis, probability, statistical modelling]}
+  - {slug: statistics, label: Statistics, kind: skill, aliases: [statistical analysis, probability, statistical modelling], esco_uri: http://data.europa.eu/esco/skill/7ee4c2ea-b349-4bd2-81a3-ec31475d4833}
   - {slug: experimentation, label: Experimentation and A/B testing, kind: skill, aliases: [A/B testing, AB testing, experiments, experimentation]}
-  - {slug: data-analysis, label: Data analysis, kind: skill, aliases: [analytics, data analytics, exploratory data analysis]}
+  - {slug: data-analysis, label: Data analysis, kind: skill, aliases: [analytics, data analytics, exploratory data analysis], esco_uri: http://data.europa.eu/esco/skill/97bd1c21-66b2-4b7e-ad0f-e3cda590e378}
   - {slug: synthetic-data, label: Synthetic data, kind: skill, aliases: [data generation, synthetic data generation]}
   - {slug: gpu-programming, label: GPU programming, kind: skill, aliases: [GPU kernels, kernel optimisation, accelerator programming]}
   # --- Software engineering
@@ -46,9 +50,9 @@ skills:
   - {slug: frontend-development, label: Frontend development, kind: skill, aliases: [frontend engineering, UI development, web development]}
   - {slug: full-stack-development, label: Full-stack development, kind: skill, aliases: [full stack, full-stack engineering]}
   - {slug: api-design, label: API design, kind: skill, aliases: [APIs, REST APIs, API development, building APIs]}
-  - {slug: system-design, label: System design, kind: skill, aliases: [systems design, architecture, software architecture, designing scalable systems]}
+  - {slug: system-design, label: System design, kind: skill, aliases: [systems design, architecture, software architecture, designing scalable systems], esco_uri: http://data.europa.eu/esco/skill/fae27053-8924-4bfd-b565-c9fe502044c9}
   - {slug: distributed-systems, label: Distributed systems, kind: skill, aliases: [scalable systems, high-scale systems]}
-  - {slug: data-engineering, label: Data engineering, kind: skill, aliases: [data pipelines, ETL, data infrastructure, data processing]}
+  - {slug: data-engineering, label: Data engineering, kind: skill, aliases: [data pipelines, ETL, data infrastructure, data processing], esco_uri: http://data.europa.eu/esco/skill/48db96bf-3314-45c6-bad8-fdb6e20e5639}
   - {slug: cloud-infrastructure, label: Cloud infrastructure, kind: skill, aliases: [cloud, cloud platforms, cloud computing, infrastructure]}
   - {slug: ci-cd, label: CI/CD, kind: skill, aliases: [continuous integration, continuous delivery, continuous deployment, CI CD]}
   - {slug: testing, label: Software testing, kind: skill, aliases: [testing, unit testing, test automation, automated testing]}
@@ -60,22 +64,22 @@ skills:
   - {slug: stakeholder-communication, label: Stakeholder communication, kind: skill, aliases: [communication, communication skills, working with stakeholders, explaining technical concepts]}
   - {slug: cross-functional-collaboration, label: Cross-functional collaboration, kind: skill, aliases: [collaboration, working with product and design, cross-functional teams]}
   - {slug: product-sense, label: Product sense, kind: skill, aliases: [product thinking, product mindset, user focus, customer focus]}
-  - {slug: mentoring, label: Mentoring, kind: skill, aliases: [mentorship, coaching engineers, technical leadership]}
+  - {slug: mentoring, label: Mentoring, kind: skill, aliases: [mentorship, coaching engineers, technical leadership], esco_uri: http://data.europa.eu/esco/skill/fb9c12af-ec45-498a-8e52-891371191557}
   - {slug: technical-writing, label: Technical writing, kind: skill, aliases: [documentation, design documents, writing design docs]}
   - {slug: customer-facing, label: Customer-facing work, kind: skill, aliases: [working with customers, client-facing, customer engagement, pre-sales]}
   - {slug: research, label: Research, kind: skill, aliases: [research skills, reading papers, publishing research]}
 
   # --- Languages
-  - {slug: python, label: Python, kind: tool, aliases: []}
-  - {slug: typescript, label: TypeScript, kind: tool, aliases: [TS]}
-  - {slug: javascript, label: JavaScript, kind: tool, aliases: [JS]}
-  - {slug: java, label: Java, kind: tool, aliases: []}
+  - {slug: python, label: Python, kind: tool, aliases: [], esco_uri: http://data.europa.eu/esco/skill/ccd0a1d9-afda-43d9-b901-96344886e14d}
+  - {slug: typescript, label: TypeScript, kind: tool, aliases: [TS], esco_uri: http://data.europa.eu/esco/skill/867137fb-ff1b-4ca3-99f3-cb6969aa2c68}
+  - {slug: javascript, label: JavaScript, kind: tool, aliases: [JS], esco_uri: http://data.europa.eu/esco/skill/3cd569a2-4f88-4c1e-9995-8dce8c5e51a7}
+  - {slug: java, label: Java, kind: tool, aliases: [], esco_uri: http://data.europa.eu/esco/skill/19a8293b-8e95-4de3-983f-77484079c389}
   - {slug: go, label: Go, kind: tool, aliases: [Golang]}
   - {slug: rust, label: Rust, kind: tool, aliases: []}
-  - {slug: cpp, label: C++, kind: tool, aliases: [cpp]}
-  - {slug: scala, label: Scala, kind: tool, aliases: []}
+  - {slug: cpp, label: C++, kind: tool, aliases: [cpp], esco_uri: http://data.europa.eu/esco/skill/b633eb55-8f1f-4ae6-ab4c-2022ffe2cb7f}
+  - {slug: scala, label: Scala, kind: tool, aliases: [], esco_uri: http://data.europa.eu/esco/skill/ffddfc7c-a9dd-449f-9e96-882dc447c8b6}
   - {slug: kotlin, label: Kotlin, kind: tool, aliases: []}
-  - {slug: sql, label: SQL, kind: tool, aliases: []}
+  - {slug: sql, label: SQL, kind: tool, aliases: [], esco_uri: http://data.europa.eu/esco/skill/598de5b0-5b58-4ea7-8058-a4bc4d18c742}
   # --- ML and LLM frameworks
   - {slug: pytorch, label: PyTorch, kind: tool, aliases: [torch]}
   - {slug: tensorflow, label: TensorFlow, kind: tool, aliases: [Keras]}
@@ -98,7 +102,7 @@ skills:
   - {slug: weights-and-biases, label: Weights & Biases, kind: tool, aliases: [W&B, wandb]}
   - {slug: llm-observability-tools, label: LLM observability tools, kind: tool, aliases: [Langfuse, LangSmith, Arize, Phoenix]}
   # --- Data stores and search
-  - {slug: postgres, label: PostgreSQL, kind: tool, aliases: [Postgres]}
+  - {slug: postgres, label: PostgreSQL, kind: tool, aliases: [Postgres], esco_uri: http://data.europa.eu/esco/skill/a8d07b5a-c1a1-42c6-9d53-db9c7a2ca996}
   - {slug: pgvector, label: pgvector, kind: tool, aliases: []}
   - {slug: vector-databases, label: Vector databases, kind: tool, aliases: [Pinecone, Weaviate, Qdrant, Chroma, Milvus, FAISS]}
   - {slug: redis, label: Redis, kind: tool, aliases: []}

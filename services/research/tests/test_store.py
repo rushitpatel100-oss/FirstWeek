@@ -80,6 +80,22 @@ def test_seed_roles_is_idempotent() -> None:
         assert alias is not None and alias.archetype_id == first["genai-engineer"]
 
 
+def test_seed_taxonomy_records_esco_links() -> None:
+    from firstweek_core.db.models import TaxonomySkill
+    from firstweek_research.taxonomy import load_taxonomy, seed_taxonomy
+
+    with session_scope() as session:
+        ids = seed_taxonomy(session, load_taxonomy())
+        python = session.get(TaxonomySkill, ids["python"])
+        rag = session.get(TaxonomySkill, ids["rag"])
+        assert python is not None and rag is not None
+        assert (
+            python.origin == "esco"
+            and python.esco_uri == load_taxonomy().entries["python"].esco_uri
+        )
+        assert rag.origin == "ai_extension" and rag.esco_uri is None
+
+
 def test_seed_roles_removes_aliases_dropped_from_the_yaml() -> None:
     with session_scope() as session:
         ids = seed_roles(session, load_roles())

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills review-matches research-now eval-classifier eval-extraction
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -65,6 +65,9 @@ research: ## Collect, classify, extract and summarise a role: make research role
 
 review-skills: ## List extracted skill labels that the taxonomy does not know yet
 	uv run python -m firstweek_research review-skills
+
+esco-suggest: ## Suggest ESCO links for taxonomy entries that have none (a person picks)
+	uv run python -m firstweek_research esco-suggest
 
 review-matches: ## Show each posting's classifier decision and reason: make review-matches role="GenAI Engineer"
 	uv run python -m firstweek_research review-matches --role "$(role)"
