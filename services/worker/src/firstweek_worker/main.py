@@ -9,7 +9,12 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from firstweek_core.config import get_settings
-from firstweek_worker.research_activities import analyse_role, collect_role
+from firstweek_worker.research_activities import (
+    analyse_role,
+    check_code_version,
+    collect_role,
+    index_evidence,
+)
 from firstweek_worker.research_workflow import DailyResearchWorkflow
 from firstweek_worker.schedules import ensure_daily_research
 from firstweek_worker.smoke import SmokeWorkflow, check_database
@@ -17,7 +22,13 @@ from firstweek_worker.smoke import SmokeWorkflow, check_database
 log = logging.getLogger("firstweek.worker")
 
 WORKFLOWS: list[type] = [SmokeWorkflow, DailyResearchWorkflow]
-ACTIVITIES: list[Callable[..., Any]] = [check_database, collect_role, analyse_role]
+ACTIVITIES: list[Callable[..., Any]] = [
+    check_database,
+    check_code_version,
+    collect_role,
+    analyse_role,
+    index_evidence,
+]
 
 
 async def connect_with_retry(address: str, namespace: str, attempts: int = 30) -> Client:

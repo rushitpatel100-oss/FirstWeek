@@ -15,7 +15,7 @@ NAMING_CONVENTION = {
     "pk": "pk_%(table_name)s",
 }
 
-EMBEDDING_DIM = 1536  # text-embedding-3-small
+EMBEDDING_DIM = 384  # BAAI/bge-small-en-v1.5, run locally (ADR 0012)
 
 
 class Base(DeclarativeBase):

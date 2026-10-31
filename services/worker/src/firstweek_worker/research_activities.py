@@ -1,7 +1,8 @@
 """Activities for the daily research run. Each wraps a step of firstweek_research.
 
-Both are safe to retry: collection is idempotent (it upserts), and analysis saves each paid
-model result as it arrives, so a retry only pays for what the failed attempt did not finish.
+All are safe to retry: collection is idempotent (it upserts), analysis saves each paid model
+result as it arrives, so a retry only pays for what the failed attempt did not finish, and
+indexing skips every source whose passages are already current.
 Progress messages become Temporal heartbeats, so a stuck step is noticed and retried.
 """
 
@@ -9,12 +10,14 @@ import logging
 from dataclasses import dataclass, field
 
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from firstweek_core.config import get_settings
 from firstweek_core.llm import LLMGateway
 from firstweek_core.llm.recorder import record_to_db
 from firstweek_research.collect import run_collect
-from firstweek_research.research import run_research
+from firstweek_research.passages import index_evidence as run_index_evidence
+from firstweek_research.research import code_fingerprint, run_research
 
 log = logging.getLogger("firstweek.research")
 
@@ -49,9 +52,36 @@ class AnalyseOutcome:
     skipped: str | None = None
 
 
+@dataclass
+class EvidenceOutcome:
+    model: str
+    sources: int = 0
+    indexed: int = 0
+    passages_added: int = 0
+    sources_removed: int = 0
+
+
 def _heartbeat(message: str) -> None:
     log.info(message)
     activity.heartbeat(message)
+
+
+CODE_MISMATCH = "CodeVersionMismatch"
+
+
+@activity.defn(name="check_code_version")
+async def check_code_version(expected: str) -> str:
+    """Fails fast when the worker's research code differs from the caller's, instead of
+    quietly running old definitions (seen 2026-10-31: a worker image built before a pull)."""
+    actual = code_fingerprint()
+    if actual != expected:
+        raise ApplicationError(
+            f"The worker's research code ({actual}) differs from yours ({expected}). "
+            "Rebuild and restart it: docker compose up -d --build worker",
+            type=CODE_MISMATCH,
+            non_retryable=True,
+        )
+    return actual
 
 
 @activity.defn(name="collect_role")
@@ -97,4 +127,22 @@ async def analyse_role(inp: RoleRunInput) -> AnalyseOutcome:
         employers=stats.employers if stats else 0,
         version=result.version,
         failures=[f"{name}: {error}" for name, error in result.failures.items()],
+    )
+
+
+@activity.defn(name="index_evidence")
+async def index_evidence() -> EvidenceOutcome:
+    """Passages and embeddings for new or changed sources. The embedding model runs inside
+    the worker, so this costs nothing and needs no API key."""
+    gateway = LLMGateway(settings=get_settings(), recorder=record_to_db)
+    try:
+        s = await run_index_evidence(gateway, progress=_heartbeat)
+    finally:
+        gateway.flush()
+    return EvidenceOutcome(
+        model=s.model,
+        sources=s.sources,
+        indexed=s.indexed,
+        passages_added=s.passages_added,
+        sources_removed=s.sources_removed,
     )

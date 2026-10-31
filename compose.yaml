@@ -85,6 +85,10 @@ services:
       <<: *python-env
       # CI sets this to false so the smoke test never starts a real research run.
       RESEARCH_DAILY_ENABLED: ${RESEARCH_DAILY_ENABLED:-true}
+      # The local embedding model (~65 MB) downloads on first use; the volume keeps it
+      # across rebuilds.
+      MODEL_CACHE_DIR: /models
+    volumes: [models:/models]
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -100,3 +104,4 @@ services:
 
 volumes:
   pgdata:
+  models:

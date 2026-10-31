@@ -15,6 +15,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     Float,
@@ -27,7 +28,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from firstweek_core.db.base import EMBEDDING_DIM, Base, IdMixin, TimestampMixin
@@ -205,6 +206,8 @@ class PostingRoleMatch(IdMixin, TimestampMixin, Base):
 
 
 class EvidencePassage(IdMixin, Base):
+    """A short span of a source, the unit that report sentences cite and retrieval returns."""
+
     __tablename__ = "evidence_passages"
     __table_args__ = (
         UniqueConstraint("source_id", "ordinal"),
@@ -214,12 +217,24 @@ class EvidencePassage(IdMixin, Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+        Index("ix_evidence_passages_tsv", "tsv", postgresql_using="gin"),
     )
 
-    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
     ordinal: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(128))
+    source_hash: Mapped[str] = mapped_column(
+        String(64),
+        comment="Hash of the source text and the chunking rules; a change means re-chunk",
+    )
+    # Keyword side of hybrid search, kept in step by Postgres itself.
+    tsv: Mapped[str] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('english', text)", persisted=True)
+    )
 
 
 class ArchetypeVersion(IdMixin, TimestampMixin, Base):

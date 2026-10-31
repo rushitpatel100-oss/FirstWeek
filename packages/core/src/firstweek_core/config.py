@@ -26,7 +26,10 @@ class Settings(BaseSettings):
     model_mid: str = "anthropic/claude-sonnet-5-5"
     model_small: str = "anthropic/claude-haiku-5-5"
     model_judge: str = "openai/gpt-6-sol"
-    model_embedding: str = "openai/text-embedding-3-small"
+    # "local/<name>" runs a free open-source model on this machine (ADR 0012); any other
+    # value is a LiteLLM embedding model string such as "openai/text-embedding-3-small".
+    model_embedding: str = "local/BAAI/bge-small-en-v1.5"
+    model_cache_dir: str = "~/.cache/firstweek/models"
 
     # Budgets
     default_budget_usd: float = 2.0

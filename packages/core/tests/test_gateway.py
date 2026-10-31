@@ -277,3 +277,90 @@ async def test_every_tier_passes_litellm_parameter_checks(
 
     assert plain.content
     assert structured.parsed == Verdict(supported=True, reason="quoted")
+
+
+# ---------------------------------------------------------------- embeddings
+
+
+def _embed_gateway(
+    model: str, limit: str = "1.00"
+) -> tuple[LLMGateway, list[CallRecord], list[tuple[str, list[str], str, str]]]:
+    records: list[CallRecord] = []
+    calls: list[tuple[str, list[str], str, str]] = []
+
+    def fake_embed(name: str, texts: list[str], kind: str, cache_dir: str) -> list[list[float]]:
+        calls.append((name, texts, kind, cache_dir))
+        return [[float(len(t)), 1.0] for t in texts]
+
+    gateway = LLMGateway(
+        settings=Settings(_env_file=None, model_embedding=model, model_cache_dir="/models"),
+        completion_fn=FakeLLM([]),
+        tracer=FakeTracer(),
+        recorder=records.append,
+        budgets=BudgetRegistry(Decimal(limit)),
+        embed_fn=fake_embed,
+    )
+    return gateway, records, calls
+
+
+async def test_local_embeddings_are_free_and_recorded() -> None:
+    gateway, records, calls = _embed_gateway("local/BAAI/bge-small-en-v1.5")
+    vectors = await gateway.embed(["abc", "hello"], kind="query", purpose="search-evidence")
+    assert vectors == [[3.0, 1.0], [5.0, 1.0]]
+    assert calls == [("BAAI/bge-small-en-v1.5", ["abc", "hello"], "query", "/models")]
+    [record] = records
+    assert (record.tier, record.model, record.purpose) == (
+        "embedding",
+        "local/BAAI/bge-small-en-v1.5",
+        "search-evidence",
+    )
+    assert record.cost_usd == 0 and record.success
+
+
+async def test_hosted_embeddings_are_priced_and_budgeted(monkeypatch: pytest.MonkeyPatch) -> None:
+    import litellm
+
+    async def fake_aembedding(model: str, input: list[str]) -> SimpleNamespace:
+        return SimpleNamespace(
+            data=[{"embedding": [0.1, 0.2]} for _ in input],
+            usage=SimpleNamespace(prompt_tokens=1_000_000),
+        )
+
+    monkeypatch.setattr(litellm, "aembedding", fake_aembedding)
+    gateway, records, calls = _embed_gateway("openai/text-embedding-3-small")
+    vectors = await gateway.embed(["a", "b"], kind="passage", purpose="embed-passages")
+    assert vectors == [[0.1, 0.2], [0.1, 0.2]] and calls == []  # the local model is not used
+    assert records[0].cost_usd == Decimal("0.02")  # a million tokens at $0.02
+
+
+async def test_a_failed_embedding_is_recorded_and_reraised() -> None:
+    gateway, records, _ = _embed_gateway("local/BAAI/bge-small-en-v1.5")
+
+    def broken(name: str, texts: list[str], kind: str, cache_dir: str) -> list[list[float]]:
+        raise OSError("model download failed")
+
+    gateway.embed_fn = broken
+    with pytest.raises(OSError, match="download"):
+        await gateway.embed(["a"], kind="passage", purpose="embed-passages")
+    assert not records[0].success and "download" in (records[0].error or "")
+
+
+def test_bge_queries_carry_the_search_instruction(monkeypatch: pytest.MonkeyPatch) -> None:
+    from firstweek_core.llm import local_embeddings
+
+    seen: list[str] = []
+
+    class FakeModel:
+        def embed(self, texts: list[str]) -> list[list[float]]:
+            seen.extend(texts)
+            return [[1.0, 0.0] for _ in texts]
+
+    monkeypatch.setattr(local_embeddings, "_model", lambda name, cache_dir: FakeModel())
+    local_embeddings.embed_local("BAAI/bge-small-en-v1.5", ["evals?"], "query", "/m")
+    local_embeddings.embed_local("BAAI/bge-small-en-v1.5", ["We run evals."], "passage", "/m")
+    local_embeddings.embed_local("other/model", ["evals?"], "query", "/m")
+    assert seen == [
+        "Represent this sentence for searching relevant passages: evals?",
+        "We run evals.",
+        "evals?",
+    ]

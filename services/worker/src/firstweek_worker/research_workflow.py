@@ -1,6 +1,8 @@
-"""DailyResearchWorkflow: collect, then analyse, each golden role in turn.
+"""DailyResearchWorkflow: collect, then analyse, each golden role in turn; then bring the
+evidence index up to date for everything collected.
 
-One role failing never stops the others; the report says what happened to each.
+One role failing never stops the others, and indexing runs whatever happened to them: the
+report says what happened to each step.
 """
 
 from dataclasses import dataclass, field
@@ -14,9 +16,12 @@ with workflow.unsafe.imports_passed_through():
     from firstweek_worker.research_activities import (
         AnalyseOutcome,
         CollectOutcome,
+        EvidenceOutcome,
         RoleRunInput,
         analyse_role,
+        check_code_version,
         collect_role,
+        index_evidence,
     )
 
 
@@ -25,6 +30,9 @@ class DailyResearchInput:
     role_slugs: list[str]
     country: str = "GB"
     budget_usd_per_role: float = 1.0
+    # Set by a person starting a run by hand: the run stops at once if the worker's code
+    # differs. Scheduled runs leave it empty, since they always use the worker's own code.
+    expected_code: str | None = None
 
 
 @dataclass
@@ -38,6 +46,8 @@ class RoleReport:
 @dataclass
 class DailyResearchReport:
     roles: list[RoleReport] = field(default_factory=list)
+    evidence: EvidenceOutcome | None = None
+    evidence_error: str | None = None
 
     @property
     def cost_usd(self) -> float:
@@ -53,6 +63,13 @@ class DailyResearchWorkflow:
     @workflow.run
     async def run(self, inp: DailyResearchInput) -> DailyResearchReport:
         report = DailyResearchReport()
+        if inp.expected_code:
+            await workflow.execute_activity(
+                check_code_version,
+                inp.expected_code,
+                start_to_close_timeout=timedelta(minutes=1),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
         for slug in inp.role_slugs:
             role_input = RoleRunInput(slug, inp.country, inp.budget_usd_per_role)
             role = RoleReport(slug)
@@ -83,4 +100,15 @@ class DailyResearchWorkflow:
                 )
             except ActivityError as exc:
                 role.error = f"analyse: {_cause(exc)}"
+        try:
+            report.evidence = await workflow.execute_activity(
+                index_evidence,
+                start_to_close_timeout=timedelta(minutes=30),
+                heartbeat_timeout=timedelta(minutes=5),
+                retry_policy=RetryPolicy(
+                    initial_interval=timedelta(seconds=30), maximum_attempts=2
+                ),
+            )
+        except ActivityError as exc:
+            report.evidence_error = _cause(exc)
         return report

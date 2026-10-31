@@ -5,11 +5,15 @@ Needs the stack running (make up). Usage: python -m firstweek_worker.run_researc
 
 import asyncio
 import sys
+from dataclasses import replace
 from datetime import UTC, datetime
 
-from temporalio.client import Client
+from temporalio.client import Client, WorkflowFailureError
+from temporalio.exceptions import ApplicationError
 
 from firstweek_core.config import get_settings
+from firstweek_research.research import code_fingerprint
+from firstweek_worker.research_activities import CODE_MISMATCH
 from firstweek_worker.research_workflow import DailyResearchReport, DailyResearchWorkflow
 from firstweek_worker.schedules import daily_input
 
@@ -35,20 +39,46 @@ def print_report(report: DailyResearchReport) -> None:
                 print(f"    failed: {line}")
         if role.error:
             print(f"  error: {role.error}")
+    if report.evidence:
+        e = report.evidence
+        print(
+            f"\nevidence index: {e.indexed} of {e.sources} sources (re)indexed, "
+            f"{e.passages_added:,} passages, {e.sources_removed} removed ({e.model})"
+        )
+    if report.evidence_error:
+        print(f"\nevidence index error: {report.evidence_error}")
     print(f"\nTotal model cost: ${report.cost_usd:.4f}")
+
+
+def _code_mismatch(exc: BaseException) -> str | None:
+    """The worker's explanation, if the run stopped because its code differs from ours."""
+    cause: BaseException | None = exc
+    while cause is not None:
+        if isinstance(cause, ApplicationError) and cause.type == CODE_MISMATCH:
+            return cause.message
+        cause = cause.__cause__ or getattr(cause, "cause", None)
+    return None
 
 
 async def main() -> int:
     settings = get_settings()
     client = await Client.connect(settings.temporal_address, namespace=settings.temporal_namespace)
     run_id = f"research-now-{datetime.now(UTC):%Y%m%d-%H%M%S}"
+    inp = replace(daily_input(settings), expected_code=code_fingerprint())
     print(f"Started {run_id}. Follow it at http://localhost:8233 (this waits until it finishes).")
-    report = await client.execute_workflow(
-        DailyResearchWorkflow.run,
-        daily_input(settings),
-        id=run_id,
-        task_queue=settings.temporal_task_queue,
-    )
+    try:
+        report = await client.execute_workflow(
+            DailyResearchWorkflow.run, inp, id=run_id, task_queue=settings.temporal_task_queue
+        )
+    except WorkflowFailureError as exc:
+        mismatch = _code_mismatch(exc)
+        if mismatch is None:
+            raise
+        print(f"\nStopped before doing anything: {mismatch}")
+        print(
+            "If you use `make up` in another window, press Ctrl + C there and run `make up` again."
+        )
+        return 2
     print_report(report)
     return 0 if all(r.error is None for r in report.roles) else 1
 
