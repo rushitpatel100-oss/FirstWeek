@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -37,7 +37,7 @@ format: ## Auto-format Python code
 	uv run ruff format .
 
 typecheck: ## Strict type checks for Python and TypeScript
-	uv run mypy packages/core/src packages/core/tests apps/api/src services/worker/src
+	uv run mypy packages/core/src packages/core/tests apps/api/src services/research/src services/research/tests services/worker/src
 	cd apps/web && pnpm exec next typegen && pnpm typecheck
 
 test: ## Run all Python tests (database tests need a migrated Postgres)
@@ -53,3 +53,9 @@ smoke-llm: ## One real, traced model call (needs ANTHROPIC_API_KEY)
 
 web: ## Run the web app with hot reload (API must be running)
 	cd apps/web && pnpm dev
+
+resolve: ## Map a job title to a known role: make resolve title="Senior LLM Engineer"
+	uv run python -m firstweek_research resolve "$(title)"
+
+collect: ## Collect UK postings and web sources for a role: make collect role="GenAI Engineer"
+	uv run python -m firstweek_research collect --role "$(role)"

@@ -41,7 +41,7 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
       - name: Type check
-        run: uv run mypy packages/core/src packages/core/tests apps/api/src services/worker/src
+        run: uv run mypy packages/core/src packages/core/tests apps/api/src services/research/src services/research/tests services/worker/src
       - name: Migrate (up, drift check, down, up)
         run: |
           uv run alembic -c packages/core/alembic.ini upgrade head

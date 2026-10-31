@@ -15,12 +15,14 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 
 - `make check`: ruff, strict mypy, pytest (what CI runs)
 - `make up` / `make down`: Docker stack
-- Database tests run when `DATABASE_URL` points at a migrated Postgres with pgvector.
+- Database tests run against `<DATABASE_URL name>_test` (root `conftest.py` creates and migrates it). Never point tests at the dev database.
+- `make collect role="..."` fills the dev database with real postings.
 
 ## Layout
 
 - `packages/core`: contracts, models, migrations, LLM gateway (strict mypy)
 - `apps/api`: FastAPI
+- `services/research`: role definitions (`data/roles/*.yaml`), collectors, cleaning, dedup, storage
 - `services/worker`: Temporal worker; workflows in their own modules
 - `apps/web`: Next.js 16 with Cache Components. Read `apps/web/AGENTS.md` first: its APIs differ from older Next.js.
 

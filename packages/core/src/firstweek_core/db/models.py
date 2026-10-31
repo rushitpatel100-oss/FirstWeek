@@ -62,18 +62,22 @@ class RoleAlias(IdMixin, Base):
 
 
 class Source(IdMixin, Base):
+    """One fetched document. A URL maps to one row; a content change updates it in place."""
+
     __tablename__ = "sources"
     __table_args__ = (
-        UniqueConstraint("url", "content_hash"),
         CheckConstraint("tier IN ('posting', 'blog', 'forum', 'interview')", name="tier"),
     )
 
-    url: Mapped[str] = mapped_column(Text)
+    url: Mapped[str] = mapped_column(Text, unique=True)
     tier: Mapped[str] = mapped_column(String(16))
+    provider: Mapped[str] = mapped_column(String(32), comment="greenhouse, adzuna, firecrawl...")
+    title: Mapped[str | None] = mapped_column(Text)
     publisher: Mapped[str | None] = mapped_column(String(200))
     published_at: Mapped[date | None] = mapped_column(Date)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    content_hash: Mapped[str] = mapped_column(String(64))
+    content_hash: Mapped[str] = mapped_column(String(64), comment="sha256 of the cleaned content")
+    content: Mapped[str] = mapped_column(Text, comment="Cleaned text or markdown")
     licence_note: Mapped[str] = mapped_column(Text)
     raw_uri: Mapped[str | None] = mapped_column(Text)
 
@@ -89,9 +93,17 @@ class JobPosting(IdMixin, Base):
     external_id: Mapped[str] = mapped_column(String(128))
     title: Mapped[str] = mapped_column(String(300))
     company: Mapped[str | None] = mapped_column(String(300))
+    department: Mapped[str | None] = mapped_column(String(300))
     location: Mapped[str | None] = mapped_column(String(300))
     country: Mapped[str] = mapped_column(String(2))
+    workplace: Mapped[str | None] = mapped_column(String(16), comment="onsite, hybrid or remote")
     posted_at: Mapped[date | None] = mapped_column(Date)
+    salary_min: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    salary_max: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    salary_currency: Mapped[str | None] = mapped_column(String(3))
+    is_full_text: Mapped[bool] = mapped_column(
+        Boolean, default=True, comment="False for search-API snippets (Adzuna: ~500 chars)"
+    )
     seniority: Mapped[str | None] = mapped_column(String(16))
     archetype_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("role_archetypes.id", ondelete="SET NULL"), index=True
