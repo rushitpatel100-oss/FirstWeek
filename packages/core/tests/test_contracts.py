@@ -57,9 +57,9 @@ def test_claim_confidence_labels() -> None:
 
 
 def test_skill_stat_share_must_sit_inside_interval() -> None:
-    SkillStat(skill_id="rag", label="RAG", share=0.6, ci_low=0.5, ci_high=0.7, n=120)
+    SkillStat(skill_id="rag", label="RAG", count=72, share=0.6, ci_low=0.5, ci_high=0.7, n=120)
     with pytest.raises(ValidationError):
-        SkillStat(skill_id="rag", label="RAG", share=0.9, ci_low=0.5, ci_high=0.7, n=120)
+        SkillStat(skill_id="rag", label="RAG", count=72, share=0.9, ci_low=0.5, ci_high=0.7, n=120)
 
 
 def test_report_dates_must_be_ordered() -> None:

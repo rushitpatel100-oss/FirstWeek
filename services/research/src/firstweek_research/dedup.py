@@ -9,7 +9,7 @@ Method:
 - A ~500-character snippet is compared by containment instead: if 90% of its shingles
   appear in a full posting from the same company and title, it is the same job.
 - Groups are formed with union-find. The canonical posting is the full-text one, then the
-  earliest posted, then the longest.
+  earliest posted, then the longest, then the lowest id (so the choice is stable).
 """
 
 import re
@@ -84,9 +84,13 @@ class _UnionFind:
             self.parent[rb] = ra
 
 
-def _rank(doc: DedupDoc) -> tuple[bool, date, int]:
-    """Lower sorts first: full text, then earliest, then longest."""
-    return (not doc.is_full_text, doc.posted_at or date.max, -len(doc.text))
+def _rank(doc: DedupDoc) -> tuple[bool, date, int, str]:
+    """Lower sorts first: full text, then earliest, then longest, then id.
+
+    The id makes ties stable, so re-running never swaps which copy is canonical (that would
+    make already-paid classification and extraction look new).
+    """
+    return (not doc.is_full_text, doc.posted_at or date.max, -len(doc.text), doc.id)
 
 
 def find_duplicates(docs: list[DedupDoc]) -> DedupResult:

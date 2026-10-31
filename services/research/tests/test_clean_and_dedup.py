@@ -160,3 +160,9 @@ def test_distinct_postings_stay_separate() -> None:
     )
     result = find_duplicates([_doc("a", BODY), _doc("b", other)])
     assert result.group_count == 2
+
+
+def test_canonical_choice_is_stable_for_identical_copies() -> None:
+    docs = [_doc(i, BODY) for i in ("c", "a", "b")]
+    assert find_duplicates(docs).group_of["c"] == "a"
+    assert find_duplicates(list(reversed(docs))).group_of["c"] == "a"

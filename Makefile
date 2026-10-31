@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -59,3 +59,9 @@ resolve: ## Map a job title to a known role: make resolve title="Senior LLM Engi
 
 collect: ## Collect UK postings and web sources for a role: make collect role="GenAI Engineer"
 	uv run python -m firstweek_research collect --role "$(role)"
+
+research: ## Collect, classify, extract and summarise a role: make research role="GenAI Engineer"
+	uv run python -m firstweek_research research --role "$(role)"
+
+review-skills: ## List extracted skill labels that the taxonomy does not know yet
+	uv run python -m firstweek_research review-skills

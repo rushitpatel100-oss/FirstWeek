@@ -22,7 +22,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 
 - `packages/core`: contracts, models, migrations, LLM gateway (strict mypy)
 - `apps/api`: FastAPI
-- `services/research`: role definitions (`data/roles/*.yaml`), collectors, cleaning, dedup, storage
+- `services/research`: role definitions (`data/roles/*.yaml`), taxonomy (`data/taxonomy/ai_skills.yaml`), collectors, cleaning, dedup, classification, quote-verified extraction, stats. Prompts are versioned files in `firstweek_research/prompts/`: never edit a released version, add `.v2`.
 - `services/worker`: Temporal worker; workflows in their own modules
 - `apps/web`: Next.js 16 with Cache Components. Read `apps/web/AGENTS.md` first: its APIs differ from older Next.js.
 
