@@ -42,3 +42,15 @@ Dropped claims are listed with the reason in the draft, so a reviewer sees what 
 - The code checks catch invented citations, misquotes and overclaiming words, but not a real quote cited for a claim it doesn't support. That is the verifier's job (the next step), by a model from another family.
 - Practitioner sections are only as good as the web evidence collected. When there's little, the sections are short and `not_covered` says what's missing, which is the honest outcome.
 - The section searches are written for AI engineering roles. On-demand roles will need searches generated from the role definition.
+
+## Addendum: after the first real draft (2026-10-31)
+
+The first GenAI Engineer draft (statistics version 9, $0.44) held up on its citations but showed five problems. The fixes:
+
+- **Claims that pointed at each other.** "The same writer describes ..." opened a section after the claim naming the writer was dropped by the checks. Claims are checked one by one, so each must stand alone: `synthesise-section.v2` says so, and a code check drops claims that open with "They", "He" or "She" or say "the same writer", "this team" and the like.
+- **Off-topic evidence.** A claim about developers in general (16% of the week on coding) reached the role's report. v2 tells the model to stay on the role. The verifier will catch what the prompt misses.
+- **"A typical week" is folded into "day to day".** Blogs rarely say how a week is split, so the section came out thin and padded. Its question now sits in "day to day" ("how their time is split, where sources say"), and the section comes back when interviews give real time splits. The `RoleRealityReport` contract keeps the field. Four model calls per report now, not five.
+- **Training providers and papers are not practitioners.** CloudThat, Big Blue Data Academy and aiengineeringfromscratch.com sell courses, and the draft itself called one "a training provider's blog". They join the excluded domains, as course sellers did in ADR 0012. So does arxiv.org: a paper is research, not an account of the work. Re-running `make index-evidence` removes their passages. This makes the practitioner evidence thinner, which is the honest picture: interviews and forums are what fill it.
+- **Reading the draft.** A source cited through two of its passages now gets one number (`[1][2]`, not `[1][2][1]`). "What employers ask for" lists the top 15 skills one per line with their interval (ties with the 15th included) and the rest on one line per band.
+
+The dropped "30% of the job" claim was a correct drop: the article does say it, but the model didn't quote the sentence with the number.

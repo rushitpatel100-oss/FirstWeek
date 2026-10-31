@@ -41,12 +41,13 @@ from firstweek_research.extract import load_prompt, quote_in_text
 from firstweek_research.retrieve import Hit, search
 from firstweek_research.roles import RoleDefinition, load_roles
 
-WRITER_VERSION = "synthesise-section.v1"
+WRITER_VERSION = "synthesise-section.v2"
 WRITER_TIER: ModelTier = "frontier"  # the report is the product, and it is written rarely
 WRITER_MAX_TOKENS = 16_000  # includes thinking; the gateway doubles it if a reply is cut off
 MAX_PASSAGES = 24  # per section: enough to cover a section, few enough to read closely
 PER_SOURCE = 3  # passages from one source in a section, across all its searches
 LEFT_OUT_BELOW = 0.10  # the plan: under 10% of postings is left out of the main report
+SHOWN_IN_FULL = 15  # skills listed one per line with their interval; the rest share a line
 
 # ---------------------------------------------------------------------- sections
 
@@ -80,11 +81,13 @@ SECTIONS: tuple[SectionSpec, ...] = (
         "- Every passage here is a job posting: describe what employers ask for, never "
         "what the work is actually like.",
     ),
+    # "A typical week" is folded in here until interviews give real time splits: blogs alone
+    # gave a thin, off-topic section (ADR 0013 addendum). The contract keeps the field.
     SectionSpec(
         "day_to_day",
         "What the work is like day to day",
         "How practitioners say the work is actually done: the activities, workflows and "
-        "tools of a normal working day.",
+        "tools of a normal working day, and how their time is split, where sources say.",
         PRACTITIONERS,
         (
             "what {role}s actually do day to day",
@@ -92,19 +95,7 @@ SECTIONS: tuple[SectionSpec, ...] = (
             "how we build and ship LLM features in practice",
             "our workflow for prompts, evaluation and deployment",
             "tools we use every day to build with LLMs",
-        ),
-    ),
-    SectionSpec(
-        "typical_week",
-        "A typical week",
-        "How time is split across a working week: building, reviewing, meetings, "
-        "experiments, support and on-call.",
-        PRACTITIONERS,
-        (
-            "a typical week as a {role}",
-            "how much time is spent coding versus in meetings",
-            "sprint planning, code review and on-call for AI engineers",
-            "time spent on evaluation, debugging and experiments",
+            "how much time AI engineers spend on evaluation, debugging and meetings",
         ),
     ),
     SectionSpec(
@@ -296,9 +287,19 @@ _NEEDS_TWO = re.compile(
     r"\b(often|many|several|common|commonly|frequently|widely|numerous)\b", re.IGNORECASE
 )
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+# Claims are checked and dropped one by one, so one that points back at another can be left
+# pointing at nothing ("The same writer ..." after the writer's first claim was dropped).
+_POINTS_BACK = re.compile(
+    r"^(they|he|she)\b"
+    r"|\b(the same|this|these) (writer|author|engineer|team|practitioner|posting|source|blog"
+    r"|article|company|employer|account|person|developer|post|newsletter)s?\b",
+    re.IGNORECASE,
+)
 
 
 def wording_problem(text: str, sources: int, quotes: Sequence[str]) -> str | None:
+    if m := _POINTS_BACK.search(text):
+        return f'"{m.group(0)}" points back to another claim; each claim must stand alone'
     if m := _NEVER.search(text):
         return f'"{m.group(0)}" claims a frequency; only the statistics can say that'
     if sources < 2 and (m := _NEEDS_TWO.search(text)):
@@ -504,6 +505,29 @@ async def draft_report(
 # ---------------------------------------------------------------------- reading
 
 
+def asked_for_lines(items: Sequence[SkillStat]) -> list[str]:
+    """The top skills one per line with their interval (ties with the last one included, so
+    equal shares are never split), then the rest on one line per band."""
+    full = list(items[:SHOWN_IN_FULL])
+    rest = list(items[SHOWN_IN_FULL:])
+    while full and rest and rest[0].share == full[-1].share:
+        full.append(rest.pop(0))
+    lines = [
+        f"- {band(s.share)} {s.label}: {s.share:.0%} of {s.n} postings "
+        f"(95% interval {s.ci_low:.0%} to {s.ci_high:.0%})"
+        for s in full
+    ]
+    groups: dict[str, list[str]] = {}
+    for s in rest:
+        if (words := band(s.share)) is not None:
+            groups.setdefault(words, []).append(f"{s.label} ({s.share:.0%})")
+    lines += [
+        f"- {words.replace(' ask for', ' also ask for')}: {', '.join(labels)}"
+        for words, labels in groups.items()
+    ]
+    return lines
+
+
 def to_markdown(draft: ReportDraft) -> str:
     """For review in a terminal or an editor: claims, numbered sources and what was cut."""
     lines = [
@@ -516,13 +540,12 @@ def to_markdown(draft: ReportDraft) -> str:
     sources: list[CitedPassage] = []
 
     def refs(claim: DraftedClaim) -> str:
-        out = []
+        """One number per source, in order: two passages of one posting are one source."""
         for c in claim.citations:
             if c.source_id not in numbers:
                 numbers[c.source_id] = len(numbers) + 1
                 sources.append(c)
-            out.append(f"[{numbers[c.source_id]}]")
-        return "".join(out)
+        return "".join(f"[{n}]" for n in sorted({numbers[c.source_id] for c in claim.citations}))
 
     def section(name: ReportSection, title: str) -> None:
         lines.extend([f"## {title}", ""])
@@ -533,11 +556,7 @@ def to_markdown(draft: ReportDraft) -> str:
 
     section("summary", SUMMARY.title)
     lines.extend(["## What employers ask for", ""])
-    lines.extend(
-        f"- {band(s.share)} {s.label}: {s.share:.0%} of {s.n} postings "
-        f"(95% interval {s.ci_low:.0%} to {s.ci_high:.0%})"
-        for s in draft.asked_for
-    )
+    lines.extend(asked_for_lines(draft.asked_for))
     lines.append("")
     for spec in SECTIONS:
         section(spec.name, spec.title)

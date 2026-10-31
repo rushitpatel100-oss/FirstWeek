@@ -97,6 +97,22 @@ def test_the_headline_states_the_sample_and_the_bands() -> None:
     )
 
 
+def test_the_skill_list_shows_the_top_in_full_and_folds_the_rest_by_band() -> None:
+    shares = [0.9, 0.8, 0.7, 0.6, 0.55, 0.5, 0.45, 0.42, 0.4, 0.38, 0.36, 0.35, 0.34, 0.33]
+    items = [stat(f"S{i:02}", share) for i, share in enumerate(shares)]
+    items += [stat(f"T{i}", 0.31) for i in range(3)]  # the 15th to 17th tie: all shown
+    items += [stat("RAG", 0.30), stat("AWS", 0.25), stat("Go", 0.15)]
+    lines = rp.asked_for_lines(items)
+    assert len(lines) == 17 + 2
+    assert lines[0] == "- Most roles ask for S00: 90% of 20 postings (95% interval 70% to 100%)"
+    assert lines[16].startswith("- Many roles ask for T2: 31%")
+    assert lines[17:] == [
+        "- Many roles also ask for: RAG (30%)",
+        "- Some roles also ask for: AWS (25%), Go (15%)",
+    ]
+    assert len(rp.asked_for_lines(items[:4])) == 4  # a short list has nothing to fold
+
+
 # ---------------------------------------------------------------------- checks
 
 
@@ -174,6 +190,11 @@ def test_claims_are_kept_only_with_real_quotes_from_passages_shown() -> None:
         ("Teams often run evals nightly.", 1, '"often" needs at least two sources'),
         ("Teams often run evals nightly.", 2, None),
         ("Almost every team keeps an uncommon setup.", 1, None),  # word boundaries
+        ("The same writer calls evals boring.", 1, '"The same writer" points back'),
+        ("This team ships weekly.", 1, '"This team" points back'),
+        ("They describe evals as boring.", 1, '"They" points back'),
+        ("One blog says engineers review these evals daily.", 1, None),
+        ("One posting says they will mentor others.", 1, None),  # "they" mid-sentence
     ],
 )
 def test_frequency_words_must_match_the_evidence(
@@ -181,6 +202,50 @@ def test_frequency_words_must_match_the_evidence(
 ) -> None:
     found = rp.wording_problem(text, sources, quotes=[])
     assert (found is None) if problem is None else (found or "").startswith(problem)
+
+
+def test_a_source_gets_one_number_however_many_of_its_passages_are_cited() -> None:
+    two_passages = SectionDraft(
+        claims=[
+            claim(
+                "Two postings ask the hire to own production services and their on-call.",
+                ("P5", "own 3 production services"),  # P5 and P6 share a posting
+                ("P1", "reviewing eval results"),
+                ("P6", "their on-call rota"),
+            )
+        ]
+    )
+    labelled = {
+        "P1": PASSAGES["P1"],
+        "P5": hit(5, "You will own 3 production services.", "posting", source=7),
+        "P6": hit(6, "You will join their on-call rota.", "posting", source=7),
+    }
+    kept, _ = rp.check_claims("responsibilities", two_passages, labelled)
+    earlier = claim("One posting asks for on-call.", ("P6", "their on-call rota"))
+    first, _ = rp.check_claims("summary", SectionDraft(claims=[earlier]), labelled)
+    draft = rp.ReportDraft(
+        role="GenAI Engineer",
+        role_slug=ROLE,
+        stats_version=1,
+        country="GB",
+        sample_size=20,
+        employers=14,
+        date_range=(date(2026, 5, 4), date(2026, 10, 28)),
+        headline="Based on 20 GB job postings.",
+        asked_for=[],
+        sections={"summary": first, "responsibilities": kept},
+        not_covered={},
+        dropped=[],
+        passages_shown={},
+        model="test",
+        prompt_version=rp.WRITER_VERSION,
+        cost_usd=0.0,
+    )
+    markdown = rp.to_markdown(draft)
+    # The posting was numbered 1 in the summary; the blog is 2. Sorted, never repeated.
+    assert "- One posting asks for on-call. [1]" in markdown
+    assert "their on-call. [1][2]" in markdown
+    assert "1. job posting · example.com · Page 6: https://example.com/6" in markdown
 
 
 # ---------------------------------------------------------------------- a whole draft
@@ -207,7 +272,7 @@ def fake_writer(**kwargs: Any) -> SimpleNamespace:
             claim(f"One source on {section.group(1).lower()} says: {quote}.", (label, quote)),
             claim("An invented claim about the role.", ("P99", "words nobody wrote")),
         ],
-        not_covered="Nothing about salaries." if "week" in section.group(1) else None,
+        not_covered="Nothing about salaries." if "day to day" in section.group(1) else None,
     )
     return SimpleNamespace(
         choices=[SimpleNamespace(message=SimpleNamespace(content=reply.model_dump_json()))],
@@ -252,17 +317,18 @@ async def test_a_draft_is_written_from_checked_evidence_only() -> None:
     assert [s.label for s in draft.asked_for] == ["Python", "RAG"]
     [responsibility] = draft.sections["responsibilities"]
     assert {c.source_id for c in responsibility.citations} == {counted.source_id}
-    for name in ("day_to_day", "typical_week", "pain_points"):
+    for name in ("day_to_day", "pain_points"):
         assert {c.source_id for c in draft.sections[name][0].citations} == {blog}
-    assert draft.not_covered["typical_week"] == "Nothing about salaries."
+    assert "typical_week" not in draft.sections  # folded into day to day for now
+    assert draft.not_covered["day_to_day"] == "Nothing about salaries."
     # The summary is written from the surviving claims, with those claims' passages.
     [summary] = draft.sections["summary"]
     assert summary.citations[0].source_id in {counted.source_id, blog}
     # Every invented citation was caught and reported, one per section.
     assert sorted(d.section for d in draft.dropped) == sorted(
-        ["responsibilities", "day_to_day", "typical_week", "pain_points", "summary"]
+        ["responsibilities", "day_to_day", "pain_points", "summary"]
     )
-    assert draft.cost_usd == pytest.approx(5 * (6000 * 4 + 1500 * 20) / 1e6)
+    assert draft.cost_usd == pytest.approx(4 * (6000 * 4 + 1500 * 20) / 1e6)
 
     markdown = rp.to_markdown(draft)
     assert markdown.startswith("# GenAI Engineer: Role Reality Report (draft, not yet verified)")
