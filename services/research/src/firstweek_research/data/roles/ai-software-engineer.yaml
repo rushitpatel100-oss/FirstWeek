@@ -4,15 +4,22 @@ name: AI Software Engineer
 trust_level: golden
 reviewed: false
 definition: >-
-  A software engineer whose main job is shipping production software that contains AI or ML
-  components. Core work: designing services and APIs around models, the data pipelines that
-  feed them, deployment, monitoring and reliability, and the product code around them. Model
-  work is usually integration rather than research. Differs from GenAI Engineer by its weight
-  on general software engineering and production systems over model-specific techniques.
-  Not counted here: forward-deployed, applied-AI and solutions roles at AI vendors whose
-  main job is helping the vendor's customers adopt its models or product (customer
-  workshops, advising, pre-sales, deployment support). Those are a separate role. Engineers
-  who build these systems for clients at a consultancy do count.
+  A software engineer whose main job is general software engineering on systems that contain
+  or serve AI models: backend services and APIs that call models, platforms and
+  infrastructure for serving, deploying and operating models (including inference serving
+  and optimisation), the data pipelines that feed them, and the product code around them,
+  with attention to reliability, monitoring and scale. AI is a component the engineer
+  integrates or serves. When the core of the job is model-specific craft (prompt and context
+  design, retrieval quality, evaluating model output, designing agent behaviour), the posting
+  is a GenAI or Agentic AI Engineer instead, even if it also ships production code. Model
+  research and building classical ML models (ranking, recommendation, forecasting) are not
+  this role.
+  Counts only when hands-on building is the main job. Not counted: people managers whose
+  core is leading a team; advisory, strategy and pre-sales roles, at consultancies too; and
+  forward-deployed, applied-AI, solutions and agent-delivery roles at AI vendors whose main
+  job is delivering for the vendor's customers (advising, workshops, deployment support, or
+  building custom applications or agents for those customers). Those vendor roles are a
+  separate role. Engineers who build these systems for clients at a consultancy do count.
 aliases:
   - AI Software Engineer
   - Software Engineer, AI
@@ -23,12 +30,8 @@ aliases:
   - Machine Learning Software Engineer
   - Software Engineer, AI Platform
   - AI Platform Engineer
-title_patterns:
-  - '\bsoftware engineer\b.*\b(ai|ml|machine learning|llm|inference|model)'
-  - '\b(ai|ml|machine learning)\b.*\bsoftware engineer\b'
-  - '\b(ai|ml) (platform|infrastructure) engineer'
-  - '\b(ml|machine learning) engineer'
-  - '\bai engineer'
+# Job-board pre-filter: the shared broad AI filter in data/title_filters.yaml.
+title_filter: ai
 web_queries:
   - 'what does an {name} do day to day'
   - 'software engineer working on AI products day in the life'

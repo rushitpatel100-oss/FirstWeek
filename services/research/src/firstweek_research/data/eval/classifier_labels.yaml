@@ -1,0 +1,919 @@
+# Hand labels for the role classifier (classify-role): is this posting the role?
+#
+# Judged against the role definitions in data/roles/*.yaml as worded on 2026-10-31, including
+# the exclusion of customer-facing applied-AI roles at AI vendors. A posting can be more than
+# one role. "unsure" means the definition does not settle it; unsure labels are reported but
+# not scored, and each one is a hint about where a definition needs sharper wording.
+#
+# Postings are keyed by URL, so the labels work on any database that collected the same
+# boards. Drafted by Claude from each posting's text; "checked: true" marks a label Rushit has
+# confirmed. Until most are checked, scores measure agreement with a second, stronger model
+# rather than accuracy. Change a label when a reviewer decides differently, and say why in
+# the note.
+#
+# Revised 2026-10-31 after the first evaluation, with the wording decided that day: vendor
+# teams that build agents or custom applications for the vendor's customers are excluded
+# (Sierra and Decagon agent engineers, Scale AI public sector); agent platforms count for
+# Agentic AI Engineer; Hudson River Trading's Applied AI Engineer is unsure for GenAI.
+#
+# Sample (112 postings, 2026-10-31): every UK candidate from the 80 job boards except generic
+# "Machine Learning Engineer" titles, plus 15 of those with distinct titles.
+version: 1
+labelled_on: 2026-10-31
+postings:
+  - url: https://job-boards.greenhouse.io/anthropic/jobs/5445760008
+    company: "Anthropic"
+    title: "Applied AI Engineer, Beneficial Deployments (Clinical Development, Rare and Neglected Diseases)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Partner-facing Applied AI role at a model vendor: advising and embedding with partners on clinical trials. Excluded by all three definitions."
+    checked: false
+  - url: https://job-boards.greenhouse.io/anthropic/jobs/5440821008
+    company: "Anthropic"
+    title: "Applied AI Engineer, Beneficial Deployments (Lab Automation)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor applied-AI role: helps labs adopt Claude (advising, prototyping, ambassador, heavy travel). Excluded."
+    checked: false
+  - url: https://job-boards.greenhouse.io/anthropic/jobs/5432575008
+    company: "Anthropic"
+    title: "Applied AI Engineer, Startups"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor technical advisor to customer engineering teams. Excluded."
+    checked: false
+  - url: https://job-boards.greenhouse.io/anthropic/jobs/5097742008
+    company: "Anthropic"
+    title: "Staff Software Engineer, Inference"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Builds the distributed systems that serve models (routing, autoscaling, deployment pipelines): production software around models, not building on them."
+    checked: false
+  - url: https://job-boards.greenhouse.io/tide/jobs/7703992003
+    company: "Careers at Tide"
+    title: "Senior Staff Software Engineer, Agentic Platform"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: yes
+    note: "Architects an agentic platform: context, orchestration, tool execution, trust controls and evaluation for AI systems across the company."
+    checked: false
+  - url: https://job-boards.greenhouse.io/tide/jobs/7703991003
+    company: "Careers at Tide"
+    title: "Staff Software Engineer, Agentic Platform"
+    genai-engineer: unsure
+    agentic-ai-engineer: yes
+    ai-software-engineer: yes
+    note: "Backend engineer building the agentic platform's APIs, orchestration and tool integration; GenAI-specific work (prompts, RAG, evals) is not described as core."
+    checked: false
+  - url: https://job-boards.greenhouse.io/celonis/jobs/7986192003?gh_jid=7986192003
+    company: "Celonis"
+    title: "AI & Management Consulting Intern (Value Engineering - UKI Market)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Consulting intern: customer business cases, not engineering."
+    checked: false
+  - url: https://boards.greenhouse.io/cloudflare/jobs/8242481?gh_jid=8242481
+    company: "Cloudflare"
+    title: "Engineering Manager, Agentic Commerce"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Engineering manager for payments infrastructure that agents use; no AI components are built."
+    checked: false
+  - url: https://boards.greenhouse.io/cloudflare/jobs/8043974?gh_jid=8043974
+    company: "Cloudflare"
+    title: "Senior Machine Learning Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Optimises and productionises model inference (quantisation, batching, benchmarking) on a serving platform: AI software engineering, not building features on models."
+    checked: false
+  - url: https://boards.greenhouse.io/cloudflare/jobs/8312254?gh_jid=8312254
+    company: "Cloudflare"
+    title: "Senior Software Engineer, Agentic Commerce"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Payments and metering systems for AI agents as customers; the software itself contains no AI component."
+    checked: false
+  - url: https://boards.greenhouse.io/cloudflare/jobs/8262000?gh_jid=8262000
+    company: "Cloudflare"
+    title: "Senior Software Engineer, Agentic Discovery"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Agent-facing web protocols and data pipelines (MCP, discoverability); unclear whether the product contains AI/ML components."
+    checked: false
+  - url: https://boards.greenhouse.io/cloudflare/jobs/8312256?gh_jid=8312256
+    company: "Cloudflare"
+    title: "Software Engineer, Agentic Commerce"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Payments systems for agents as customers; no AI component."
+    checked: false
+  - url: https://boards.greenhouse.io/cloudflare/jobs/8264687?gh_jid=8264687
+    company: "Cloudflare"
+    title: "Software Engineer, Agentic Discovery"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Services to observe how third-party agents read websites (MCP, WebMCP); AI components unclear."
+    checked: false
+  - url: https://jobs.ashbyhq.com/cohere/2d256112-b336-4539-8133-a0bf7f6698f0
+    company: "Cohere"
+    title: "Forward Deployed Engineer, Agentic Platform (Europe)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor forward-deployed engineer: enterprise customer delivery with 20-40% travel. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/cohere/70a8dc77-ac84-4790-aff6-13b4dcd4554a
+    company: "Cohere"
+    title: "Member of Technical Staff, Agent Code"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Research: training code models with SFT and RL; PhD and publications expected."
+    checked: false
+  - url: https://jobs.ashbyhq.com/cohere/1d1b300d-254b-48c4-958f-99c6b907f295
+    company: "Cohere"
+    title: "Product Manager, Agent Harness & Modelling"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Product manager, not an engineering role."
+    checked: false
+  - url: https://jobs.ashbyhq.com/cohere/1f7cc5e6-5f31-40d8-ad49-fe22c98a3ea4
+    company: "Cohere"
+    title: "Senior Member of Technical Staff, Safety and Security for Agents"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Post-training and data generation for safer LLMs: model research and training, not building on models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/cuspai/916e1489-6624-4a87-90e6-218dc7ebb6fb
+    company: "CuspAI"
+    title: "Applied AI/ML Engineer (Agents)"
+    genai-engineer: unsure
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Designs the agent framework that orchestrates multi-stage scientific workflows; how much is LLM work (prompts, context, evals) is unclear."
+    checked: false
+  - url: https://databricks.com/company/careers/open-positions/job?gh_jid=8403943002
+    company: "Databricks"
+    title: "Lead Solutions Architect - Generative AI (EMEA Emerging DNB)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor solutions architect, customer-facing pre-sales and advisory. Excluded."
+    checked: false
+  - url: https://databricks.com/company/careers/open-positions/job?gh_jid=8793863002
+    company: "Databricks"
+    title: "Senior Manager, AI Forward Deployed Engineering - London"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Manager of a vendor forward-deployed professional-services team. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/decagon/b0ef58e4-c1aa-49f2-a803-a1c8d92fe0fc
+    company: "Decagon"
+    title: "Agent Deployment Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor delivery role building agents for strategic customers (the company's forward-deployed function). Excluded; boundary case."
+    checked: false
+  - url: https://jobs.ashbyhq.com/decagon/ee0c62b4-8e2a-4f0e-9bf4-9ff139374250
+    company: "Decagon"
+    title: "Agent Development Manager"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Manager of the vendor's customer agent-delivery function. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/decagon/ac14f2e8-950e-4668-a6ff-41f80181f006
+    company: "Decagon"
+    title: "Agent Strategy Manager"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Customer success and strategy, not engineering."
+    checked: false
+  - url: https://jobs.ashbyhq.com/decagon/ee6c3e3f-b6ce-4945-a367-172d2b62ccf8
+    company: "Decagon"
+    title: "Senior Agent Product Manager"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Customer-facing product owner for client accounts, not an engineering role."
+    checked: false
+  - url: https://jobs.ashbyhq.com/decagon/28366d07-ae89-428c-8593-1840591bfc18
+    company: "Decagon"
+    title: "Software Engineer, Agents"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor engineers building and shipping agents for the vendor's customers: the vendor-delivery exclusion (decided 2026-10-31)."
+    checked: false
+  - url: https://job-boards.greenhouse.io/deliveroo/jobs/8206347
+    company: "Deliveroo"
+    title: "Backend Engineer — Agent Experience"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Backend services for agent-assist tools used by human support staff; wires in LLM calls, but backend engineering is the core."
+    checked: false
+  - url: https://job-boards.greenhouse.io/deliveroo/jobs/8205846
+    company: "Deliveroo"
+    title: "Senior Software Engineer, GenAI Platform"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "GPU serving, batch inference and fine-tuning infrastructure: production platform around models."
+    checked: false
+  - url: https://job-boards.greenhouse.io/deliveroo/jobs/8206345
+    company: "Deliveroo"
+    title: "Staff Product Manager, Generative AI Platform"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Product manager, not an engineering role."
+    checked: false
+  - url: https://jobs.elastic.co/jobs?gh_jid=8223682&gh_jid=8223682
+    company: "Elastic"
+    title: "Principal AI Engineer - Context - Agents and Context"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Owns how LLM agents behave in production: prompts, skills, tools, observation and evaluation; model-specific work outweighs general software engineering."
+    checked: false
+  - url: https://jobs.elastic.co/jobs?gh_jid=8223688&gh_jid=8223688
+    company: "Elastic"
+    title: "Principal AI Engineer - Context - Agents and Context"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Owns how LLM agents behave in production: prompts, skills, tools, observation and evaluation; model-specific work outweighs general software engineering. (Second advert for the same role.)"
+    checked: false
+  - url: https://jobs.elastic.co/jobs?gh_jid=8306249&gh_jid=8306249
+    company: "Elastic"
+    title: "Principal Product Manager Agents and Context - Elasticsearch"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Product manager, not an engineering role."
+    checked: false
+  - url: https://jobs.elastic.co/jobs?gh_jid=7602101&gh_jid=7602101
+    company: "Elastic"
+    title: "Principal Product Manager Agents and Context - Elasticsearch"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Product manager, not an engineering role. (Second advert for the same role.)"
+    checked: false
+  - url: https://jobs.elastic.co/jobs?gh_jid=8259061&gh_jid=8259061
+    company: "Elastic"
+    title: "Senior Java Software Engineer - Search Inference - Platform"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Maintains the Inference API that connects the search engine to external model providers (REST, streaming, protocol design): services around models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/elevenlabs/b8a111fa-9fd5-44d0-97ed-8fd1280be4ef
+    company: "ElevenLabs"
+    title: "Applied AI Engineer"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Builds internal LLM agents for the company's own growth teams, making them reliable, measurable and safe. Internal, not customer-facing."
+    checked: false
+  - url: https://jobs.ashbyhq.com/faculty/a43658bf-95da-4b10-8b51-9f921c5ffa67
+    company: "Faculty"
+    title: "Lead Machine Learning Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Consultancy technical lead for ML systems: architecture and delivery, but much of the role is leadership, hiring and client work."
+    checked: false
+  - url: https://jobs.ashbyhq.com/faculty/c61dad1a-ac89-4802-9bcc-4e31726a04e0
+    company: "Faculty"
+    title: "Senior Machine Learning Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Designs, builds and deploys production-grade ML software and infrastructure for clients; classical ML lifecycle, no foundation-model work described."
+    checked: false
+  - url: https://jobs.ashbyhq.com/faculty/592a852d-e554-4390-bbe2-38ed062bc8e2
+    company: "Faculty"
+    title: "Senior Machine Learning Engineer (Safety)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "As the previous Faculty role, in the safety unit; LLM work appears only among requirements."
+    checked: false
+  - url: https://boards.greenhouse.io/figma/jobs/5551697004?gh_jid=5551697004
+    company: "Figma"
+    title: "Software Engineer - AI Product (London, United Kingdom)"
+    genai-engineer: unsure
+    agentic-ai-engineer: unsure
+    ai-software-engineer: yes
+    note: "Full-stack engineer on AI product features (MCP tools, agentic coding products); prompts, evals and agent design are not described."
+    checked: false
+  - url: https://job-boards.greenhouse.io/intercom/jobs/7820671
+    company: "Fin"
+    title: "AI Infrastructure Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Training pipelines, inference services and GPU performance for the company's own models: production ML infrastructure."
+    checked: false
+  - url: https://job-boards.greenhouse.io/intercom/jobs/8264267
+    company: "Fin"
+    title: "Senior Product Manager (Service Agent Team)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Product manager, not an engineering role."
+    checked: false
+  - url: https://job-boards.greenhouse.io/gitlab/jobs/8621733002
+    company: "GitLab"
+    title: "Senior Backend Engineer, AI Engineering: Chat"
+    genai-engineer: unsure
+    agentic-ai-engineer: yes
+    ai-software-engineer: yes
+    note: "Builds agentic flows (LangGraph, multi-agent orchestration) and backend features for an AI chat product; prompt and eval work is only implied."
+    checked: false
+  - url: https://jobs.ashbyhq.com/granola/ed52eb55-cb81-4ed8-b97b-92b477876f9e
+    company: "Granola"
+    title: "AI Engineer (Core Harness)"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "LLM features end to end: agent loop, evaluation frameworks for prompts and retrieval, embeddings and vector stores."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8632583002
+    company: "Graphcore"
+    title: "AI Research Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "AI research engineer contributing to publications on hardware-aware algorithms."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8894041002
+    company: "Graphcore"
+    title: "Graduate Machine Learning Engineer 2027"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Graduate role implementing and optimising models on accelerator hardware: performance engineering, not product software."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8894177002
+    company: "Graphcore"
+    title: "Graduate Software Engineer, AI Compute Libraries & Performance 2027"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "C++ compute kernels for ML workloads: low-level performance libraries, not software that integrates models."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8894364002
+    company: "Graphcore"
+    title: "Graduate Software Engineer, AI/ ML Test Systems 2027"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Test systems for ML workloads on accelerator hardware."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8894310002
+    company: "Graphcore"
+    title: "Graduate Software Engineer, Accelerator Modelling 2027"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Simulation models of future AI accelerators."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8881595002
+    company: "Graphcore"
+    title: "Senior Machine Learning Engineer (Large Systems)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Scales and optimises models across thousands of accelerators: hardware performance engineering."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8923311002
+    company: "Graphcore"
+    title: "Senior Software Engineer - AI Compute Libraries"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "C++ libraries and runtime APIs for AI hardware."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8894868002
+    company: "Graphcore"
+    title: "Software Engineer Summer Intern, AI Compute Libraries & Performance 2027"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Intern on compute kernels for ML workloads."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8816353002
+    company: "Graphcore"
+    title: "Staff Data Engineer – Agentic Applications"
+    genai-engineer: unsure
+    agentic-ai-engineer: unsure
+    ai-software-engineer: yes
+    note: "Builds Python web apps, agentic workflows and data services for internal business teams; how much is agent or LLM work versus data engineering is unclear."
+    checked: false
+  - url: https://job-boards.greenhouse.io/graphcore/jobs/8902112002
+    company: "Graphcore"
+    title: "Staff Software Engineer (ML QA)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Test infrastructure for an ML hardware stack."
+    checked: false
+  - url: https://helsing.ai/jobs/4953387101?gh_jid=4953387101
+    company: "Helsing"
+    title: "AI Research Engineer - GPU Simulation"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "GPU simulator for training reinforcement-learning agents; \"agents\" here are RL policies, not tool-using AI agents."
+    checked: false
+  - url: https://helsing.ai/jobs/4372802101?gh_jid=4372802101
+    company: "Helsing"
+    title: "AI Research Engineer - ML & Signal Processing"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "ML research on radio-frequency signals; PhD and publications expected."
+    checked: false
+  - url: https://helsing.ai/jobs/4676357101?gh_jid=4676357101
+    company: "Helsing"
+    title: "AI Research Engineer - Reinforcement Learning"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Reinforcement-learning autonomy for an aircraft; RL agents, not tool-using AI agents."
+    checked: false
+  - url: https://helsing.ai/jobs/4423924101?gh_jid=4423924101
+    company: "Helsing"
+    title: "AI Research Engineer - Robotics"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "RL controllers for robots: research engineering."
+    checked: false
+  - url: https://helsing.ai/jobs/4516967101?gh_jid=4516967101
+    company: "Helsing"
+    title: "Deployed AI Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Deployed engineer integrating the company's software into customer defence systems. Customer-facing deployment: excluded."
+    checked: false
+  - url: https://helsing.ai/jobs/4911999101?gh_jid=4911999101
+    company: "Helsing"
+    title: "Staff AI Research Engineer -  3D Computer Vision"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Computer-vision research engineering (SLAM, 3D reconstruction)."
+    checked: false
+  - url: https://helsing.ai/jobs/4334842101?gh_jid=4334842101
+    company: "Helsing"
+    title: "Staff AI Research Engineer -  Computer Vision"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Computer-vision model research and optimisation."
+    checked: false
+  - url: https://helsing.ai/jobs/4778869101?gh_jid=4778869101
+    company: "Helsing"
+    title: "Staff AI Research Engineer - ML Engineering"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Distributed training frameworks and data infrastructure for ML researchers; platform work, but with no serving or product integration."
+    checked: false
+  - url: https://www.hudsonrivertrading.com/careers/job/?gh_jid=8161770
+    company: "Hudson River Trading"
+    title: "AI Researcher, LLMs"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Builds LLMs from scratch (pretraining, post-training): research."
+    checked: false
+  - url: https://www.hudsonrivertrading.com/careers/job/?gh_jid=8234195
+    company: "Hudson River Trading"
+    title: "Applied AI Engineer"
+    genai-engineer: unsure
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Internal applied-AI team: agent evaluation, prompting and tool design, but heavy on post-training, RL and research environments; unclear for GenAI."
+    checked: false
+  - url: https://job-boards.greenhouse.io/isomorphiclabs/jobs/6184829004
+    company: "Isomorphic Labs"
+    title: "Research Engineer (LLM Performance), London"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Post-training performance at scale on frontier models: research engineering."
+    checked: false
+  - url: https://job-boards.greenhouse.io/isomorphiclabs/jobs/5704870004
+    company: "Isomorphic Labs"
+    title: "Research Scientist (Applied LLMs), London"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Research scientist developing novel LLM techniques for drug discovery; research-focused."
+    checked: false
+  - url: https://job-boards.greenhouse.io/isomorphiclabs/jobs/5837899004
+    company: "Isomorphic Labs"
+    title: "Staff Software Engineer (Inference Platform), London"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Develops and operates the platform that serves ML models to scientific applications: production software around models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/juro/572a6fb9-7a31-455f-a701-ab6dd8598f66
+    company: "Juro"
+    title: "AI Engineer"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Agentic team: builds the tools that connect an LLM agent to the product, owns its planning, tool-use and context harness, and writes evals."
+    checked: false
+  - url: https://jobs.ashbyhq.com/lovable/59d85cf1-104b-48cb-956c-bed73ef934c9
+    company: "Lovable"
+    title: "AI Research Engineer, Post-Training"
+    genai-engineer: unsure
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Owns post-training (RL, preference optimisation, fine-tuning) of the product's own models; adapting models is GenAI work, but this is at research-engineering depth."
+    checked: false
+  - url: https://jobs.ashbyhq.com/lovable/a1e49a18-7533-450f-b760-cef337f2f9e3
+    company: "Lovable"
+    title: "Data Scientist, Agent"
+    genai-engineer: unsure
+    agentic-ai-engineer: unsure
+    ai-software-engineer: no
+    note: "Data scientist who owns agent quality metrics, eval systems and experiments; evaluation is core to both definitions, but the job is measurement rather than building."
+    checked: false
+  - url: https://jobs.ashbyhq.com/motorway/64e7a546-c2a7-4ad1-8e1d-be4b1e5c1ddd
+    company: "Motorway"
+    title: "Lead Generative AI Engineer"
+    genai-engineer: yes
+    agentic-ai-engineer: unsure
+    ai-software-engineer: no
+    note: "Leads product GenAI architecture: retrieval quality, evaluation, behaviour on failure, cost and latency; agent work is part of the team's remit."
+    checked: false
+  - url: https://jobs.ashbyhq.com/motorway/85582e6d-8ad4-4a90-8cbd-eba288b44bc8
+    company: "Motorway"
+    title: "Senior Generative AI Engineer"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Builds GenAI applications and agentic workflows end to end: prompting, retrieval, agent design, evals, guardrails and monitoring."
+    checked: false
+  - url: https://jobs.ashbyhq.com/multiverse/58389a21-a599-43b6-9869-9885a16e2072
+    company: "Multiverse"
+    title: "Senior AI Engineer"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Builds agents and their platforms: context and retrieval strategies, memory, eval pipelines and tool integrations."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/32425ea6-a64b-408d-ae54-38342b83c875
+    company: "OpenAI"
+    title: "Applied AI Engineer, Codex"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor applied-AI role helping customer engineering organisations adopt Codex. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/577e6673-0a4a-491b-9a0d-facbdd3bdf3c
+    company: "OpenAI"
+    title: "Applied AI Engineer, Codex Core Agent"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Internal product team improving agent behaviour on real coding tasks: prompting, context, tool strategies and evals. Not customer-facing."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/6c01266f-6ddb-42d1-a529-84736ae8587a
+    company: "OpenAI"
+    title: "Applied AI Engineer, Government, International"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor solutions leader for public-sector customers. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/840963bb-7b1a-4021-91a0-40baf71b7e20
+    company: "OpenAI"
+    title: "Applied AI Engineer, Startups (Codex)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor developer advocacy: talks, demos and workshops for startups. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/c1316397-25bb-4add-9e9d-0e3ea8ba929a
+    company: "OpenAI"
+    title: "Software Engineer, Agent Infrastructure"
+    genai-engineer: no
+    agentic-ai-engineer: yes
+    ai-software-engineer: yes
+    note: "Builds the production platform agents run on and the infrastructure to train agentic models; agent platforms count for Agentic AI Engineer."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/7ade7a12-845c-4e3a-af23-c028420bd181
+    company: "OpenAI"
+    title: "Software Engineer, Codex Core Agents"
+    genai-engineer: no
+    agentic-ai-engineer: yes
+    ai-software-engineer: yes
+    note: "Execution environments for agents: sandboxing, orchestration, stateful long-running workflows and tool interaction in production."
+    checked: false
+  - url: https://jobs.ashbyhq.com/openai/f8b84ae5-743b-41c9-8432-02dff9993d6b
+    company: "OpenAI"
+    title: "Software Engineer, Model Deployment- ChatGPT Engineering"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Deployment orchestration and reliability for serving models in production."
+    checked: false
+  - url: https://jobs.ashbyhq.com/paddle/e802f2b7-f0df-4354-a2a1-1c322e2706fd
+    company: "Paddle"
+    title: "Senior AI Engineer (GTM)"
+    genai-engineer: yes
+    agentic-ai-engineer: unsure
+    ai-software-engineer: no
+    note: "Builds AI tools for sales and marketing teams: prompt design, model selection, evals and cost and latency tuning; agents are one of several kinds of system."
+    checked: false
+  - url: https://jobs.lever.co/palantir/ff1029bd-bb6d-4d78-a03e-5f9744d0b798
+    company: "Palantir"
+    title: "Forward Deployed AI Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor forward-deployed engineer owning GenAI delivery for clients. Excluded."
+    checked: false
+  - url: https://jobs.ashbyhq.com/perplexity/71168628-1998-47d3-87a9-be7bc56a430d
+    company: "Perplexity"
+    title: "Internship - Search Machine Learning Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Search ML intern: retrieval, ranking and classification models; RAG is one task among many. Model building, not GenAI product work."
+    checked: false
+  - url: https://jobs.ashbyhq.com/perplexity/e4777627-ff8f-4257-8612-3a016bb58592
+    company: "Perplexity"
+    title: "Member of Technical Staff (AI Inference Engineer)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Builds the inference engine and serving runtime (Rust, CUDA) behind every query: production software around models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/perplexity/60deb376-51b5-46c6-9e17-55377a5ef34e
+    company: "Perplexity"
+    title: "Member of Technical Staff (AI Infrastructure Engineer)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Kubernetes and Slurm clusters, APIs and orchestration for training and inference services; infrastructure one step removed from the models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/perplexity/9cec9b33-06f2-4ba1-8c9e-20a598361ca2
+    company: "Perplexity"
+    title: "Member of Technical Staff (Machine Learning Engineer, Search Agent RL)"
+    genai-engineer: unsure
+    agentic-ai-engineer: yes
+    ai-software-engineer: no
+    note: "Designs agent harnesses (tools, context management, execution environments, orchestration) alongside RL post-training for search agents."
+    checked: false
+  - url: https://jobs.lever.co/pigment/1f020645-be14-4227-be2c-8e37ac60da8a
+    company: "Pigment"
+    title: "Senior GenAI Engineer (UK)"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: unsure
+    note: "Builds multi-agent product features on LLMs; works across the whole stack, so software engineering weight is also high."
+    checked: false
+  - url: https://job-boards.greenhouse.io/scaleai/jobs/4413992005
+    company: "Scale AI"
+    title: "Applied AI Engineer, Global Public Sector"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor public-sector team building custom AI applications for government clients: the vendor-delivery exclusion (decided 2026-10-31)."
+    checked: false
+  - url: https://job-boards.greenhouse.io/scaleai/jobs/4743438005
+    company: "Scale AI"
+    title: "Frontier Agent Engineering Manager, Enterprise"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Manager of a vendor forward-deployed enterprise team. Excluded."
+    checked: false
+  - url: https://job-boards.greenhouse.io/scaleai/jobs/4720050005
+    company: "Scale AI"
+    title: "Staff Applied AI Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Sets standards and builds reusable capabilities for a vendor team that delivers for public-sector clients: the vendor-delivery exclusion."
+    checked: false
+  - url: https://jobs.ashbyhq.com/sierra/1a0a0334-41f8-4c15-9ed8-615336855e5e
+    company: "Sierra"
+    title: "Engineering Manager, Agent"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Engineering manager of a team building agents for customers; people management is the core."
+    checked: false
+  - url: https://jobs.ashbyhq.com/sierra/b4b762e6-8ce7-4ea7-b9b3-40c04f62135a
+    company: "Sierra"
+    title: "Product Manager, Agent Development"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Product manager, customer-facing."
+    checked: false
+  - url: https://jobs.ashbyhq.com/sierra/7af8aa4e-ba84-49ba-bc53-19358f4564ff
+    company: "Sierra"
+    title: "Software Engineer Intern, Agent (London 2027)"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Intern on the vendor's customer agent-building team: the vendor-delivery exclusion."
+    checked: false
+  - url: https://jobs.ashbyhq.com/sierra/b7d1dbcd-ca72-472f-b15e-5b4b0f886be0
+    company: "Sierra"
+    title: "Software Engineer, Agent"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Vendor engineer building and tuning agents for the vendor's enterprise customers: the vendor-delivery exclusion (decided 2026-10-31)."
+    checked: false
+  - url: https://jobs.ashbyhq.com/sierra/548eccd8-85c7-4cfa-a145-1c6ba5c17dc2
+    company: "Sierra"
+    title: "Strategist, Agent Development"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Customer-facing strategist who scopes and launches agents with clients. Excluded."
+    checked: false
+  - url: https://job-boards.eu.greenhouse.io/speechmatics/jobs/4996448101
+    company: "Speechmatics"
+    title: "Senior Machine Learning Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Speech-model R&D."
+    checked: false
+  - url: https://jobs.lever.co/spotify/19c12e29-b6d4-4d97-9053-48238fb7c381
+    company: "Spotify"
+    title: "Machine Learning Engineer - Subscriptions"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Builds personalisation ML models for subscriptions: classical ML."
+    checked: false
+  - url: https://jobs.lever.co/spotify/c322d068-5b59-4658-b618-bb2a032eeb9b
+    company: "Spotify"
+    title: "Senior Machine Learning Engineer - Messaging Platform"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Messaging optimisation with ML and reinforcement learning: classical ML."
+    checked: false
+  - url: https://jobs.lever.co/spotify/bc70c9af-212e-48d5-b00b-eab26e4c0658
+    company: "Spotify"
+    title: "Senior Machine Learning Engineering Manager - Content Platform"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Manager of ML engineers working on content understanding."
+    checked: false
+  - url: https://jobs.lever.co/spotify/499543e3-78e7-473a-8a1d-a82ce9ce9030
+    company: "Spotify"
+    title: "Senior Staff Machine Learning Engineer - Content Platform"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Production classification, moderation and ranking ML systems: classical ML."
+    checked: false
+  - url: https://jobs.ashbyhq.com/synthesia/e9c63d3d-13cc-4049-ae0a-5fef402c595b
+    company: "Synthesia"
+    title: "Principal ML Platform Engineer"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "ML platform for training, evaluation and serving: infrastructure and tooling around models."
+    checked: false
+  - url: https://job-boards.eu.greenhouse.io/theeconomistgroup/jobs/4729605101
+    company: "The Economist Group"
+    title: "Senior AI Engineer, AI Lab"
+    genai-engineer: yes
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Fine-tunes LLMs for house style, builds and evaluates RAG pipelines, and owns quality evaluation for GenAI prototypes."
+    checked: false
+  - url: https://www.thoughtworks.com/careers/jobs/8263978?gh_jid=8263978
+    company: "Thoughtworks"
+    title: "Agentic AI Principal"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Consultancy principal focused on advisory, C-suite engagements and pursuits; building is not the main job."
+    checked: false
+  - url: https://job-boards.greenhouse.io/togetherai/jobs/5222270007
+    company: "Together AI"
+    title: "Senior Software Engineer — Infra Agent Systems UK"
+    genai-engineer: yes
+    agentic-ai-engineer: yes
+    ai-software-engineer: unsure
+    note: "Builds production AI agents for infrastructure operations and their platform: retrieval, knowledge graphs, orchestration and evaluation."
+    checked: false
+  - url: https://job-boards.greenhouse.io/togetherai/jobs/5214645007
+    company: "Together AI"
+    title: "Staff Software Engineer, Inference / Compute Infrastructure Engineering London or Amsterdam"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Kubernetes control plane that provisions the GPU inference fleet; infrastructure one step removed from the models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/trainline/d04664ab-90ea-4ed5-9581-3b655a142f3d
+    company: "Trainline"
+    title: "Machine Learning Engineering Manager"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "People manager for an ML and data team."
+    checked: false
+  - url: https://jobs.ashbyhq.com/wayve/5d3baafc-4af6-47db-91a0-ee5cb2cf3e04
+    company: "Wayve"
+    title: "Applied Scientist/Machine Learning Engineer, Gaia"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "World-model research for driving simulation."
+    checked: false
+  - url: https://jobs.ashbyhq.com/wayve/e781b706-4494-472d-8831-74140ad1a10e
+    company: "Wayve"
+    title: "Principal Machine Learning Engineer GAIA"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Large-scale training of a driving world model."
+    checked: false
+  - url: https://jobs.ashbyhq.com/wayve/3ef8fd28-0831-44b8-b3db-deb18882aeec
+    company: "Wayve"
+    title: "Senior Software Engineer, Data - AI Portal"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: no
+    note: "Data transfer pipelines for sensor data from partners; the software itself contains no models."
+    checked: false
+  - url: https://jobs.ashbyhq.com/wayve/82f389e1-b856-4157-ab24-f83f467329e5
+    company: "Wayve"
+    title: "Software Engineer, AI Libraries"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Python libraries for distributed training, inference and data loading used by ML teams; platform work rather than product software."
+    checked: false
+  - url: https://jobs.ashbyhq.com/wayve/929b2cb4-a3da-4038-ab3c-62cf6f220adb
+    company: "Wayve"
+    title: "Staff Machine Learning Engineer - Ops"
+    genai-engineer: no
+    agentic-ai-engineer: no
+    ai-software-engineer: unsure
+    note: "Model release processes and quality gates for a driving model; ML release engineering."
+    checked: false
+  - url: https://jobs.ashbyhq.com/writer/3abccd89-0f59-4009-93ea-7c85b533caf0
+    company: "Writer"
+    title: "AI engineer (UK)"
+    genai-engineer: unsure
+    agentic-ai-engineer: unsure
+    ai-software-engineer: no
+    note: "Builds and deploys AI applications on the company's LLMs and agents, but the requirements stress deep-learning research."
+    checked: false
+  - url: https://jobs.ashbyhq.com/writer/b4545b48-9648-44c4-b2f0-96f027e9a4ba
+    company: "Writer"
+    title: "Software engineer, agents (UK)"
+    genai-engineer: unsure
+    agentic-ai-engineer: yes
+    ai-software-engineer: yes
+    note: "Full-stack engineer building agent systems that run autonomous multi-step workflows."
+    checked: false
+  - url: https://jobs.ashbyhq.com/writer/6dc00567-153d-4b42-821c-412569c2c04e
+    company: "Writer"
+    title: "Software engineer, generative AI (UK)"
+    genai-engineer: unsure
+    agentic-ai-engineer: no
+    ai-software-engineer: yes
+    note: "Generalist engineer building the services and architecture that GenAI features run on; GenAI is a large part of the stack."
+    checked: false

@@ -5,6 +5,8 @@ python -m firstweek_research collect --role "GenAI Engineer"
 python -m firstweek_research research --role "GenAI Engineer"
 python -m firstweek_research review-skills
 python -m firstweek_research review-matches --role "GenAI Engineer"
+python -m firstweek_research eval-classifier [--repeats 2]
+python -m firstweek_research eval-extraction
 """
 
 import argparse
@@ -128,6 +130,136 @@ def _print_matches(slug: str, country: str, show_urls: bool) -> None:
                 print(pad + r.url)
 
 
+def _pct(value: float | None) -> str:
+    return "  n/a" if value is None else f"{value:>5.0%}"
+
+
+def _print_evaluation(repeats: int, budget: float, show: int) -> None:
+    import textwrap
+
+    from firstweek_research.evaluate import evaluate, stability
+
+    result = evaluate()
+    labels = result.labels
+    print(
+        f"Classifier {result.classifier_version} against {len(labels.postings)} hand-labelled "
+        f"postings (labelled {labels.labelled_on}; {result.checked} checked by a person)."
+    )
+    if result.checked < len(labels.postings) / 2:
+        print("Most labels are unchecked drafts: read the scores as agreement with a second")
+        print("model, not as accuracy, until the disagreements below have been reviewed.")
+    print(
+        f"\n  {'role':<22}{'scored':>7}{'agree':>7}{'prec.':>7}{'recall':>7}{'F1':>7}"
+        f"{'unsure':>8}{'missing':>9}{'by title':>10}"
+    )
+    for r in result.roles:
+        print(
+            f"  {r.role:<22}{r.scored:>7}{_pct(r.agreement):>7}{_pct(r.precision):>7}"
+            f"{_pct(r.recall):>7}{_pct(r.f1):>7}{r.unsure:>8}{r.missing:>9}"
+            f"{r.by_title_filter:>10}"
+        )
+    print('\n  "missing": labelled, but this database cannot say (not collected, a duplicate,')
+    print('  outside the 6-month window, or not classified yet). "by title": scored postings')
+    print('  the title filter rejected before the model saw them; they count as "not counted".')
+
+    pad = " " * 10
+    for r in result.roles:
+        if not r.disagreements:
+            continue
+        print(f"\n{r.role}: {len(r.disagreements)} disagreements (model vs label)")
+        for d in r.disagreements[:show]:
+            model = "counted" if d.counted else "not counted"
+            conf = "title filter" if d.confidence is None else f"{d.confidence:.2f}"
+            mark = "" if d.checked else " (label unchecked)"
+            print(f"  model {model} ({conf}), label {d.label}{mark}")
+            print(f"    {d.company} | {d.title}")
+            for who, why in (("model", d.reason), ("label", d.note)):
+                print(textwrap.fill(f"{who}: {why}", 96, initial_indent=pad, subsequent_indent=pad))
+            print(pad + d.url)
+        if len(r.disagreements) > show:
+            print(f"  ...and {len(r.disagreements) - show} more (use --show)")
+
+    if repeats:
+        from firstweek_core.llm import LLMGateway
+        from firstweek_core.llm.recorder import record_to_db
+
+        settings = get_settings()
+        if settings.anthropic_api_key is None:
+            print("\nStability check skipped: set ANTHROPIC_API_KEY in .env.")
+            return
+        gateway = LLMGateway(settings=settings, recorder=record_to_db)
+        print(f"\nStability: asking the classifier {repeats} more time(s) per posting...")
+        runs = asyncio.run(stability(gateway, repeats, budget_usd=budget, progress=_progress))
+        gateway.flush()
+        for st in runs:
+            print(
+                f"  {st.role:<22} {len(st.flipped)} of {st.postings} postings changed answer "
+                f"({_pct(st.flip_rate).strip()})"
+                + (f"; {st.failures} skipped after errors" if st.failures else "")
+            )
+            for company, title, verdicts in st.flipped[:show]:
+                answers = ", ".join("counted" if v else "not" for v in verdicts)
+                print(f"      {company} | {title}: {answers}")
+
+
+def _print_extraction_eval(show: int) -> None:
+    from firstweek_research.evaluate_extraction import (
+        PRECISION_TARGET,
+        RECALL_TARGET,
+        evaluate_extraction,
+    )
+
+    result = evaluate_extraction()
+    labels = result.labels
+    print(
+        f"Extractor {result.extractor_version} against {len(labels.postings)} hand-labelled "
+        f"postings (labelled {labels.labelled_on}; {result.checked} checked by a person)."
+    )
+    if result.checked < len(labels.postings) / 2:
+        print("Most labels are unchecked drafts: read these as agreement with a second model.")
+    print(f"Scored {len(result.postings)}; {len(result.missing)} not extracted in this database.")
+    if not result.postings:
+        print("Nothing to score yet: run make research-now first.")
+        return
+
+    def mark(value: float | None, target: float) -> str:
+        return "" if value is None else ("  meets target" if value >= target else "  below target")
+
+    print(f"\n  {'':<8}{'found':>7}{'labelled':>10}{'prec.':>8}{'recall':>8}{'F1':>7}")
+    for name, kind in (("all", None), ("skills", "skill"), ("tools", "tool")):
+        r = result.rates(kind)
+        print(
+            f"  {name:<8}{r.predicted:>7}{r.gold:>10}{_pct(r.precision):>8}"
+            f"{_pct(r.recall):>8}{_pct(r.f1):>7}"
+        )
+    overall = result.rates()
+    p_mark = mark(overall.precision, PRECISION_TARGET)
+    r_mark = mark(overall.recall, RECALL_TARGET)
+    print(
+        f"\n  Targets: precision {PRECISION_TARGET:.0%}{p_mark}; recall {RECALL_TARGET:.0%}{r_mark}"
+    )
+    correct, scored = result.seniority
+    if scored:
+        print(f"  Seniority: {correct} of {scored} correct ({correct / scored:.0%})")
+
+    print("\n  Most often missed:  " + ", ".join(f"{s} ({n})" for s, n in result.most_missed()))
+    print("  Most often extra:   " + ", ".join(f"{s} ({n})" for s, n in result.most_extra()))
+    print(
+        "\nWorst-matching postings (missed = labelled but not found; extra = found, not labelled):"
+    )
+    for p in sorted(result.postings, key=lambda p: p.f1)[:show]:
+        level = ""
+        if p.seniority_gold and p.seniority_predicted not in p.seniority_gold:
+            level = f"; seniority {p.seniority_predicted} (label: {'/'.join(p.seniority_gold)})"
+        print(f"  F1 {p.f1:.0%}  {p.company} | {p.title}{level}")
+        if p.missed:
+            print(f"      missed: {', '.join(sorted(p.missed))}")
+        if p.extra:
+            print(f"      extra:  {', '.join(sorted(p.extra))}")
+        if p.unmapped:
+            print(f"      not in taxonomy: {', '.join(p.unmapped[:8])}")
+
+
 def _print_unmapped(limit: int) -> None:
     from sqlalchemy import func, select
 
@@ -181,9 +313,25 @@ def main(argv: list[str] | None = None) -> None:
     p_matches.add_argument("--country", default="GB")
     p_matches.add_argument("--urls", action="store_true", help="Also print each posting's link")
 
+    p_eval = sub.add_parser("eval-classifier", help="Score the classifier against hand labels")
+    p_eval.add_argument(
+        "--repeats", type=int, default=0, help="Re-ask N times to measure stability (costs money)"
+    )
+    p_eval.add_argument("--budget", type=float, default=1.0, help="Spend cap for --repeats, USD")
+    p_eval.add_argument("--show", type=int, default=15, help="Disagreements to list per role")
+
+    p_xeval = sub.add_parser("eval-extraction", help="Score extraction against hand labels")
+    p_xeval.add_argument("--show", type=int, default=10, help="Worst postings to list")
+
     args = parser.parse_args(argv)
+    if args.command == "eval-extraction":
+        _print_extraction_eval(args.show)
+        return
     if args.command == "review-skills":
         _print_unmapped(args.limit)
+        return
+    if args.command == "eval-classifier":
+        _print_evaluation(args.repeats, args.budget, args.show)
         return
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
     if args.command == "review-matches":
