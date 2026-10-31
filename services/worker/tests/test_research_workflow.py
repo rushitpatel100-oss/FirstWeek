@@ -30,6 +30,17 @@ async def fake_collect(inp: RoleRunInput) -> CollectOutcome:
     return CollectOutcome(inp.role_slug, new=3)
 
 
+@activity.defn(name="check_code_version")
+async def fake_check_code(expected: str) -> str:
+    if expected != "abc123":
+        raise ApplicationError(
+            f"worker has abc123, you have {expected}",
+            type=research_activities.CODE_MISMATCH,
+            non_retryable=True,
+        )
+    return expected
+
+
 @activity.defn(name="analyse_role")
 async def fake_analyse(inp: RoleRunInput) -> AnalyseOutcome:
     return AnalyseOutcome(inp.role_slug, classified=3, cost_usd=0.05, sample_size=12, version=4)
@@ -67,6 +78,49 @@ async def test_one_failing_role_does_not_stop_the_others() -> None:
     for slug in ("agentic-ai-engineer", "genai-engineer"):
         assert by_role[slug].analysed is not None and by_role[slug].error is None
     assert report.cost_usd == pytest.approx(0.10)
+
+
+@pytest.mark.parametrize(("expected", "runs"), [("abc123", True), ("old999", False)])
+async def test_a_run_started_by_hand_stops_if_the_worker_code_differs(
+    expected: str, runs: bool
+) -> None:
+    from temporalio.client import WorkflowFailureError
+
+    from firstweek_worker.run_research_now import _code_mismatch
+
+    env = await _environment()
+    async with (
+        env,
+        Worker(
+            env.client,
+            task_queue="research-test",
+            workflows=[DailyResearchWorkflow],
+            activities=[fake_check_code, fake_collect, fake_analyse],
+        ),
+    ):
+        start = env.client.execute_workflow(
+            DailyResearchWorkflow.run,
+            DailyResearchInput(["genai-engineer"], expected_code=expected),
+            id=f"research-{uuid.uuid4()}",
+            task_queue="research-test",
+        )
+        if runs:
+            report = await start
+            assert report.roles[0].analysed is not None
+        else:
+            with pytest.raises(WorkflowFailureError) as failure:
+                await start
+            assert _code_mismatch(failure.value) == "worker has abc123, you have old999"
+
+
+def test_code_fingerprint_changes_with_a_definition(monkeypatch: pytest.MonkeyPatch) -> None:
+    from firstweek_research.research import code_fingerprint
+    from firstweek_research.roles import RoleDefinition
+
+    before = code_fingerprint()
+    assert before == code_fingerprint() and len(before) == 12  # stable
+    monkeypatch.setattr(RoleDefinition, "definition_hash", property(lambda _: "edited00edited00"))
+    assert code_fingerprint() != before
 
 
 async def test_analysis_is_skipped_without_an_api_key(monkeypatch: pytest.MonkeyPatch) -> None:

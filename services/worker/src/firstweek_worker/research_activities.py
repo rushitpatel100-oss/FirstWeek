@@ -9,12 +9,13 @@ import logging
 from dataclasses import dataclass, field
 
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from firstweek_core.config import get_settings
 from firstweek_core.llm import LLMGateway
 from firstweek_core.llm.recorder import record_to_db
 from firstweek_research.collect import run_collect
-from firstweek_research.research import run_research
+from firstweek_research.research import code_fingerprint, run_research
 
 log = logging.getLogger("firstweek.research")
 
@@ -52,6 +53,24 @@ class AnalyseOutcome:
 def _heartbeat(message: str) -> None:
     log.info(message)
     activity.heartbeat(message)
+
+
+CODE_MISMATCH = "CodeVersionMismatch"
+
+
+@activity.defn(name="check_code_version")
+async def check_code_version(expected: str) -> str:
+    """Fails fast when the worker's research code differs from the caller's, instead of
+    quietly running old definitions (seen 2026-10-31: a worker image built before a pull)."""
+    actual = code_fingerprint()
+    if actual != expected:
+        raise ApplicationError(
+            f"The worker's research code ({actual}) differs from yours ({expected}). "
+            "Rebuild and restart it: docker compose up -d --build worker",
+            type=CODE_MISMATCH,
+            non_retryable=True,
+        )
+    return actual
 
 
 @activity.defn(name="collect_role")
