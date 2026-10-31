@@ -79,6 +79,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build and start every service
+        env:
+          RESEARCH_DAILY_ENABLED: "false"
         run: docker compose up -d --build
       - name: Wait until the API reports every dependency ready
         run: |

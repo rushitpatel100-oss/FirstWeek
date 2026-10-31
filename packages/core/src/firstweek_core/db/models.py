@@ -111,6 +111,15 @@ class JobPosting(IdMixin, Base):
     dedup_group: Mapped[uuid.UUID | None] = mapped_column(index=True)
     is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
     text: Mapped[str] = mapped_column(Text)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), comment="First collection that found it"
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        index=True,
+        comment="Latest collection that found it still open; statistics use a window on this",
+    )
 
 
 class TaxonomySkill(IdMixin, Base):
@@ -169,7 +178,13 @@ class PostingRoleMatch(IdMixin, TimestampMixin, Base):
 
     __tablename__ = "posting_role_matches"
     __table_args__ = (
-        UniqueConstraint("posting_id", "archetype_id", "classifier_version"),
+        UniqueConstraint(
+            "posting_id",
+            "archetype_id",
+            "classifier_version",
+            "definition_hash",
+            name="uq_posting_role_matches_decision",
+        ),
         CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence_range"),
     )
 
@@ -183,6 +198,9 @@ class PostingRoleMatch(IdMixin, TimestampMixin, Base):
     confidence: Mapped[float] = mapped_column(Float)
     reason: Mapped[str] = mapped_column(Text)
     classifier_version: Mapped[str] = mapped_column(String(64))
+    definition_hash: Mapped[str | None] = mapped_column(
+        String(16), comment="Role definition the decision was made against; NULL before 2026-10-31"
+    )
     model: Mapped[str] = mapped_column(String(128))
 
 

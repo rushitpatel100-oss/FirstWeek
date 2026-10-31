@@ -17,6 +17,8 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `make up` / `make down`: Docker stack
 - Database tests run against `<DATABASE_URL name>_test` (root `conftest.py` creates and migrates it). Never point tests at the dev database.
 - `make collect role="..."` fills the dev database with real postings.
+- `make research role="..."` collects, classifies, extracts and prints statistics; `make review-matches role="..."` shows each classifier decision and its reason.
+- The worker runs `DailyResearchWorkflow` on a daily Temporal schedule (ADR 0008); `make research-now` starts it at once.
 
 ## Layout
 

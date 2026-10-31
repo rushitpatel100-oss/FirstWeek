@@ -11,6 +11,10 @@ definition: >-
   building evaluation sets and metrics for model output, and integrating model calls into
   applications with attention to latency, cost and safety. Distinct from ML research
   (training new model architectures) and from data science (analysis and classical ML).
+  Not counted here: forward-deployed, applied-AI and solutions roles at AI vendors whose
+  main job is helping the vendor's customers adopt its models or product (customer
+  workshops, advising, pre-sales, deployment support). Those are a separate role. Engineers
+  who build these systems for clients at a consultancy do count.
 aliases:
   - GenAI Engineer
   - Gen AI Engineer

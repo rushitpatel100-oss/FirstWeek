@@ -1,0 +1,100 @@
+"""Activities for the daily research run. Each wraps a step of firstweek_research.
+
+Both are safe to retry: collection is idempotent (it upserts), and analysis saves each paid
+model result as it arrives, so a retry only pays for what the failed attempt did not finish.
+Progress messages become Temporal heartbeats, so a stuck step is noticed and retried.
+"""
+
+import logging
+from dataclasses import dataclass, field
+
+from temporalio import activity
+
+from firstweek_core.config import get_settings
+from firstweek_core.llm import LLMGateway
+from firstweek_core.llm.recorder import record_to_db
+from firstweek_research.collect import run_collect
+from firstweek_research.research import run_research
+
+log = logging.getLogger("firstweek.research")
+
+
+@dataclass
+class RoleRunInput:
+    role_slug: str
+    country: str = "GB"
+    budget_usd: float = 1.0
+
+
+@dataclass
+class CollectOutcome:
+    role_slug: str
+    new: int = 0
+    updated: int = 0
+    errors: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
+
+
+@dataclass
+class AnalyseOutcome:
+    role_slug: str
+    classified: int = 0
+    matched: int = 0
+    extracted: int = 0
+    cost_usd: float = 0.0
+    sample_size: int = 0
+    employers: int = 0
+    version: int | None = None
+    failures: list[str] = field(default_factory=list)
+    skipped: str | None = None
+
+
+def _heartbeat(message: str) -> None:
+    log.info(message)
+    activity.heartbeat(message)
+
+
+@activity.defn(name="collect_role")
+async def collect_role(inp: RoleRunInput) -> CollectOutcome:
+    summary = await run_collect(
+        inp.role_slug, get_settings(), country=inp.country, progress=_heartbeat
+    )
+    return CollectOutcome(
+        role_slug=inp.role_slug,
+        new=sum(s.new for s in summary.providers.values()),
+        updated=sum(s.updated for s in summary.providers.values()),
+        errors=[f"{name}: {error}" for name, error in summary.errors.items()],
+        skipped=[f"{name}: {reason}" for name, reason in summary.skipped.items()],
+    )
+
+
+@activity.defn(name="analyse_role")
+async def analyse_role(inp: RoleRunInput) -> AnalyseOutcome:
+    settings = get_settings()
+    if settings.anthropic_api_key is None:
+        return AnalyseOutcome(inp.role_slug, skipped="ANTHROPIC_API_KEY is not set")
+    gateway = LLMGateway(settings=settings, recorder=record_to_db)
+    try:
+        result = await run_research(
+            inp.role_slug,
+            settings,
+            gateway,
+            country=inp.country,
+            collect=False,  # the collect_role activity has just done it
+            budget_usd=inp.budget_usd,
+            progress=_heartbeat,
+        )
+    finally:
+        gateway.flush()
+    stats = result.stats
+    return AnalyseOutcome(
+        role_slug=inp.role_slug,
+        classified=result.classified,
+        matched=result.matched,
+        extracted=result.extracted,
+        cost_usd=float(result.cost_usd),
+        sample_size=stats.sample_size if stats else 0,
+        employers=stats.employers if stats else 0,
+        version=result.version,
+        failures=[f"{name}: {error}" for name, error in result.failures.items()],
+    )

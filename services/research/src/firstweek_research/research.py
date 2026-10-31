@@ -35,7 +35,13 @@ from firstweek_research.extract import (
     extract,
 )
 from firstweek_research.roles import RoleDefinition, load_roles
-from firstweek_research.stats import MATCH_CONFIDENCE, compute_stats, save_version
+from firstweek_research.stats import (
+    MATCH_CONFIDENCE,
+    compute_stats,
+    current_match,
+    save_version,
+    window_start,
+)
 from firstweek_research.store import seed_roles
 from firstweek_research.taxonomy import load_taxonomy, seed_taxonomy
 
@@ -60,10 +66,12 @@ def _view(p: JobPosting) -> PostingView:
 
 
 def candidates(session: Session, role: RoleDefinition, country: str) -> list[JobPosting]:
-    """Full-text, unique postings whose title could be the role."""
+    """Full-text, unique postings seen within the statistics window whose title could be
+    the role. Older postings are never sent to a model: they could not enter the sample."""
     rows = session.scalars(
         select(JobPosting).where(
             JobPosting.country == country,
+            JobPosting.last_seen_at >= window_start(),
             JobPosting.is_full_text.is_(True),
             JobPosting.is_duplicate.is_(False),
         )
@@ -92,7 +100,7 @@ def match_decisions(role_slug: str, country: str = "GB") -> list[MatchDecision]:
             for m in session.scalars(
                 select(PostingRoleMatch).where(
                     PostingRoleMatch.archetype_id == archetype_id,
-                    PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+                    current_match(role),
                 )
             )
         }
@@ -216,7 +224,7 @@ async def run_research(
             session.scalars(
                 select(PostingRoleMatch.posting_id).where(
                     PostingRoleMatch.archetype_id == archetype_id,
-                    PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+                    current_match(role),
                 )
             )
         )
@@ -245,6 +253,7 @@ async def run_research(
                         confidence=match.confidence,
                         reason=match.reason,
                         classifier_version=CLASSIFIER_VERSION,
+                        definition_hash=role.definition_hash,
                         model=model,
                     )
                 )
@@ -258,7 +267,7 @@ async def run_research(
             .join(PostingRoleMatch, PostingRoleMatch.posting_id == JobPosting.id)
             .where(
                 PostingRoleMatch.archetype_id == archetype_id,
-                PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+                current_match(role),
                 PostingRoleMatch.is_match.is_(True),
                 PostingRoleMatch.confidence >= MATCH_CONFIDENCE,
                 JobPosting.country == country,

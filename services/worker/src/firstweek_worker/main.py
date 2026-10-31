@@ -2,17 +2,22 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from temporalio.client import Client
 from temporalio.worker import Worker
 
 from firstweek_core.config import get_settings
+from firstweek_worker.research_activities import analyse_role, collect_role
+from firstweek_worker.research_workflow import DailyResearchWorkflow
+from firstweek_worker.schedules import ensure_daily_research
 from firstweek_worker.smoke import SmokeWorkflow, check_database
 
 log = logging.getLogger("firstweek.worker")
 
-WORKFLOWS = [SmokeWorkflow]
-ACTIVITIES = [check_database]
+WORKFLOWS: list[type] = [SmokeWorkflow, DailyResearchWorkflow]
+ACTIVITIES: list[Callable[..., Any]] = [check_database, collect_role, analyse_role]
 
 
 async def connect_with_retry(address: str, namespace: str, attempts: int = 30) -> Client:
@@ -37,12 +42,18 @@ async def run() -> None:
         workflows=WORKFLOWS,
         activities=ACTIVITIES,
     )
+    try:
+        log.info(await ensure_daily_research(client, settings))
+    except Exception:  # the worker must still start, for the API and other workflows
+        log.exception("Could not set up the daily research schedule")
     log.info("Worker listening on task queue '%s'", settings.temporal_task_queue)
     await worker.run()
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    for noisy in ("httpx", "LiteLLM"):  # one line per HTTP request drowns the progress lines
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     asyncio.run(run())
 
 

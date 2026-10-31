@@ -5,6 +5,7 @@ an exact match, a confident fuzzy match, a short list of suggestions, or nothing
 case the pipeline can research the title as a new on-demand role).
 """
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from functools import cache
@@ -37,6 +38,12 @@ class RoleDefinition(BaseModel):
     aliases: list[str] = Field(min_length=1)
     title_patterns: list[str] = Field(min_length=1)
     web_queries: list[str] = Field(default_factory=list)
+
+    @property
+    def definition_hash(self) -> str:
+        """Changes whenever the definition's wording changes, so classifier decisions made
+        against an older definition are re-checked rather than reused."""
+        return hashlib.sha256(" ".join(self.definition.split()).encode()).hexdigest()[:16]
 
     def compiled_patterns(self) -> list[re.Pattern[str]]:
         return [re.compile(p, re.IGNORECASE) for p in self.title_patterns]

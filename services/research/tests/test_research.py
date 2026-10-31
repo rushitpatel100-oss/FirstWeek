@@ -5,7 +5,7 @@ HTTP and the model are both faked, so this costs nothing and needs no keys.
 
 import pytest
 import research_samples as samples
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import OperationalError
 from test_extract import fake_gateway
 
@@ -129,6 +129,55 @@ async def test_interrupted_run_keeps_what_it_paid_for(monkeypatch: pytest.Monkey
 
     resumed = await _run(collect=False)
     assert resumed.classified == 1  # only the one that was lost
+
+
+async def test_changing_a_definition_re_checks_every_posting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
+    first = await _run()
+    assert first.classified == 2
+
+    from firstweek_research.roles import RoleDefinition
+
+    monkeypatch.setattr(RoleDefinition, "definition_hash", property(lambda _: "edited00edited00"))
+    second = await _run(collect=False)
+    assert second.classified == 2  # decisions against the old wording are not reused
+    assert second.extracted == 0  # extraction does not depend on the definition
+    assert second.stats is not None and second.stats.definition_hash == "edited00edited00"
+    with session_scope() as session:
+        assert session.scalar(select(func.count()).select_from(PostingRoleMatch)) == 4
+
+
+async def test_postings_not_seen_for_six_months_leave_the_sample(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
+    first = await _run()
+    assert first.stats is not None and first.stats.sample_size == 2
+    assert first.stats.window_days == 183
+
+    with session_scope() as session:  # nobody has seen these postings for 200 days
+        session.execute(
+            update(JobPosting).values(
+                first_seen_at=func.now() - text("interval '300 days'"),
+                last_seen_at=func.now() - text("interval '200 days'"),
+            )
+        )
+    stale = await _run(collect=False)
+    assert stale.classified == 0  # never sent to a model
+    assert stale.stats is not None and stale.stats.sample_size == 0
+
+    back = await _run()  # the same postings are in today's feeds again
+    assert back.classified == 0  # earlier decisions still apply
+    assert back.stats is not None and back.stats.sample_size == 2
+    with session_scope() as session:
+        ages = session.execute(
+            select(JobPosting.first_seen_at, JobPosting.last_seen_at).where(
+                JobPosting.is_full_text.is_(True)
+            )
+        ).all()
+        assert ages and all(first < last for first, last in ages)  # first seen is kept
 
 
 async def test_match_review_lists_decisions_and_unclassified(

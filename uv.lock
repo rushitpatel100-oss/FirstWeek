@@ -735,12 +735,14 @@ version = "0.1.0"
 source = { editable = "services/worker" }
 dependencies = [
     { name = "firstweek-core" },
+    { name = "firstweek-research" },
     { name = "temporalio" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "firstweek-core", editable = "packages/core" },
+    { name = "firstweek-research", editable = "services/research" },
     { name = "temporalio", specifier = ">=1.35" },
 ]
 

@@ -98,7 +98,10 @@ def _touch_source(
     return source, "updated"
 
 
-def upsert_posting(session: Session, item: PreparedPosting) -> Status:
+def upsert_posting(
+    session: Session, item: PreparedPosting, seen_at: datetime | None = None
+) -> Status:
+    seen_at = seen_at or datetime.now(UTC)
     raw = item.raw
     posting = session.scalar(
         select(JobPosting).where(
@@ -108,10 +111,13 @@ def upsert_posting(session: Session, item: PreparedPosting) -> Status:
     source = session.get(Source, posting.source_id) if posting else None
     if source is None:
         source = session.scalar(select(Source).where(Source.url == raw.url))
-        owner = source and session.scalar(
-            select(JobPosting).where(JobPosting.source_id == source.id)
+        owner = (
+            session.scalar(select(JobPosting).where(JobPosting.source_id == source.id))
+            if source is not None
+            else None
         )
         if owner is not None:
+            owner.last_seen_at = seen_at
             return "unchanged"  # same URL already stored under another provider id
     source, status = _touch_source(
         session,
@@ -125,12 +131,17 @@ def upsert_posting(session: Session, item: PreparedPosting) -> Status:
         content=item.clean.full_text,
         licence_note=raw.licence_note,
     )
+    is_new = posting is None
     if posting is None:
         posting = JobPosting(
-            source_id=source.id, provider=raw.provider, external_id=raw.external_id
+            source_id=source.id,
+            provider=raw.provider,
+            external_id=raw.external_id,
+            first_seen_at=seen_at,
         )
         session.add(posting)
-    elif status == "unchanged":
+    posting.last_seen_at = seen_at  # still open: it was in this collection's feed
+    if not is_new and status == "unchanged":
         if posting.text == item.clean.role_text:
             return status
         # Same source text, but the cleaning rules changed what counts as role text.
