@@ -1,0 +1,31 @@
+# Golden role. See genai-engineer.yaml for what these fields mean.
+slug: ai-software-engineer
+name: AI Software Engineer
+trust_level: golden
+reviewed: false
+definition: >-
+  A software engineer whose main job is shipping production software that contains AI or ML
+  components. Core work: designing services and APIs around models, the data pipelines that
+  feed them, deployment, monitoring and reliability, and the product code around them. Model
+  work is usually integration rather than research. Differs from GenAI Engineer by its weight
+  on general software engineering and production systems over model-specific techniques.
+aliases:
+  - AI Software Engineer
+  - Software Engineer, AI
+  - Software Engineer (AI)
+  - Software Engineer, Machine Learning
+  - Software Engineer, ML
+  - ML Software Engineer
+  - Machine Learning Software Engineer
+  - Software Engineer, AI Platform
+  - AI Platform Engineer
+title_patterns:
+  - '\bsoftware engineer\b.*\b(ai|ml|machine learning|llm|inference|model)'
+  - '\b(ai|ml|machine learning)\b.*\bsoftware engineer\b'
+  - '\b(ai|ml) (platform|infrastructure) engineer'
+  - '\b(ml|machine learning) engineer'
+  - '\bai engineer'
+web_queries:
+  - 'what does an {name} do day to day'
+  - 'software engineer working on AI products day in the life'
+  - 'shipping LLM features to production lessons learned engineering blog'

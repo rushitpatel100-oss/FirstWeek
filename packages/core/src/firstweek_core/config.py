@@ -36,11 +36,19 @@ class Settings(BaseSettings):
     langfuse_secret_key: SecretStr | None = None
     langfuse_base_url: str = "https://cloud.langfuse.com"
 
+    # Research sources
+    adzuna_app_id: str | None = None
+    adzuna_app_key: SecretStr | None = None
+    firecrawl_api_key: SecretStr | None = None
+
     @field_validator(
         "anthropic_api_key",
         "openai_api_key",
         "langfuse_public_key",
         "langfuse_secret_key",
+        "adzuna_app_id",
+        "adzuna_app_key",
+        "firecrawl_api_key",
         mode="before",
     )
     @classmethod

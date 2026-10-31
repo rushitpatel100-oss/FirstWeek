@@ -1,0 +1,33 @@
+# Public job-board APIs that companies use to publish their own openings. They return the
+# full posting text without a key. Each board was checked on 2026-10-31 for UK openings.
+#
+# Known bias: this list leans towards AI-native companies and scale-ups. Adzuna adds the
+# wider UK market (banks, consultancies, agencies) but only as ~500-character snippets.
+# Add a company: find its board token in its careers-page URL, e.g.
+#   job-boards.greenhouse.io/<token>, jobs.lever.co/<token>, jobs.ashbyhq.com/<token>
+boards:
+  - {company: Anthropic, ats: greenhouse, token: anthropic}
+  - {company: Databricks, ats: greenhouse, token: databricks}
+  - {company: Deliveroo, ats: greenhouse, token: deliveroo}
+  - {company: Graphcore, ats: greenhouse, token: graphcore}
+  - {company: Intercom, ats: greenhouse, token: intercom}
+  - {company: Isomorphic Labs, ats: greenhouse, token: isomorphiclabs}
+  - {company: Monzo, ats: greenhouse, token: monzo}
+  - {company: PhysicsX, ats: greenhouse, token: physicsx}
+  - {company: Scale AI, ats: greenhouse, token: scaleai}
+  - {company: Speechmatics, ats: greenhouse, token: speechmatics}
+  - {company: Palantir, ats: lever, token: palantir}
+  - {company: Spotify, ats: lever, token: spotify}
+  - {company: Cohere, ats: ashby, token: cohere}
+  - {company: ElevenLabs, ats: ashby, token: elevenlabs}
+  - {company: Faculty, ats: ashby, token: faculty}
+  - {company: Granola, ats: ashby, token: granola}
+  - {company: Harvey, ats: ashby, token: harvey}
+  - {company: LangChain, ats: ashby, token: langchain}
+  - {company: Lovable, ats: ashby, token: lovable}
+  - {company: OpenAI, ats: ashby, token: openai}
+  - {company: Perplexity, ats: ashby, token: perplexity}
+  - {company: Quantexa, ats: ashby, token: quantexa}
+  - {company: Synthesia, ats: ashby, token: synthesia}
+  - {company: Wayve, ats: ashby, token: wayve}
+  - {company: Writer, ats: ashby, token: writer}

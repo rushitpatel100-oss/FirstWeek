@@ -1,0 +1,39 @@
+# Golden role. The definition is the classifier's yardstick for "is this posting this role?".
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: genai-engineer
+name: GenAI Engineer
+trust_level: golden
+reviewed: false
+definition: >-
+  Builds product features and internal tools on top of foundation models (large language
+  models and other generative models). Core work: prompt and context design, retrieval-
+  augmented generation (RAG), choosing and adapting models (fine-tuning, distillation),
+  building evaluation sets and metrics for model output, and integrating model calls into
+  applications with attention to latency, cost and safety. Distinct from ML research
+  (training new model architectures) and from data science (analysis and classical ML).
+aliases:
+  - GenAI Engineer
+  - Gen AI Engineer
+  - Generative AI Engineer
+  - GenAI Developer
+  - Generative AI Developer
+  - LLM Engineer
+  - LLM Application Engineer
+  - AI Engineer
+  - Applied AI Engineer
+  - AI Engineer, Generative AI
+# Job-board pre-filter (case-insensitive regex on the title). Favours recall: the
+# classifier makes the precise call later.
+title_patterns:
+  - '\bgen(erative)?[\s-]?ai\b'
+  - '\bllms?\b'
+  - '\blarge language models?\b'
+  - '\b(applied )?ai engineer'
+  - '\bai developer\b'
+  - '\b(ml|machine learning) engineer'
+# Web research queries (blogs, docs, forums). {name} is replaced with the role name.
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'generative AI engineer real work challenges production'
+  - 'LLM engineer what I actually do at work'

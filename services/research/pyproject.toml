@@ -1,0 +1,29 @@
+[project]
+name = "firstweek-research"
+version = "0.1.0"
+description = "FirstWeek research pipeline: collect, clean and de-duplicate evidence about roles."
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "datasketch>=2.0.0",
+    "firstweek-core",
+    "httpx>=0.28.1",
+    "pyyaml>=6.0.3",
+    "rapidfuzz>=3.14.6",
+]
+
+[tool.uv.sources]
+firstweek-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "types-beautifulsoup4>=4.12.0.20250516",
+    "types-pyyaml>=6.0.12.20261030",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/firstweek_research"]
