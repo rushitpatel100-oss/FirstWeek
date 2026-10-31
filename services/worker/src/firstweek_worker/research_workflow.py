@@ -16,6 +16,7 @@ with workflow.unsafe.imports_passed_through():
         CollectOutcome,
         RoleRunInput,
         analyse_role,
+        check_code_version,
         collect_role,
     )
 
@@ -25,6 +26,9 @@ class DailyResearchInput:
     role_slugs: list[str]
     country: str = "GB"
     budget_usd_per_role: float = 1.0
+    # Set by a person starting a run by hand: the run stops at once if the worker's code
+    # differs. Scheduled runs leave it empty, since they always use the worker's own code.
+    expected_code: str | None = None
 
 
 @dataclass
@@ -53,6 +57,13 @@ class DailyResearchWorkflow:
     @workflow.run
     async def run(self, inp: DailyResearchInput) -> DailyResearchReport:
         report = DailyResearchReport()
+        if inp.expected_code:
+            await workflow.execute_activity(
+                check_code_version,
+                inp.expected_code,
+                start_to_close_timeout=timedelta(minutes=1),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+            )
         for slug in inp.role_slugs:
             role_input = RoleRunInput(slug, inp.country, inp.budget_usd_per_role)
             role = RoleReport(slug)

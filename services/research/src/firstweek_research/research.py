@@ -5,6 +5,8 @@ or extracted (for this extractor version) is never sent to a model again.
 """
 
 import asyncio
+import hashlib
+import json
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -46,6 +48,26 @@ from firstweek_research.store import seed_roles
 from firstweek_research.taxonomy import load_taxonomy, seed_taxonomy
 
 CONCURRENCY = 4
+
+
+def code_fingerprint() -> str:
+    """A short hash of everything that changes what research produces: prompt versions, role
+    definitions, title filters, the taxonomy and the job-board list. Two processes with the
+    same fingerprint make the same decisions; a worker with a different one is running older
+    (or newer) code than the command that started it."""
+    from firstweek_research.roles import load_title_filters
+    from firstweek_research.sources.boards import load_boards
+    from firstweek_research.taxonomy import load_taxonomy
+
+    state = {
+        "classifier": CLASSIFIER_VERSION,
+        "extractor": EXTRACTOR_VERSION,
+        "roles": {slug: r.definition_hash for slug, r in sorted(load_roles().items())},
+        "title_filters": load_title_filters(),
+        "taxonomy": [e.model_dump() for e in load_taxonomy().entries.values()],
+        "boards": [b.model_dump() for b in load_boards()],
+    }
+    return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()[:12]
 
 
 @dataclass
