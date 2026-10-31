@@ -354,7 +354,31 @@ def _search(query: str, slug: str | None, country: str, k: int) -> None:
             print(textwrap.fill(line, 96, initial_indent="   ", subsequent_indent="   "))
 
 
+def database_unreachable(exc: BaseException) -> str | None:
+    """One line instead of a traceback when Postgres isn't running (no credentials shown)."""
+    from sqlalchemy.engine import make_url
+    from sqlalchemy.exc import OperationalError
+
+    if not isinstance(exc, OperationalError) or "connection" not in str(exc.orig).lower():
+        return None
+    url = make_url(get_settings().database_url)
+    return (
+        f"Can't reach the database at {url.host}:{url.port or 5432} ({url.database}). "
+        "Start it with: docker compose up -d"
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
+    try:
+        _main(argv)
+    except Exception as exc:
+        if (message := database_unreachable(exc)) is None:
+            raise
+        print(message, file=sys.stderr)
+        sys.exit(1)
+
+
+def _main(argv: list[str] | None) -> None:
     parser = argparse.ArgumentParser(prog="firstweek_research")
     sub = parser.add_subparsers(dest="command", required=True)
 

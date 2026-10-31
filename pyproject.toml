@@ -4,10 +4,18 @@ version = "0.1.0"
 description = "FirstWeek: live your first week in a new AI role, grounded in real evidence."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+# Every workspace member, so a plain `uv run` installs what any of them needs: after a pull
+# that adds a dependency (fastembed, 2026-10-31), nobody has to remember `uv sync`.
+dependencies = ["firstweek-core", "firstweek-api", "firstweek-research", "firstweek-worker"]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+firstweek-core = { workspace = true }
+firstweek-api = { workspace = true }
+firstweek-research = { workspace = true }
+firstweek-worker = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/core", "apps/api", "services/research", "services/worker"]
