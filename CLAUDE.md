@@ -1,6 +1,6 @@
 # FirstWeek: notes for Claude
 
-FirstWeek turns any job title into an evidence-backed Role Reality Report and a five-day simulated project with AI colleagues. Portfolio project, built to production standards. The full build plan lives in the "AI Job Simulator: Portfolio Build Plan" doc.
+FirstWeek turns any job title into an evidence-backed Role Reality Report and a five-day simulated project with AI colleagues. Portfolio project, built to production standards. The full build plan lives in the "AI Job Simulator: Portfolio Build Plan" doc. In a new conversation, read `docs/handoff.md` first: where the project stands and what comes next.
 
 ## Ground rules
 
