@@ -1,7 +1,9 @@
 """Web evidence via Firecrawl search: engineering blogs, docs and practitioner forums.
 
 Tier 2 (blogs, docs) says how work is actually done; tier 3 (forums) says what the
-unglamorous parts are. Sites whose terms forbid scraping, and job boards, are excluded.
+unglamorous parts are. Sites whose terms forbid scraping, job boards and course sellers are
+excluded: a course seller's "what does an X do" page is written to sell a course, not to
+report the work (seen 2026-10-31: Udacity's catalogue cards outranking practitioners).
 """
 
 from typing import Any, Literal
@@ -38,6 +40,25 @@ EXCLUDED_DOMAINS = [
     "x.com",
     "twitter.com",
     "youtube.com",
+    # Course sellers and bootcamps (ADR 0012 addendum).
+    "udacity.com",
+    "coursera.org",
+    "udemy.com",
+    "edx.org",
+    "simplilearn.com",
+    "edureka.co",
+    "datacamp.com",
+    "codecademy.com",
+    "educative.io",
+    "mygreatlearning.com",
+    "upgrad.com",
+    "scaler.com",
+    "intellipaat.com",
+    "knowledgehut.com",
+    "careerfoundry.com",
+    "springboard.com",
+    "365datascience.com",
+    "emeritus.org",
 ]
 LICENCE = (
     "Public web page fetched via Firecrawl for research. Quote briefly, attribute the "
@@ -48,6 +69,11 @@ LICENCE = (
 def domain_of(url: str) -> str:
     host = (urlparse(url).hostname or "").lower()
     return host.removeprefix("www.").removeprefix("old.")
+
+
+def is_excluded(url: str) -> bool:
+    domain = domain_of(url)
+    return any(domain == d or domain.endswith("." + d) for d in EXCLUDED_DOMAINS)
 
 
 def tier_for(domain: str) -> Literal["blog", "forum"]:
@@ -63,9 +89,9 @@ def parse_search(data: dict[str, Any], query: str) -> list[WebDocument]:
         markdown = item.get("markdown") or ""
         if not url or len(markdown) < MIN_CHARS:
             continue
-        domain = domain_of(url)
-        if any(domain == d or domain.endswith("." + d) for d in EXCLUDED_DOMAINS):
+        if is_excluded(url):
             continue
+        domain = domain_of(url)
         docs.append(
             WebDocument(
                 url=url,

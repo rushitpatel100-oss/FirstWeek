@@ -22,16 +22,45 @@ from firstweek_core.db.models import EvidencePassage, JobPosting, Source
 from firstweek_core.db.session import session_scope
 from firstweek_core.llm import LLMGateway
 from firstweek_research.clean import content_hash
+from firstweek_research.sources.web import is_excluded
 from firstweek_research.stats import window_start
 
 MAX_CHARS = 900  # about 200 tokens: precise enough to cite, well inside the model's 512
-CHUNKER_VERSION = 1  # raise when the splitting rules change, so every source is re-chunked
+CHUNKER_VERSION = 2  # raise when the splitting rules change, so every source is re-chunked
+MIN_WORDS = 8  # shorter passages are leftovers ("Location: #LI-Remote"), not evidence
 EMBED_BATCH = 64  # passages per embedding call and per database commit
 WEB_TIERS = ("blog", "forum", "interview")  # evidence that is not a job posting
 _MAX_HEADING = 80
 
 _MD_HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*$")
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+# Markdown that web pages arrive in (via Firecrawl) but a reader of evidence never sees.
+_IMAGE = re.compile(r"!\[[^\]\n]*\]\([^)\n]*\)")
+_LINK = re.compile(r"\[([^\]\n]*)\]\([^)\n]*\)")
+_URL = re.compile(r"(?:https?://|www\.)\S+")
+_HTML_TAG = re.compile(r"</?[A-Za-z][^>\n]*>")
+_ESCAPE = re.compile(r"\\([\\`*_{}\[\]()#+\-.!|>])")
+_BULLET = re.compile(r"^[ \t]*[*+][ \t]+", flags=re.MULTILINE)
+_STRONG = re.compile(r"\*\*|`")
+_EMPHASIS = re.compile(r"(?<![\w*_])([*_])(?![\s*_])(.+?)(?<![\s*_])\1(?![\w*_])")
+
+
+def readable(text: str) -> str:
+    """The words a person reads on the page: images and bare URLs go, links become their
+    text, emphasis markers and HTML tags are dropped. A URL in an image name or link is not
+    evidence, and it made keyword search match passages that never mention the term."""
+    # Escaped characters ("snake\\_case") are literal: park them while markers are removed.
+    text = _ESCAPE.sub(lambda m: f"\x00{ord(m.group(1))}\x01", text)
+    text = _IMAGE.sub("", text)
+    text = _LINK.sub(lambda m: m.group(1), text)
+    text = _URL.sub("", text)
+    text = _HTML_TAG.sub("", text)
+    text = _BULLET.sub("- ", text)
+    text = _STRONG.sub("", text)
+    text = _EMPHASIS.sub(lambda m: m.group(2), text)
+    text = re.sub("\x00(\\d+)\x01", lambda m: chr(int(m.group(1))), text)
+    return "\n".join(re.sub(r"[ \t]{2,}", " ", line).strip() for line in text.splitlines())
 
 
 def _heading(line: str) -> str | None:
@@ -88,10 +117,11 @@ def _split_long(block: str, max_chars: int) -> list[str]:
 
 
 def chunk_text(text: str, max_chars: int = MAX_CHARS) -> list[str]:
-    """Paragraph-aware passages; each starts with the heading of its first section."""
+    """Paragraph-aware passages of readable text; each starts with the heading of its first
+    section. Passages under MIN_WORDS words are dropped."""
     units = [
         (heading, piece)
-        for heading, para in _paragraphs(text)
+        for heading, para in _paragraphs(readable(text))
         for piece in _split_long(para, max_chars - (len(heading) + 2 if heading else 0))
     ]
     passages: list[str] = []
@@ -111,7 +141,7 @@ def chunk_text(text: str, max_chars: int = MAX_CHARS) -> list[str]:
         current_heading = heading
     if current:
         passages.append(current)
-    return passages
+    return [p for p in passages if len(re.findall(r"\w+", p)) >= MIN_WORDS]
 
 
 def passage_key(text: str) -> str:
@@ -148,7 +178,7 @@ class IndexSummary:
 def _documents() -> list[_Doc]:
     """Postings contribute their role text (boilerplate already removed), and only while they
     can be in a sample: full text, not a duplicate, seen inside the window. Blogs, forums and
-    interviews contribute their cleaned content."""
+    interviews contribute their cleaned content, unless their site is excluded."""
     with session_scope() as session:
         postings = session.execute(
             select(JobPosting.source_id, JobPosting.text).where(
@@ -157,9 +187,13 @@ def _documents() -> list[_Doc]:
                 JobPosting.last_seen_at >= window_start(),
             )
         ).all()
-        pages = session.execute(
-            select(Source.id, Source.content).where(Source.tier.in_(WEB_TIERS))
-        ).all()
+        pages = [
+            (sid, content)
+            for sid, content, url in session.execute(
+                select(Source.id, Source.content, Source.url).where(Source.tier.in_(WEB_TIERS))
+            )
+            if not is_excluded(url)  # collected before its site was excluded
+        ]
     return [_Doc(sid, text) for sid, text in [*postings, *pages] if text and text.strip()]
 
 

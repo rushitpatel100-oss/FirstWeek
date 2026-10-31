@@ -25,6 +25,7 @@ from firstweek_research.stats import MATCH_CONFIDENCE, current_match, window_sta
 
 RRF_K = 60  # the standard constant: damps the advantage of rank 1 over rank 2
 POOL = 40  # candidates taken from each ranking before fusing
+PER_SOURCE = 2  # passages from any one source in a result list
 EF_SEARCH = 400  # vector-index neighbours examined per query (pgvector default: 40)
 
 
@@ -69,7 +70,9 @@ async def search(
     role_slug: str | None = None,
     country: str = "GB",
     k: int = 8,
+    per_source: int | None = PER_SOURCE,
 ) -> list[Hit]:
+    """The k best passages, at most per_source from any one source (None: no limit)."""
     embedded = await gateway.embed([query], kind="query", purpose="search-evidence")
     check_width(embedded, gateway.model_for("embedding"))
     [vector] = embedded
@@ -84,24 +87,37 @@ async def search(
         # The vector index filters after it searches: look at enough neighbours that a
         # role-scoped search still fills its pool.
         session.execute(text(f"SET LOCAL hnsw.ef_search = {EF_SEARCH}"))
-        base = select(EvidencePassage.id).join(Source, Source.id == EvidencePassage.source_id)
-        by_vector = session.scalars(
+        base = select(EvidencePassage.id, EvidencePassage.source_id).join(
+            Source, Source.id == EvidencePassage.source_id
+        )
+        by_vector = session.execute(
             base.where(allowed, EvidencePassage.embedding.is_not(None))
             .order_by(EvidencePassage.embedding.cosine_distance(vector))
             .limit(POOL)
         ).all()
-        by_keyword = session.scalars(
+        by_keyword = session.execute(
             base.where(allowed, EvidencePassage.tsv.op("@@")(tsquery))
             .order_by(func.ts_rank_cd(EvidencePassage.tsv, tsquery).desc())
             .limit(POOL)
         ).all()
-        ranks_v = {pid: i for i, pid in enumerate(by_vector, 1)}
-        ranks_k = {pid: i for i, pid in enumerate(by_keyword, 1)}
+        source_of = {pid: sid for pid, sid in [*by_vector, *by_keyword]}
+        ranks_v = {pid: i for i, (pid, _) in enumerate(by_vector, 1)}
+        ranks_k = {pid: i for i, (pid, _) in enumerate(by_keyword, 1)}
         scores = {
             pid: sum(1 / (RRF_K + r[pid]) for r in (ranks_v, ranks_k) if pid in r)
-            for pid in {*ranks_v, *ranks_k}
+            for pid in source_of
         }
-        top = sorted(scores, key=lambda pid: (-scores[pid], str(pid)))[:k]
+        # One long page must not crowd out every other source: evidence for a claim is
+        # stronger from several places than from several paragraphs of one.
+        top: list[uuid.UUID] = []
+        taken: dict[uuid.UUID, int] = {}
+        for pid in sorted(scores, key=lambda pid: (-scores[pid], str(pid))):
+            sid = source_of[pid]
+            if per_source is None or taken.get(sid, 0) < per_source:
+                top.append(pid)
+                taken[sid] = taken.get(sid, 0) + 1
+            if len(top) == k:
+                break
         rows = {
             p.id: (p, s)
             for p, s in session.execute(
