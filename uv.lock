@@ -639,6 +639,12 @@ wheels = [
 name = "firstweek"
 version = "0.1.0"
 source = { virtual = "." }
+dependencies = [
+    { name = "firstweek-api" },
+    { name = "firstweek-core" },
+    { name = "firstweek-research" },
+    { name = "firstweek-worker" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -650,6 +656,12 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [
+    { name = "firstweek-api", editable = "apps/api" },
+    { name = "firstweek-core", editable = "packages/core" },
+    { name = "firstweek-research", editable = "services/research" },
+    { name = "firstweek-worker", editable = "services/worker" },
+]
 
 [package.metadata.requires-dev]
 dev = [

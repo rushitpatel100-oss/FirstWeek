@@ -27,7 +27,8 @@ def _model(name: str, cache_dir: str) -> Any:
         from fastembed import TextEmbedding
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise RuntimeError(
-            "Local embeddings need the fastembed package, which comes with firstweek-research."
+            "Local embeddings need the fastembed package (part of firstweek-research). "
+            "Install it with: uv sync --all-packages"
         ) from exc
     return TextEmbedding(name, cache_dir=os.path.expanduser(cache_dir))
 
