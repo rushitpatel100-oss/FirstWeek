@@ -149,15 +149,17 @@ def _print_evaluation(repeats: int, budget: float, show: int) -> None:
         print("model, not as accuracy, until the disagreements below have been reviewed.")
     print(
         f"\n  {'role':<22}{'scored':>7}{'agree':>7}{'prec.':>7}{'recall':>7}{'F1':>7}"
-        f"{'unsure':>8}{'missing':>9}"
+        f"{'unsure':>8}{'missing':>9}{'by title':>10}"
     )
     for r in result.roles:
         print(
             f"  {r.role:<22}{r.scored:>7}{_pct(r.agreement):>7}{_pct(r.precision):>7}"
             f"{_pct(r.recall):>7}{_pct(r.f1):>7}{r.unsure:>8}{r.missing:>9}"
+            f"{r.by_title_filter:>10}"
         )
-    print('\n  "missing": labelled, but this database has no current decision for it (not')
-    print("  collected, outside the 6-month window, a duplicate, or not classified yet).")
+    print('\n  "missing": labelled, but this database cannot say (not collected, a duplicate,')
+    print('  outside the 6-month window, or not classified yet). "by title": scored postings')
+    print('  the title filter rejected before the model saw them; they count as "not counted".')
 
     pad = " " * 10
     for r in result.roles:
@@ -166,8 +168,9 @@ def _print_evaluation(repeats: int, budget: float, show: int) -> None:
         print(f"\n{r.role}: {len(r.disagreements)} disagreements (model vs label)")
         for d in r.disagreements[:show]:
             model = "counted" if d.counted else "not counted"
+            conf = "title filter" if d.confidence is None else f"{d.confidence:.2f}"
             mark = "" if d.checked else " (label unchecked)"
-            print(f"  model {model} ({d.confidence:.2f}), label {d.label}{mark}")
+            print(f"  model {model} ({conf}), label {d.label}{mark}")
             print(f"    {d.company} | {d.title}")
             for who, why in (("model", d.reason), ("label", d.note)):
                 print(textwrap.fill(f"{who}: {why}", 96, initial_indent=pad, subsequent_indent=pad))
@@ -185,7 +188,7 @@ def _print_evaluation(repeats: int, budget: float, show: int) -> None:
             return
         gateway = LLMGateway(settings=settings, recorder=record_to_db)
         print(f"\nStability: asking the classifier {repeats} more time(s) per posting...")
-        runs = asyncio.run(stability(gateway, repeats, budget_usd=budget))
+        runs = asyncio.run(stability(gateway, repeats, budget_usd=budget, progress=_progress))
         gateway.flush()
         for st in runs:
             print(

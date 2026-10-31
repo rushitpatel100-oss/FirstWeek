@@ -59,7 +59,7 @@ def _db() -> None:
         session.execute(delete(Source))
 
 
-def _posting(url: str, title: str) -> JobPosting:
+def _posting(url: str, title: str, *, duplicate: bool = False) -> JobPosting:
     with session_scope() as session:
         source = Source(
             url=url,
@@ -79,6 +79,7 @@ def _posting(url: str, title: str) -> JobPosting:
             company="Acme",
             country="GB",
             is_full_text=True,
+            is_duplicate=duplicate,
             text="Build LLM features with retrieval and evals.",
         )
         session.add(posting)
@@ -130,7 +131,13 @@ def test_evaluation_scores_stored_decisions_against_labels() -> None:
     _decide(_posting("https://x/fn", "C"), True, 0.4)  # labelled yes, too unsure to count
     _decide(_posting("https://x/tn", "D"), False, 0.9)  # labelled no, not counted
     _decide(_posting("https://x/unsure", "E"), True, 0.7)  # unsure label: reported only
-    _decide(_posting("https://x/stale", "G"), True, 0.9, stale=True)  # old definition
+    # A candidate whose only decision was made against an old definition: not decided yet.
+    _decide(_posting("https://x/stale", "Senior GenAI Engineer"), True, 0.9, stale=True)
+    # Never sent to the model: the title filter rejects them, so the pipeline said no.
+    _posting("https://x/filtered-yes", "Account Executive")
+    _posting("https://x/filtered-no", "Office Manager")
+    # A duplicate copy is never classified; its canonical copy is.
+    _posting("https://x/duplicate", "LLM Engineer", duplicate=True)
     labels = _labels(
         ("https://x/tp", "yes"),
         ("https://x/fp", "no"),
@@ -139,17 +146,28 @@ def test_evaluation_scores_stored_decisions_against_labels() -> None:
         ("https://x/unsure", "unsure"),
         ("https://x/never-collected", "yes"),
         ("https://x/stale", "no"),
+        ("https://x/filtered-yes", "yes"),
+        ("https://x/filtered-no", "no"),
+        ("https://x/duplicate", "yes"),
     )
 
     result = ev.evaluate(labels)
     genai = next(r for r in result.roles if r.role == "genai-engineer")
-    assert (genai.tp, genai.fp, genai.fn, genai.tn) == (1, 1, 1, 1)
-    assert genai.precision == genai.recall == genai.agreement == genai.f1 == 0.5
+    assert (genai.tp, genai.fp, genai.fn, genai.tn) == (1, 1, 2, 2)
+    assert genai.by_title_filter == 2
+    assert genai.agreement == 0.5 and genai.precision == 0.5
+    assert genai.recall == pytest.approx(1 / 3) and genai.f1 == pytest.approx(0.4)
     assert genai.unsure == 1 and genai.unsure_counted == 1
-    assert genai.missing == 2  # never collected, and only a stale decision
-    assert sorted(d.url for d in genai.disagreements) == ["https://x/fn", "https://x/fp"]
+    assert genai.missing == 3  # never collected, decided only under an old definition, duplicate
+    assert sorted(d.url for d in genai.disagreements) == [
+        "https://x/filtered-yes",
+        "https://x/fn",
+        "https://x/fp",
+    ]
     fp = next(d for d in genai.disagreements if d.url == "https://x/fp")
     assert fp.counted and fp.label == "no" and fp.reason == "model reason"
+    missed = next(d for d in genai.disagreements if d.url == "https://x/filtered-yes")
+    assert missed.confidence is None and missed.reason == ev.TITLE_FILTER_REASON
     other = next(r for r in result.roles if r.role == "agentic-ai-engineer")
     assert other.scored == 0  # these labels only cover GenAI Engineer
 
@@ -171,7 +189,11 @@ async def test_stability_reports_postings_whose_answer_changes(
 
     monkeypatch.setattr(ev, "classify", fake_classify)
     labels = _labels(("https://x/steady", "yes"), ("https://x/wobbly", "yes"))
-    runs = await ev.stability(fake_gateway(), repeats=2, budget_usd=1.0, labels=labels)
+    messages: list[str] = []
+    runs = await ev.stability(
+        fake_gateway(), repeats=2, budget_usd=1.0, labels=labels, progress=messages.append
+    )
+    assert "  genai-engineer: re-asking about 2 postings, 2 times each..." in messages
 
     genai = next(r for r in runs if r.role == "genai-engineer")
     assert genai.postings == 2

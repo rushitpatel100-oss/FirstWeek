@@ -11,6 +11,7 @@ Two questions:
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -27,7 +28,7 @@ from firstweek_core.db.session import session_scope
 from firstweek_core.llm import BudgetExceededError, LLMGateway, StructuredOutputError
 from firstweek_research.extract import CLASSIFIER_VERSION, PostingView, classify
 from firstweek_research.roles import RoleDefinition, load_roles
-from firstweek_research.stats import MATCH_CONFIDENCE, current_match
+from firstweek_research.stats import MATCH_CONFIDENCE, current_match, window_start
 
 Label = Literal["yes", "no", "unsure"]
 
@@ -65,6 +66,11 @@ def load_labels() -> LabelSet:
     return LabelSet(version=data["version"], labelled_on=data["labelled_on"], postings=postings)
 
 
+TITLE_FILTER_REASON = (
+    "Never sent to the classifier: the job title does not pass this role's title filter."
+)
+
+
 @dataclass(frozen=True)
 class Disagreement:
     company: str
@@ -72,7 +78,7 @@ class Disagreement:
     url: str
     label: Label
     counted: bool
-    confidence: float
+    confidence: float | None  # None when the title filter, not the classifier, decided
     reason: str
     note: str
     checked: bool
@@ -86,7 +92,8 @@ class RoleScore:
     fn: int = 0
     tn: int = 0
     unsure: int = 0
-    missing: int = 0  # labelled yes/no, but no current decision in this database
+    missing: int = 0  # labelled yes/no, but not decidable in this database (see _verdict)
+    by_title_filter: int = 0  # scored postings the title filter rejected before classifying
     disagreements: list[Disagreement] = field(default_factory=list)
     unsure_counted: int = 0  # unsure labels the classifier counted as the role
 
@@ -160,27 +167,47 @@ def _counted(match: PostingRoleMatch) -> bool:
     return match.is_match and match.confidence >= MATCH_CONFIDENCE
 
 
+def _verdict(role: RoleDefinition, found: _Stored | None) -> PostingRoleMatch | bool | None:
+    """What the pipeline decided for a labelled posting.
+
+    A stored decision; False when the posting is eligible but its title never passes the
+    role's title filter (the pipeline said no without asking the model); or None when this
+    database cannot say: not collected, a duplicate, outside the window, or not classified yet.
+    """
+    if found is None:
+        return None
+    if found.match is not None:
+        return found.match
+    p = found.posting
+    eligible = p.is_full_text and not p.is_duplicate and p.last_seen_at >= window_start()
+    if eligible and not role.title_matches(p.title):
+        return False
+    return None
+
+
 def evaluate(labels: LabelSet | None = None) -> Evaluation:
     labels = labels or load_labels()
     urls = [p.url for p in labels.postings]
     scores = []
-    for slug in sorted(load_roles()):
+    roles = load_roles()
+    for slug in sorted(roles):
         score = RoleScore(slug)
         stored = _decisions(slug, urls)
         for item in labels.postings:
             label = item.labels.get(slug)
             if label is None:
                 continue
-            found = stored.get(item.url)
-            match = found.match if found else None
+            verdict = _verdict(roles[slug], stored.get(item.url))
+            match = verdict if isinstance(verdict, PostingRoleMatch) else None
             if label == "unsure":
                 score.unsure += 1
                 score.unsure_counted += bool(match and _counted(match))
                 continue
-            if match is None:
+            if verdict is None:
                 score.missing += 1
                 continue
-            counted = _counted(match)
+            score.by_title_filter += match is None
+            counted = _counted(match) if match else False
             if label == "yes":
                 score.tp += counted
                 score.fn += not counted
@@ -195,8 +222,8 @@ def evaluate(labels: LabelSet | None = None) -> Evaluation:
                         url=item.url,
                         label=label,
                         counted=counted,
-                        confidence=match.confidence,
-                        reason=match.reason,
+                        confidence=match.confidence if match else None,
+                        reason=match.reason if match else TITLE_FILTER_REASON,
                         note=item.note,
                         checked=item.checked,
                     )
@@ -214,6 +241,7 @@ class Stability:
     postings: int = 0
     flipped: list[tuple[str, str, list[bool]]] = field(default_factory=list)
     failures: int = 0
+    checked: int = 0  # progress counter, including failures
 
     @property
     def flip_rate(self) -> float | None:
@@ -221,14 +249,21 @@ class Stability:
 
 
 async def stability(
-    gateway: LLMGateway, repeats: int, *, budget_usd: float, labels: LabelSet | None = None
+    gateway: LLMGateway,
+    repeats: int,
+    *,
+    budget_usd: float,
+    labels: LabelSet | None = None,
+    progress: Callable[[str], None] | None = None,
+    concurrency: int = 8,
 ) -> list[Stability]:
     """Re-asks the classifier `repeats` times per labelled posting and role. Nothing is stored."""
     labels = labels or load_labels()
     roles = load_roles()
     scope = f"eval-stability:{CLASSIFIER_VERSION}"
     gateway.budget(scope, Decimal(str(budget_usd)))
-    gate = asyncio.Semaphore(4)
+    gate = asyncio.Semaphore(concurrency)
+    report = progress or (lambda _: None)
 
     async def ask(role: RoleDefinition, view: PostingView) -> bool | None:
         async with gate:
@@ -238,26 +273,31 @@ async def stability(
                 return None
             return match.is_target_role and match.confidence >= MATCH_CONFIDENCE
 
+    async def recheck(s: _Stored, role: RoleDefinition, result: Stability, total: int) -> None:
+        p = s.posting
+        view = PostingView(str(p.id), str(p.source_id), p.title, p.company, p.text)
+        answers = await asyncio.gather(*(ask(role, view) for _ in range(repeats)))
+        result.checked += 1
+        if result.checked % 25 == 0:
+            report(f"    {result.checked}/{total}")
+        if any(a is None for a in answers) or s.match is None:
+            result.failures += 1
+            return
+        verdicts = [_counted(s.match), *(a for a in answers if a is not None)]
+        result.postings += 1
+        if len(set(verdicts)) > 1:
+            result.flipped.append((p.company or "?", p.title, verdicts))
+
     results = []
     for slug in sorted(roles):
         result = Stability(slug)
-        stored = {
-            url: s
-            for url, s in _decisions(slug, [p.url for p in labels.postings]).items()
+        decided = [
+            s
+            for s in _decisions(slug, [p.url for p in labels.postings]).values()
             if s.match is not None
-        }
-
-        for s in stored.values():
-            p = s.posting
-            view = PostingView(str(p.id), str(p.source_id), p.title, p.company, p.text)
-            answers = await asyncio.gather(*(ask(roles[slug], view) for _ in range(repeats)))
-            if any(a is None for a in answers):
-                result.failures += 1
-                continue
-            assert s.match is not None
-            verdicts = [_counted(s.match), *(a for a in answers if a is not None)]
-            result.postings += 1
-            if len(set(verdicts)) > 1:
-                result.flipped.append((p.company or "?", p.title, verdicts))
+        ]
+        report(f"  {slug}: re-asking about {len(decided)} postings, {repeats} times each...")
+        await asyncio.gather(*(recheck(s, roles[slug], result, len(decided)) for s in decided))
+        result.flipped.sort(key=lambda f: (f[0], f[1]))
         results.append(result)
     return results
