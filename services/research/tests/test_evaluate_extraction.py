@@ -27,11 +27,13 @@ def test_packaged_extraction_labels_use_known_slugs() -> None:
 
 
 def test_extraction_labels_cover_postings_judged_to_be_a_role() -> None:
-    # Extraction only runs on postings counted as a role, so labels go where it runs.
+    # Extraction only runs on postings counted as a role, so labels go where it runs. A
+    # posting later judged "unsure" keeps its extraction labels: the scorer simply skips
+    # postings this database never extracted.
     role_labels = {p.url: p for p in load_labels().postings}
     for p in xe.load_extraction_labels().postings:
         assert p.url in role_labels, p.url
-        assert "yes" in role_labels[p.url].labels.values(), p.url
+        assert {"yes", "unsure"} & set(role_labels[p.url].labels.values()), p.url
 
 
 # ---------------------------------------------------------------------- database

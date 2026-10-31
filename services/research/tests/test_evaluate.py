@@ -200,3 +200,38 @@ async def test_stability_reports_postings_whose_answer_changes(
     assert [title for _, title, _ in genai.flipped] == ["Wobbly"]
     assert genai.flipped[0][2] == [True, True, False]  # stored answer, then the two repeats
     assert calls == {"Steady": 2, "Wobbly": 2}
+
+
+def test_a_confirmation_can_cover_one_role_or_the_whole_posting() -> None:
+    whole = ev.LabelledPosting(
+        url="u1", company="c", title="t", labels={"genai-engineer": "yes"}, checked=True
+    )
+    one = ev.LabelledPosting(
+        url="u2",
+        company="c",
+        title="t",
+        labels={"genai-engineer": "no", "agentic-ai-engineer": "yes"},
+        checked=["agentic-ai-engineer"],
+    )
+    assert whole.checked_for("genai-engineer")
+    assert one.checked_for("agentic-ai-engineer") and not one.checked_for("genai-engineer")
+    result = ev.Evaluation(
+        "v", ev.LabelSet(version=1, labelled_on=date(2026, 10, 31), postings=[whole, one]), []
+    )
+    assert (result.checked_labels, result.total_labels) == (2, 3)
+
+
+def test_the_four_disagreements_rushit_settled_are_recorded() -> None:
+    # 2026-10-31: the first labels confirmed by a person, after the second evaluation.
+    confirmed = {
+        (p.title, r): p.labels[r]
+        for p in ev.load_labels().postings
+        for r in p.labels
+        if p.checked_for(r)
+    }
+    assert confirmed == {
+        ("Senior Backend Engineer, AI Engineering: Chat", "ai-software-engineer"): "no",
+        ("Senior Staff Software Engineer, Agentic Platform", "genai-engineer"): "no",
+        ("Senior Software Engineer — Infra Agent Systems UK", "genai-engineer"): "unsure",
+        ("Senior Machine Learning Engineer (Safety)", "ai-software-engineer"): "unsure",
+    }

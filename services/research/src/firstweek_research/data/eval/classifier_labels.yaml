@@ -16,6 +16,9 @@
 # (Sierra and Decagon agent engineers, Scale AI public sector); agent platforms count for
 # Agentic AI Engineer; Hudson River Trading's Applied AI Engineer is unsure for GenAI.
 #
+# checked: true when Rushit confirmed every label on a posting, or a list of the roles whose
+# labels he confirmed (for example after settling a disagreement).
+#
 # Sample (112 postings, 2026-10-31): every UK candidate from the 80 job boards except generic
 # "Machine Learning Engineer" titles, plus 15 of those with distinct titles.
 version: 1
@@ -56,11 +59,11 @@ postings:
   - url: https://job-boards.greenhouse.io/tide/jobs/7703992003
     company: "Careers at Tide"
     title: "Senior Staff Software Engineer, Agentic Platform"
-    genai-engineer: yes
+    genai-engineer: no
     agentic-ai-engineer: yes
     ai-software-engineer: yes
-    note: "Architects an agentic platform: context, orchestration, tool execution, trust controls and evaluation for AI systems across the company."
-    checked: false
+    note: "Architects an agentic platform: context, orchestration, tool execution, trust controls and evaluation. Rushit, 2026-10-31: not GenAI Engineer; platform architecture, not building GenAI product features."
+    checked: [genai-engineer]
   - url: https://job-boards.greenhouse.io/tide/jobs/7703991003
     company: "Careers at Tide"
     title: "Staff Software Engineer, Agentic Platform"
@@ -314,9 +317,9 @@ postings:
     title: "Senior Machine Learning Engineer (Safety)"
     genai-engineer: no
     agentic-ai-engineer: no
-    ai-software-engineer: yes
-    note: "As the previous Faculty role, in the safety unit; LLM work appears only among requirements."
-    checked: false
+    ai-software-engineer: unsure
+    note: "Production ML engineering in the safety unit, but the core may be safety evaluation of frontier models. Rushit, 2026-10-31: unsure for AI Software Engineer."
+    checked: [ai-software-engineer]
   - url: https://boards.greenhouse.io/figma/jobs/5551697004?gh_jid=5551697004
     company: "Figma"
     title: "Software Engineer - AI Product (London, United Kingdom)"
@@ -346,9 +349,9 @@ postings:
     title: "Senior Backend Engineer, AI Engineering: Chat"
     genai-engineer: unsure
     agentic-ai-engineer: yes
-    ai-software-engineer: yes
-    note: "Builds agentic flows (LangGraph, multi-agent orchestration) and backend features for an AI chat product; prompt and eval work is only implied."
-    checked: false
+    ai-software-engineer: no
+    note: "Builds agentic flows (LangGraph, multi-agent orchestration) and backend features for an AI chat product. Rushit, 2026-10-31: not AI Software Engineer; agent-building is the core, which the agreed boundary assigns to Agentic AI Engineer."
+    checked: [ai-software-engineer]
   - url: https://jobs.ashbyhq.com/granola/ed52eb55-cb81-4ed8-b97b-92b477876f9e
     company: "Granola"
     title: "AI Engineer (Core Harness)"
@@ -832,11 +835,11 @@ postings:
   - url: https://job-boards.greenhouse.io/togetherai/jobs/5222270007
     company: "Together AI"
     title: "Senior Software Engineer — Infra Agent Systems UK"
-    genai-engineer: yes
+    genai-engineer: unsure
     agentic-ai-engineer: yes
     ai-software-engineer: unsure
-    note: "Builds production AI agents for infrastructure operations and their platform: retrieval, knowledge graphs, orchestration and evaluation."
-    checked: false
+    note: "Builds production AI agents for infrastructure operations and their platform. Rushit, 2026-10-31: unsure for GenAI Engineer; LLM-specific craft is present but not clearly the core."
+    checked: [genai-engineer]
   - url: https://job-boards.greenhouse.io/togetherai/jobs/5214645007
     company: "Together AI"
     title: "Staff Software Engineer, Inference / Compute Infrastructure Engineering London or Amsterdam"

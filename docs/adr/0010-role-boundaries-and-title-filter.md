@@ -43,3 +43,15 @@ Also clarified: platforms that agents run on count for Agentic AI Engineer, and 
 - **Keep per-role title patterns and add the missed words:** this would keep losing recall to the next unexpected title, for savings of fractions of a penny.
 - **Let the roles overlap freely:** fewer disagreements, but AI Software Engineer and GenAI Engineer reports would show nearly the same postings, which tells a career switcher nothing.
 - **Classify into exactly one role per posting:** clean, but some jobs genuinely are two roles (for example, building an agent platform is both agentic and software work).
+
+## Result (2026-10-31, after re-classifying every posting)
+
+Same labels, revised to the new wording before the run:
+
+| Role | Agreement | Precision | Recall | Counted postings |
+|---|---|---|---|---|
+| Agentic AI Engineer | 97% → 100% | 89% → 100% | 94% → 100% | 21 → 18 |
+| GenAI Engineer | 97% → 98% | 100% → 100% | 79% → 85% | 17 → 15 |
+| AI Software Engineer | 80% → 98% | 50% → 100% | 50% → 89% | 25 → 33 |
+
+Re-classifying cost $0.68 for 243 postings per role. Four disagreements remained. Rushit settled them: two labels were wrong under the agreed boundaries, so they changed to "no", and two are genuinely unsure. They are the first labels a person has confirmed (`checked: [role]`). Extraction scores against its own labels were 86% precision and 87% recall (targets 85% and 75%).
