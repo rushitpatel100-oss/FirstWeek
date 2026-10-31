@@ -16,7 +16,7 @@ from firstweek_research.sources.boards import (
     parse_greenhouse,
     parse_lever,
 )
-from firstweek_research.sources.web import search_web
+from firstweek_research.sources.web import is_excluded, search_web
 
 GH = BoardConfig(company="Acme AI", ats="greenhouse", token="acme")
 LV = BoardConfig(company="Acme AI", ats="lever", token="acme")
@@ -124,3 +124,11 @@ async def test_web_search_tiers_results_and_filters_junk() -> None:
         ("engineering.example.com", "blog"),
         ("reddit.com", "forum"),
     ]
+
+
+def test_course_sellers_and_job_boards_are_not_evidence() -> None:
+    assert is_excluded("https://www.udacity.com/topic/what-is-an-agentic-ai-engineer")
+    assert is_excluded("https://blog.coursera.org/ai-engineer")  # subdomains too
+    assert is_excluded("https://uk.linkedin.com/jobs/view/1")
+    assert not is_excluded("https://dev.to/marianocodes/lessons-from-building-ai-agents")
+    assert not is_excluded("https://notudacity.com/post")  # a suffix match, not a substring

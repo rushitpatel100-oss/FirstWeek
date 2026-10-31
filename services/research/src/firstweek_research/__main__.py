@@ -332,11 +332,13 @@ def _index_evidence() -> None:
     )
 
 
-def _search(query: str, slug: str | None, country: str, k: int) -> None:
+def _search(query: str, slug: str | None, country: str, k: int, per_source: int | None) -> None:
     from firstweek_research.retrieve import search
 
     gateway = _gateway()
-    hits = asyncio.run(search(gateway, query, role_slug=slug, country=country, k=k))
+    hits = asyncio.run(
+        search(gateway, query, role_slug=slug, country=country, k=k, per_source=per_source)
+    )
     gateway.flush()
     if not hits:
         print("No passages found. Has `make index-evidence` been run?")
@@ -429,6 +431,9 @@ def _main(argv: list[str] | None) -> None:
     p_search.add_argument("--role", help="Only evidence for this role (and all web sources)")
     p_search.add_argument("--country", default="GB")
     p_search.add_argument("-k", type=int, default=8, help="Passages to show")
+    p_search.add_argument(
+        "--per-source", type=int, default=2, help="Most passages from one source (0: no limit)"
+    )
 
     args = parser.parse_args(argv)
     if args.command == "index-evidence":
@@ -436,7 +441,7 @@ def _main(argv: list[str] | None) -> None:
         return
     if args.command == "search":
         slug = _resolve_or_exit(args.role) if args.role else None
-        _search(args.query, slug, args.country.upper(), args.k)
+        _search(args.query, slug, args.country.upper(), args.k, args.per_source or None)
         return
     if args.command == "eval-extraction":
         _print_extraction_eval(args.show)

@@ -44,3 +44,11 @@ Question words are OR-ed (a passage need not contain every word of a question), 
 - The first run downloads the model (~65 MB) from Hugging Face; offline machines need it pre-cached.
 - Switching to a hosted or larger model is a settings change plus a migration for the vector width; the index then rebuilds itself.
 - The keyword side is English-only (`to_tsvector('english', ...)`), matching the UK-first scope. Other languages will need their own configuration.
+
+## Addendum (2026-10-31, after the first search on Rushit's data)
+
+The first real search, for "LangGraph" across postings and web pages, showed three problems, all now fixed:
+
+- **Markdown noise.** Web pages arrive as markdown. One Udacity passage matched "LangGraph" only through an image's file name, and a dev.to passage was nothing but a link written out twice. Passages now hold only the words a reader sees: images and bare URLs go, links become their text, and emphasis markers and HTML tags are dropped. Passages under 8 words ("Location: #LI-Remote") are not indexed. `CHUNKER_VERSION` 2 re-cuts every source.
+- **One source crowding out the rest.** Four of the top eight results came from one Udacity page. Search now returns at most 2 passages per source by default (`per_source`, `--per-source 0` for no limit), because a claim is better supported by several sources than by several paragraphs of one.
+- **Course sellers aren't evidence.** A course seller's "what does an X engineer do" page is written to sell a course; the same Udacity page listed an "AI Trading Strategies" Nanodegree. Udacity, Coursera, Udemy, edX and 14 other course and bootcamp sites join the excluded domains. Collection skips them, and pages already stored drop out of the index on its next run.

@@ -20,7 +20,7 @@ from firstweek_core.db.session import get_engine, session_scope
 from firstweek_core.llm import BudgetRegistry, LLMGateway
 from firstweek_core.llm.tracing import NoopTracer
 from firstweek_research import passages
-from firstweek_research.passages import MAX_CHARS, chunk_text, index_evidence
+from firstweek_research.passages import MAX_CHARS, chunk_text, index_evidence, readable
 
 LOCAL_MODEL = "local/BAAI/bge-small-en-v1.5"
 
@@ -74,14 +74,36 @@ def test_an_oversized_paragraph_splits_at_bullets_then_sentences() -> None:
     assert all(p.startswith("Sentence") and p.endswith(".") for p in passages)
 
 
-def test_a_single_huge_word_is_cut_as_a_last_resort() -> None:
-    assert [len(p) for p in chunk_text("x" * 250, max_chars=100)] == [100, 100, 50]
+def test_a_line_without_sentence_ends_is_cut_mid_sentence_as_a_last_resort() -> None:
+    passages = chunk_text("agents call tools and check results " * 15, max_chars=100)
+    assert len(passages) >= 5 and all(len(p) <= 100 for p in passages)
+
+
+def test_markdown_is_reduced_to_the_words_a_reader_sees() -> None:
+    page = (
+        "![](https://cdn.example/ai-agents-with-langgraph.jpg)\n\n"
+        "The tools are **[LangChain](https://www.langchain.com/)**, *LlamaIndex* and "
+        "`pgvector`; see https://example.com/post for more. Keep snake_case and __init__.\n\n"
+        "* first bullet\n+ second <br> bullet"
+    )
+    assert readable(page) == (
+        "\n\nThe tools are LangChain, LlamaIndex and pgvector; see for more. "
+        "Keep snake_case and __init__.\n\n- first bullet\n- second bullet"
+    )
+    # The image's file name mentioned LangGraph; the passage a reader would cite does not.
+    assert "langgraph" not in " ".join(chunk_text(page)).lower()
+
+
+def test_leftovers_too_short_to_be_evidence_are_dropped() -> None:
+    assert chunk_text("Worth reading: [https://techcrunch.com/a](https://techcrunch.com/a)") == []
+    assert chunk_text("Location: #LI-Remote") == []
+    assert chunk_text("PROCESS: Final interview with one of our Founding Engineers") != []
 
 
 def test_a_heading_ending_in_a_colon_is_not_doubled() -> None:
-    assert chunk_text("## Experimentation & Evaluation:\nRun experiments.") == [
-        "Experimentation & Evaluation: Run experiments."
-    ]
+    assert chunk_text(
+        "## Experimentation & Evaluation:\nRun experiments on every model we ship."
+    ) == ["Experimentation & Evaluation: Run experiments on every model we ship."]
 
 
 def test_headings_alone_make_no_passages() -> None:
@@ -181,10 +203,10 @@ def add_posting(
         return posting
 
 
-def add_page(content: str, tier: str = "blog") -> uuid.UUID:
+def add_page(content: str, tier: str = "blog", site: str = "blog.example") -> uuid.UUID:
     with session_scope() as session:
         source = Source(
-            url=f"https://blog.example/{uuid.uuid4().hex[:8]}",
+            url=f"https://{site}/{uuid.uuid4().hex[:8]}",
             tier=tier,
             provider="firecrawl",
             title="What an AI engineer does all day",
@@ -212,10 +234,12 @@ def passages_by_source() -> dict[uuid.UUID, list[EvidencePassage]]:
 @pytest.mark.usefixtures("_db")
 async def test_indexing_covers_current_evidence_only_and_is_incremental() -> None:
     live = add_posting(POSTING)
-    add_posting("A copy of another posting.", duplicate=True)
-    add_posting("An Adzuna snippet.", full_text=False)
-    add_posting("Closed long ago.", days_since_seen=300)
+    add_posting("A copy of another posting that also builds LLM agents daily.", duplicate=True)
+    add_posting("An Adzuna snippet about building LLM agents for a bank.", full_text=False)
+    add_posting("A role that closed long ago, building LLM agents for retail.", days_since_seen=300)
     page = add_page("# Notes\n\nMost days I write evals for our RAG pipeline in pgvector.")
+    # Collected before course sellers were excluded: it must not become evidence.
+    add_page("Agentic AI engineers build LLM agents; enrol in our Nanodegree.", site="udacity.com")
     embedder = CountingEmbedder()
     gateway = evidence_gateway(embedder)
 

@@ -44,7 +44,10 @@ async def evidence(_db: None) -> dict[str, str]:
     stale = add_posting("Score LLM output quality with evaluation pipelines every day.")
     _decide(stale, True, 0.9, stale=True)  # decided under an old definition
     page = add_page("## Evals\n\nWe store embeddings in pgvector and grade answers weekly.")
-    forum = add_page("Hiring managers ask about prompt injection.", tier="forum")
+    forum = add_page(
+        "Hiring managers often ask candidates about prompt injection and how to defend.",
+        tier="forum",
+    )
     await index_evidence(evidence_gateway())
     return {
         "counted": str(counted.source_id),
@@ -100,3 +103,22 @@ async def test_a_question_matches_on_most_of_its_words_not_all(
 @pytest.mark.db
 async def test_an_empty_index_returns_nothing(_db: None) -> None:
     assert await search(evidence_gateway(), "anything", role_slug=ROLE) == []
+
+
+@pytest.mark.db
+async def test_one_long_page_cannot_crowd_out_other_sources(evidence: dict[str, str]) -> None:
+    paragraph = "We run evaluation pipelines on LLM output quality every day, scoring {} " + (
+        "answers against rubrics and tracking regressions over time. " * 8
+    )
+    long_page = add_page("\n\n".join(paragraph.format(i) for i in range(5)))
+    await index_evidence(evidence_gateway())
+
+    hits = await search(evidence_gateway(), "evaluation pipelines LLM output quality", k=8)
+    from_page = [h for h in hits if h.source_id == long_page]
+    assert len(from_page) == 2  # the default cap
+    assert len({h.source_id for h in hits}) > 2
+
+    uncapped = await search(
+        evidence_gateway(), "evaluation pipelines LLM output quality", k=8, per_source=None
+    )
+    assert len([h for h in uncapped if h.source_id == long_page]) > 2
