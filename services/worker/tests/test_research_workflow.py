@@ -13,7 +13,12 @@ from temporalio.worker import Worker
 
 from firstweek_core.config import Settings
 from firstweek_worker import research_activities
-from firstweek_worker.research_activities import AnalyseOutcome, CollectOutcome, RoleRunInput
+from firstweek_worker.research_activities import (
+    AnalyseOutcome,
+    CollectOutcome,
+    EvidenceOutcome,
+    RoleRunInput,
+)
 from firstweek_worker.research_workflow import (
     DailyResearchInput,
     DailyResearchReport,
@@ -46,6 +51,16 @@ async def fake_analyse(inp: RoleRunInput) -> AnalyseOutcome:
     return AnalyseOutcome(inp.role_slug, classified=3, cost_usd=0.05, sample_size=12, version=4)
 
 
+@activity.defn(name="index_evidence")
+async def fake_index() -> EvidenceOutcome:
+    return EvidenceOutcome("local/BAAI/bge-small-en-v1.5", sources=40, indexed=6, passages_added=31)
+
+
+@activity.defn(name="index_evidence")
+async def broken_index() -> EvidenceOutcome:
+    raise ApplicationError("model download failed", non_retryable=True)
+
+
 async def _environment() -> WorkflowEnvironment:
     try:
         return await WorkflowEnvironment.start_time_skipping()
@@ -61,7 +76,7 @@ async def test_one_failing_role_does_not_stop_the_others() -> None:
             env.client,
             task_queue="research-test",
             workflows=[DailyResearchWorkflow],
-            activities=[fake_collect, fake_analyse],
+            activities=[fake_collect, fake_analyse, fake_index],
         ),
     ):
         report = await env.client.execute_workflow(
@@ -78,6 +93,30 @@ async def test_one_failing_role_does_not_stop_the_others() -> None:
     for slug in ("agentic-ai-engineer", "genai-engineer"):
         assert by_role[slug].analysed is not None and by_role[slug].error is None
     assert report.cost_usd == pytest.approx(0.10)
+    # The evidence index is brought up to date once, after every role, whatever happened.
+    assert report.evidence is not None and report.evidence.indexed == 6
+    assert report.evidence_error is None
+
+
+async def test_a_failed_index_is_reported_without_losing_the_research() -> None:
+    env = await _environment()
+    async with (
+        env,
+        Worker(
+            env.client,
+            task_queue="research-test",
+            workflows=[DailyResearchWorkflow],
+            activities=[fake_collect, fake_analyse, broken_index],
+        ),
+    ):
+        report = await env.client.execute_workflow(
+            DailyResearchWorkflow.run,
+            DailyResearchInput(["genai-engineer"]),
+            id=f"research-{uuid.uuid4()}",
+            task_queue="research-test",
+        )
+    assert report.roles[0].analysed is not None
+    assert report.evidence is None and "download failed" in (report.evidence_error or "")
 
 
 @pytest.mark.parametrize(("expected", "runs"), [("abc123", True), ("old999", False)])
@@ -95,7 +134,7 @@ async def test_a_run_started_by_hand_stops_if_the_worker_code_differs(
             env.client,
             task_queue="research-test",
             workflows=[DailyResearchWorkflow],
-            activities=[fake_check_code, fake_collect, fake_analyse],
+            activities=[fake_check_code, fake_collect, fake_analyse, fake_index],
         ),
     ):
         start = env.client.execute_workflow(
@@ -154,3 +193,25 @@ async def test_collect_activity_reports_counts_and_heartbeats(
     assert (outcome.new, outcome.updated) == (3, 1)
     assert outcome.errors == ["board:Acme: 404"] and outcome.skipped == ["web: no key"]
     assert beats == [("Fetching 80 company job boards...",)]
+
+
+async def test_index_activity_reports_the_summary_and_heartbeats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from firstweek_research.passages import IndexSummary
+
+    async def fake_run_index(gateway: Any, **kwargs: Any) -> IndexSummary:
+        kwargs["progress"]("Indexing evidence...")
+        return IndexSummary(gateway.model_for("embedding"), sources=9, indexed=2, passages_added=11)
+
+    monkeypatch.setattr(research_activities, "run_index_evidence", fake_run_index)
+    monkeypatch.setattr(research_activities, "get_settings", lambda: Settings(_env_file=None))
+    monkeypatch.setattr(research_activities, "record_to_db", lambda _record: None)
+    beats: list[Any] = []
+    env = ActivityEnvironment()
+    env.on_heartbeat = lambda *details: beats.append(details)
+    outcome = await env.run(research_activities.index_evidence)
+    assert outcome == EvidenceOutcome(
+        "local/BAAI/bge-small-en-v1.5", sources=9, indexed=2, passages_added=11
+    )
+    assert beats == [("Indexing evidence...",)]

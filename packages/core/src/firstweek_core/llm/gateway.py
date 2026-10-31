@@ -5,6 +5,7 @@ cost accounting from our own price table, structured output with validation
 retries, tracing, and a record of every call.
 """
 
+import asyncio
 import json
 import re
 import time
@@ -17,10 +18,11 @@ from pydantic import BaseModel, ValidationError
 
 from firstweek_core.config import Settings, get_settings
 from firstweek_core.llm.budget import Budget, BudgetExceededError, BudgetRegistry
+from firstweek_core.llm.local_embeddings import EmbedKind, embed_local
 from firstweek_core.llm.pricing import cost_usd
 from firstweek_core.llm.tracing import Tracer, default_tracer
 
-Tier = Literal["frontier", "mid", "small", "judge"]
+Tier = Literal["frontier", "mid", "small", "judge", "embedding"]
 Message = dict[str, str]
 CompletionFn = Callable[..., Awaitable[Any]]
 
@@ -30,6 +32,7 @@ DOWNGRADE: dict[Tier, Tier | None] = {
     "mid": "small",
     "small": None,
     "judge": None,
+    "embedding": None,
 }
 
 CHARS_PER_TOKEN = 3  # deliberately pessimistic, so pre-call estimates overshoot
@@ -76,6 +79,7 @@ class LLMResult[T]:
 
 
 Recorder = Callable[[CallRecord], None]
+EmbedFn = Callable[[str, list[str], EmbedKind, str], list[list[float]]]
 
 
 def estimate_tokens(messages: list[Message]) -> int:
@@ -94,6 +98,7 @@ class LLMGateway:
     tracer: Tracer | None = None
     recorder: Recorder | None = None
     budgets: BudgetRegistry | None = None
+    embed_fn: EmbedFn | None = None  # local embedder; tests inject a fake
 
     def __post_init__(self) -> None:
         self.settings.export_credentials()
@@ -114,6 +119,7 @@ class LLMGateway:
             "mid": self.settings.model_mid,
             "small": self.settings.model_small,
             "judge": self.settings.model_judge,
+            "embedding": self.settings.model_embedding,
         }[tier]
 
     def _choose_tier(
@@ -321,6 +327,77 @@ class LLMGateway:
             f"{purpose}: no valid {response_model.__name__} after "
             f"{attempt} attempts. Last error: {last_error}"
         )
+
+    async def embed(
+        self,
+        texts: list[str],
+        *,
+        kind: EmbedKind,
+        purpose: str,
+        budget_scope: str = "default",
+    ) -> list[list[float]]:
+        """Embeddings for a batch of texts, recorded as one call.
+
+        "local/<name>" models run on this machine for free; other model strings go through
+        LiteLLM and are budget-checked and priced like any other call."""
+        assert self.budgets is not None
+        model = self.model_for("embedding")
+        budget = self.budgets.get(budget_scope)
+        started = time.perf_counter()
+        tokens_in = sum(len(t) for t in texts) // CHARS_PER_TOKEN
+        cost = Decimal(0)
+        try:
+            if model.startswith("local/"):
+                embed_fn = self.embed_fn or embed_local
+                vectors = await asyncio.to_thread(
+                    embed_fn,
+                    model.removeprefix("local/"),
+                    texts,
+                    kind,
+                    self.settings.model_cache_dir,
+                )
+            else:
+                import litellm
+
+                budget.ensure(cost_usd(model, tokens_in, 0))
+                response = await litellm.aembedding(model=model, input=texts)
+                vectors = [list(item["embedding"]) for item in response.data]
+                tokens_in = int(getattr(response.usage, "prompt_tokens", tokens_in) or tokens_in)
+                cost = cost_usd(model, tokens_in, 0)
+                budget.record(cost, tokens_in, 0)
+        except Exception as exc:
+            latency = int((time.perf_counter() - started) * 1000)
+            self._record(
+                purpose,
+                "embedding",
+                model,
+                budget_scope,
+                None,
+                0,
+                0,
+                Decimal(0),
+                latency,
+                False,
+                str(exc),
+                None,
+            )
+            raise
+        latency = int((time.perf_counter() - started) * 1000)
+        self._record(
+            purpose,
+            "embedding",
+            model,
+            budget_scope,
+            None,
+            tokens_in,
+            0,
+            cost,
+            latency,
+            True,
+            None,
+            None,
+        )
+        return vectors
 
     def flush(self) -> None:
         if self.tracer is not None:

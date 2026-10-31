@@ -7,16 +7,23 @@ python -m firstweek_research review-skills
 python -m firstweek_research review-matches --role "GenAI Engineer"
 python -m firstweek_research eval-classifier [--repeats 2]
 python -m firstweek_research eval-extraction
+python -m firstweek_research index-evidence
+python -m firstweek_research search "how is LLM output evaluated" [--role "GenAI Engineer"]
 """
 
 import argparse
 import asyncio
 import sys
+import textwrap
+from typing import TYPE_CHECKING
 
 from firstweek_core.config import get_settings
 from firstweek_research.collect import CollectSummary, run_collect
 from firstweek_research.research import ResearchResult, run_research
 from firstweek_research.roles import load_roles, resolve_role
+
+if TYPE_CHECKING:
+    from firstweek_core.llm import LLMGateway
 
 
 def _resolve_or_exit(title: str) -> str:
@@ -306,6 +313,47 @@ def _print_unmapped(limit: int) -> None:
         print(f"  {row.n:>4}  {row.kind:<6} {row.raw_text}")
 
 
+def _gateway() -> "LLMGateway":
+    from firstweek_core.llm import LLMGateway
+    from firstweek_core.llm.recorder import record_to_db
+
+    return LLMGateway(settings=get_settings(), recorder=record_to_db)
+
+
+def _index_evidence() -> None:
+    from firstweek_research.passages import index_evidence
+
+    gateway = _gateway()
+    s = asyncio.run(index_evidence(gateway, progress=_progress))
+    gateway.flush()
+    print(
+        f"\n{s.sources} sources: {s.indexed} indexed ({s.passages_added:,} passages), "
+        f"{s.unchanged} unchanged, {s.sources_removed} removed (no longer evidence)."
+    )
+
+
+def _search(query: str, slug: str | None, country: str, k: int) -> None:
+    from firstweek_research.retrieve import search
+
+    gateway = _gateway()
+    hits = asyncio.run(search(gateway, query, role_slug=slug, country=country, k=k))
+    gateway.flush()
+    if not hits:
+        print("No passages found. Has `make index-evidence` been run?")
+        return
+    for i, h in enumerate(hits, 1):
+        found = ", ".join(
+            f"{how} #{rank}"
+            for how, rank in (("meaning", h.vector_rank), ("words", h.keyword_rank))
+            if rank is not None
+        )
+        print(f"\n{i}. [{h.tier}] {h.publisher or ''} | {h.title or h.url}  ({found})")
+        print(f"   {h.url}")
+        body = h.text if len(h.text) <= 400 else h.text[:400].rsplit(" ", 1)[0] + " ..."
+        for line in body.splitlines():
+            print(textwrap.fill(line, 96, initial_indent="   ", subsequent_indent="   "))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="firstweek_research")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -350,7 +398,22 @@ def main(argv: list[str] | None = None) -> None:
     p_xeval = sub.add_parser("eval-extraction", help="Score extraction against hand labels")
     p_xeval.add_argument("--show", type=int, default=10, help="Worst postings to list")
 
+    sub.add_parser("index-evidence", help="Split sources into passages and embed them")
+
+    p_search = sub.add_parser("search", help="Find evidence passages by meaning and keywords")
+    p_search.add_argument("query")
+    p_search.add_argument("--role", help="Only evidence for this role (and all web sources)")
+    p_search.add_argument("--country", default="GB")
+    p_search.add_argument("-k", type=int, default=8, help="Passages to show")
+
     args = parser.parse_args(argv)
+    if args.command == "index-evidence":
+        _index_evidence()
+        return
+    if args.command == "search":
+        slug = _resolve_or_exit(args.role) if args.role else None
+        _search(args.query, slug, args.country.upper(), args.k)
+        return
     if args.command == "eval-extraction":
         _print_extraction_eval(args.show)
         return

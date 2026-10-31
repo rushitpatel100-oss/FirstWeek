@@ -1,6 +1,8 @@
-"""DailyResearchWorkflow: collect, then analyse, each golden role in turn.
+"""DailyResearchWorkflow: collect, then analyse, each golden role in turn; then bring the
+evidence index up to date for everything collected.
 
-One role failing never stops the others; the report says what happened to each.
+One role failing never stops the others, and indexing runs whatever happened to them: the
+report says what happened to each step.
 """
 
 from dataclasses import dataclass, field
@@ -14,10 +16,12 @@ with workflow.unsafe.imports_passed_through():
     from firstweek_worker.research_activities import (
         AnalyseOutcome,
         CollectOutcome,
+        EvidenceOutcome,
         RoleRunInput,
         analyse_role,
         check_code_version,
         collect_role,
+        index_evidence,
     )
 
 
@@ -42,6 +46,8 @@ class RoleReport:
 @dataclass
 class DailyResearchReport:
     roles: list[RoleReport] = field(default_factory=list)
+    evidence: EvidenceOutcome | None = None
+    evidence_error: str | None = None
 
     @property
     def cost_usd(self) -> float:
@@ -94,4 +100,15 @@ class DailyResearchWorkflow:
                 )
             except ActivityError as exc:
                 role.error = f"analyse: {_cause(exc)}"
+        try:
+            report.evidence = await workflow.execute_activity(
+                index_evidence,
+                start_to_close_timeout=timedelta(minutes=30),
+                heartbeat_timeout=timedelta(minutes=5),
+                retry_policy=RetryPolicy(
+                    initial_interval=timedelta(seconds=30), maximum_attempts=2
+                ),
+            )
+        except ActivityError as exc:
+            report.evidence_error = _cause(exc)
         return report

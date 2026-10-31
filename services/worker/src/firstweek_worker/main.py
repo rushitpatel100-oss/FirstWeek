@@ -13,6 +13,7 @@ from firstweek_worker.research_activities import (
     analyse_role,
     check_code_version,
     collect_role,
+    index_evidence,
 )
 from firstweek_worker.research_workflow import DailyResearchWorkflow
 from firstweek_worker.schedules import ensure_daily_research
@@ -26,6 +27,7 @@ ACTIVITIES: list[Callable[..., Any]] = [
     check_code_version,
     collect_role,
     analyse_role,
+    index_evidence,
 ]
 
 

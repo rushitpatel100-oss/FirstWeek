@@ -39,6 +39,14 @@ def print_report(report: DailyResearchReport) -> None:
                 print(f"    failed: {line}")
         if role.error:
             print(f"  error: {role.error}")
+    if report.evidence:
+        e = report.evidence
+        print(
+            f"\nevidence index: {e.indexed} of {e.sources} sources (re)indexed, "
+            f"{e.passages_added:,} passages, {e.sources_removed} removed ({e.model})"
+        )
+    if report.evidence_error:
+        print(f"\nevidence index error: {report.evidence_error}")
     print(f"\nTotal model cost: ${report.cost_usd:.4f}")
 
 
