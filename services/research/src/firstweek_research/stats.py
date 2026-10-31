@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy.orm import Session
 
 from firstweek_core.contracts import ArchetypeStats, SalaryStat, SkillStat
@@ -94,6 +94,14 @@ def _title_key(title: str) -> str:
     return " ".join(re.sub(r"[^\w]+", " ", text).split())
 
 
+def current_match(role: RoleDefinition) -> ColumnElement[bool]:
+    """Decisions made by the current classifier against the role's current definition."""
+    return and_(
+        PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+        PostingRoleMatch.definition_hash == role.definition_hash,
+    )
+
+
 def one_per_employer_title(postings: list[JobPosting]) -> list[JobPosting]:
     """Keeps the most recent posting for each (employer, title)."""
     best: dict[tuple[str, str], JobPosting] = {}
@@ -116,7 +124,7 @@ def compute_stats(
                 JobPosting.is_duplicate.is_(False),
                 JobPosting.is_full_text.is_(True),
                 PostingRoleMatch.archetype_id == archetype_id,
-                PostingRoleMatch.classifier_version == CLASSIFIER_VERSION,
+                current_match(role),
                 PostingRoleMatch.is_match.is_(True),
                 PostingRoleMatch.confidence >= MATCH_CONFIDENCE,
                 ExtractionRun.extractor_version == EXTRACTOR_VERSION,
@@ -188,6 +196,7 @@ def compute_stats(
         unmapped_terms=len(unmapped),
         classifier_version=CLASSIFIER_VERSION,
         extractor_version=EXTRACTOR_VERSION,
+        definition_hash=role.definition_hash,
     )
 
 

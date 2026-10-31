@@ -131,6 +131,24 @@ async def test_interrupted_run_keeps_what_it_paid_for(monkeypatch: pytest.Monkey
     assert resumed.classified == 1  # only the one that was lost
 
 
+async def test_changing_a_definition_re_checks_every_posting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("firstweek_research.collect.asyncio.sleep", _no_sleep)
+    first = await _run()
+    assert first.classified == 2
+
+    from firstweek_research.roles import RoleDefinition
+
+    monkeypatch.setattr(RoleDefinition, "definition_hash", property(lambda _: "edited00edited00"))
+    second = await _run(collect=False)
+    assert second.classified == 2  # decisions against the old wording are not reused
+    assert second.extracted == 0  # extraction does not depend on the definition
+    assert second.stats is not None and second.stats.definition_hash == "edited00edited00"
+    with session_scope() as session:
+        assert session.scalar(select(func.count()).select_from(PostingRoleMatch)) == 4
+
+
 async def test_match_review_lists_decisions_and_unclassified(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -143,3 +143,6 @@ class ArchetypeStats(BaseModel):
     unmapped_terms: int = Field(ge=0, description="Labels not yet in the skills taxonomy")
     classifier_version: str
     extractor_version: str
+    definition_hash: str | None = Field(
+        default=None, description="Version of the role definition the sample was judged against"
+    )

@@ -169,7 +169,13 @@ class PostingRoleMatch(IdMixin, TimestampMixin, Base):
 
     __tablename__ = "posting_role_matches"
     __table_args__ = (
-        UniqueConstraint("posting_id", "archetype_id", "classifier_version"),
+        UniqueConstraint(
+            "posting_id",
+            "archetype_id",
+            "classifier_version",
+            "definition_hash",
+            name="uq_posting_role_matches_decision",
+        ),
         CheckConstraint("confidence >= 0 AND confidence <= 1", name="confidence_range"),
     )
 
@@ -183,6 +189,9 @@ class PostingRoleMatch(IdMixin, TimestampMixin, Base):
     confidence: Mapped[float] = mapped_column(Float)
     reason: Mapped[str] = mapped_column(Text)
     classifier_version: Mapped[str] = mapped_column(String(64))
+    definition_hash: Mapped[str | None] = mapped_column(
+        String(16), comment="Role definition the decision was made against; NULL before 2026-10-31"
+    )
     model: Mapped[str] = mapped_column(String(128))
 
 
