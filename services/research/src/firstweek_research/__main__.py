@@ -6,6 +6,7 @@ python -m firstweek_research research --role "GenAI Engineer"
 python -m firstweek_research review-skills
 python -m firstweek_research review-matches --role "GenAI Engineer"
 python -m firstweek_research eval-classifier [--repeats 2]
+python -m firstweek_research eval-extraction
 """
 
 import argparse
@@ -201,6 +202,64 @@ def _print_evaluation(repeats: int, budget: float, show: int) -> None:
                 print(f"      {company} | {title}: {answers}")
 
 
+def _print_extraction_eval(show: int) -> None:
+    from firstweek_research.evaluate_extraction import (
+        PRECISION_TARGET,
+        RECALL_TARGET,
+        evaluate_extraction,
+    )
+
+    result = evaluate_extraction()
+    labels = result.labels
+    print(
+        f"Extractor {result.extractor_version} against {len(labels.postings)} hand-labelled "
+        f"postings (labelled {labels.labelled_on}; {result.checked} checked by a person)."
+    )
+    if result.checked < len(labels.postings) / 2:
+        print("Most labels are unchecked drafts: read these as agreement with a second model.")
+    print(f"Scored {len(result.postings)}; {len(result.missing)} not extracted in this database.")
+    if not result.postings:
+        print("Nothing to score yet: run make research-now first.")
+        return
+
+    def mark(value: float | None, target: float) -> str:
+        return "" if value is None else ("  meets target" if value >= target else "  below target")
+
+    print(f"\n  {'':<8}{'found':>7}{'labelled':>10}{'prec.':>8}{'recall':>8}{'F1':>7}")
+    for name, kind in (("all", None), ("skills", "skill"), ("tools", "tool")):
+        r = result.rates(kind)
+        print(
+            f"  {name:<8}{r.predicted:>7}{r.gold:>10}{_pct(r.precision):>8}"
+            f"{_pct(r.recall):>8}{_pct(r.f1):>7}"
+        )
+    overall = result.rates()
+    p_mark = mark(overall.precision, PRECISION_TARGET)
+    r_mark = mark(overall.recall, RECALL_TARGET)
+    print(
+        f"\n  Targets: precision {PRECISION_TARGET:.0%}{p_mark}; recall {RECALL_TARGET:.0%}{r_mark}"
+    )
+    correct, scored = result.seniority
+    if scored:
+        print(f"  Seniority: {correct} of {scored} correct ({correct / scored:.0%})")
+
+    print("\n  Most often missed:  " + ", ".join(f"{s} ({n})" for s, n in result.most_missed()))
+    print("  Most often extra:   " + ", ".join(f"{s} ({n})" for s, n in result.most_extra()))
+    print(
+        "\nWorst-matching postings (missed = labelled but not found; extra = found, not labelled):"
+    )
+    for p in sorted(result.postings, key=lambda p: p.f1)[:show]:
+        level = ""
+        if p.seniority_gold and p.seniority_predicted not in p.seniority_gold:
+            level = f"; seniority {p.seniority_predicted} (label: {'/'.join(p.seniority_gold)})"
+        print(f"  F1 {p.f1:.0%}  {p.company} | {p.title}{level}")
+        if p.missed:
+            print(f"      missed: {', '.join(sorted(p.missed))}")
+        if p.extra:
+            print(f"      extra:  {', '.join(sorted(p.extra))}")
+        if p.unmapped:
+            print(f"      not in taxonomy: {', '.join(p.unmapped[:8])}")
+
+
 def _print_unmapped(limit: int) -> None:
     from sqlalchemy import func, select
 
@@ -261,7 +320,13 @@ def main(argv: list[str] | None = None) -> None:
     p_eval.add_argument("--budget", type=float, default=1.0, help="Spend cap for --repeats, USD")
     p_eval.add_argument("--show", type=int, default=15, help="Disagreements to list per role")
 
+    p_xeval = sub.add_parser("eval-extraction", help="Score extraction against hand labels")
+    p_xeval.add_argument("--show", type=int, default=10, help="Worst postings to list")
+
     args = parser.parse_args(argv)
+    if args.command == "eval-extraction":
+        _print_extraction_eval(args.show)
+        return
     if args.command == "review-skills":
         _print_unmapped(args.limit)
         return

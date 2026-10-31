@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills review-matches research-now eval-classifier
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills review-matches research-now eval-classifier eval-extraction
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -71,6 +71,9 @@ review-matches: ## Show each posting's classifier decision and reason: make revi
 
 eval-classifier: ## Score the classifier against hand labels; add repeats=2 to measure stability (costs ~$0.30)
 	uv run python -m firstweek_research eval-classifier --repeats $(or $(repeats),0)
+
+eval-extraction: ## Score skill, tool and seniority extraction against hand labels (free)
+	uv run python -m firstweek_research eval-extraction
 
 research-now: ## Run the daily research workflow for every golden role now (needs make up)
 	uv run python -m firstweek_worker.run_research_now

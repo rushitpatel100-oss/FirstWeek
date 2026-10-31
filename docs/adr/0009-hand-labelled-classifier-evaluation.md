@@ -27,3 +27,12 @@ Every number in a Role Reality Report depends on the classifier's yes or no: is 
 - **No labels, only reading reasons:** no number to track, and no way to compare prompt versions.
 - **A second model as judge on every run:** cheaper for a person, but it measures agreement between models. That is what the unchecked drafts are; human checking is what turns them into a reference.
 - **Labelling only GenAI Engineer:** faster, but the three roles overlap, and most hard cases sit on the boundaries between them.
+
+## Addendum, 2026-10-31: extraction labels
+
+The same approach covers the extraction step (`data/eval/extraction_labels.yaml`, `make eval-extraction`). It has 37 postings, every labelled posting judged to be at least one golden role, because extraction only runs on those. Each posting lists the taxonomy entries it asks for (642 in total), plus the seniority levels that would count as correct for 28 of them. "Staff" is accepted as lead or principal.
+
+- **Scored per taxonomy entry, not per extracted line**, because entries are what the statistics count. Labels the taxonomy doesn't know are listed for review, never scored.
+- **The rule matches the extractor's prompt:** requirements, nice-to-haves and responsibilities count; company descriptions, benefits, scam notices, products the job only integrates with, and "any language is fine" examples don't. A team's tech-stack list counts.
+- **Targets come from the build plan:** precision 0.85 or more, recall 0.75 or more.
+- **Drafting method:** a term matcher found every taxonomy term in each posting with a snippet. Claude then kept only real requirements and added skills described in other words, reading each posting's responsibilities and requirements sections. This is cheaper than reading 37 full postings, but a skill described in unusual words outside those sections may be missing from a label. Checking catches that.
