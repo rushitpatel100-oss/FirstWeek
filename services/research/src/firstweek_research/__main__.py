@@ -357,15 +357,45 @@ def _search(query: str, slug: str | None, country: str, k: int, per_source: int 
             print(textwrap.fill(line, 96, initial_indent="   ", subsequent_indent="   "))
 
 
-def _report(slug: str, budget: float, out: str | None) -> None:
-    from firstweek_research.report import NoStatisticsError, draft_report, to_markdown
+def judge_problem(model: str) -> str | None:
+    """Why the verifier can't run, before any money is spent on the draft."""
+    if model.startswith("anthropic/"):
+        return (
+            f"MODEL_JUDGE is {model}, but the verifier must come from another model family "
+            "than the writer (Claude). Set MODEL_JUDGE in .env to an OpenAI or Google model."
+        )
+    if model.startswith("openai/") and get_settings().openai_api_key is None:
+        return (
+            f"Set OPENAI_API_KEY in .env: the verifier ({model}) checks Claude's claims from "
+            "another model family. Or add --no-verify for an unverified draft."
+        )
+    return None
+
+
+def _report(slug: str, budget: float, out: str | None, verify: bool = True) -> None:
+    from firstweek_research.report import NoStatisticsError, ReportDraft, draft_report, to_markdown
+    from firstweek_research.verify import VERIFIER_TIER, store_report, verify_report
 
     if get_settings().anthropic_api_key is None:
         print("Set ANTHROPIC_API_KEY in .env first: the report is written by Claude.")
         sys.exit(1)
     gateway = _gateway()
+    if verify and (problem := judge_problem(gateway.model_for(VERIFIER_TIER))):
+        print(problem)
+        sys.exit(1)
+
+    async def run() -> tuple[ReportDraft, BaseException | None]:
+        draft = await draft_report(gateway, slug, budget_usd=budget, progress=_progress)
+        if not verify:
+            return draft, None
+        _progress(f"Checking every claim with {gateway.model_for(VERIFIER_TIER)}...")
+        try:
+            return await verify_report(gateway, draft), None
+        except Exception as exc:  # keep the paid-for draft, then report the failure
+            return draft, exc
+
     try:
-        draft = asyncio.run(draft_report(gateway, slug, budget_usd=budget, progress=_progress))
+        draft, failure = asyncio.run(run())
     except NoStatisticsError as exc:
         print(exc)
         sys.exit(1)
@@ -379,6 +409,11 @@ def _report(slug: str, budget: float, out: str | None) -> None:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         Path(out).write_text(text, encoding="utf-8")
         print(f"Saved to {out}")
+    if failure is not None:
+        print(f"Verification failed, so nothing was stored: {failure}")
+        sys.exit(1)
+    if draft.verifier_model is not None:
+        print(f"Stored as report {store_report(draft)}.")
 
 
 def database_unreachable(exc: BaseException) -> str | None:
@@ -463,7 +498,10 @@ def _main(argv: list[str] | None) -> None:
     p_report = sub.add_parser("report", help="Draft a Role Reality Report from the evidence")
     p_report.add_argument("--role", required=True)
     p_report.add_argument("--budget", type=float, default=1.5, help="Model spend cap in USD")
-    p_report.add_argument("--out", help="Also save the draft as markdown to this file")
+    p_report.add_argument("--out", help="Also save the report as markdown to this file")
+    p_report.add_argument(
+        "--no-verify", action="store_true", help="Draft only: skip the verifier, store nothing"
+    )
 
     args = parser.parse_args(argv)
     if args.command == "index-evidence":
@@ -487,7 +525,7 @@ def _main(argv: list[str] | None) -> None:
         return
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
     if args.command == "report":
-        _report(slug, args.budget, args.out)
+        _report(slug, args.budget, args.out, verify=not args.no_verify)
         return
     if args.command == "review-matches":
         _print_matches(slug, args.country.upper(), args.urls)

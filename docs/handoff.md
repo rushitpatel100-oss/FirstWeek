@@ -10,21 +10,19 @@ Last updated: 2026-10-31.
 - **M2 is under way:**
   - Evidence passages with free local embeddings and hybrid search: #11 to #13, ADR 0012.
   - The report writer: #14, ADR 0013. The first real GenAI Engineer draft (statistics version 9, $0.44) was reviewed and the fixes merged in #15 (ADR 0013 addendum).
-- **Nothing is open.** `main` is green.
+  - The claim verifier and confidence scores, with verified reports stored: ADR 0014, in review as #17.
 
-## Next step: the claim verifier and confidence scoring
+## Next step: the admin review and publish flow
 
-From the plan doc's M2 checklist:
+From the plan doc's M2 checklist. Verified reports are stored in `role_reports` (with what was removed, and why) and `report_claims` (one row per claim with its confidence and label). Next: a way for Rushit to read a stored report, accept or reject claims, and publish it. The plan also asks for a hand spot-check of 50 verified claims before anything is published.
 
-- A model from another family (the gateway's `judge` tier) labels every draft claim **supported**, **partial** or **unsupported** against the passages it cites.
-- Each claim gets a confidence score from source-tier weights (capped at 3 strong sources) × recency × agreement. High is 0.75 or more; Medium is 0.5 to 0.75. Read the plan doc for the exact weights before building.
-- Verified reports are then stored in `role_reports` and `report_claims`. Nothing is stored until this step exists.
+After that, the rest of M2: the skill-gap section driven by background, the Home, progress and report screens, and the practitioner interviews.
 
-After that, the rest of M2: the skill-gap section driven by background, the admin review and publish flow, the Home, progress and report screens, and the practitioner interviews.
+Small follow-ups from ADR 0014: record pages' publication dates when collecting (undated pages count as old), and settle whether interviews may be cited or only validate.
 
 ## Waiting on Rushit
 
-- Run `make index-evidence` (removes the newly excluded sites' passages), then `make report role="GenAI Engineer"`, and send the draft from `reports/genai-engineer.md`.
+- Add `OPENAI_API_KEY` to `.env` (the verifier), then run `make index-evidence` and `make report role="GenAI Engineer"`, and send `reports/genai-engineer.md`.
 - Book 3 to 5 practitioner interviews. They fill "day to day" and bring back "A typical week".
 - Open question: the first draft cited no forum posts at all. Worth checking whether any forum pages are collected and indexed.
 

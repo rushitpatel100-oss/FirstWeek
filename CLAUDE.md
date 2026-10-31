@@ -20,7 +20,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `make research role="..."` collects, classifies, extracts and prints statistics; `make review-matches role="..."` shows each classifier decision and its reason.
 - The worker runs `DailyResearchWorkflow` on a daily Temporal schedule (ADR 0008); `make research-now` starts it at once.
 - `make index-evidence` cuts postings and articles into passages and embeds them with a free local model; `make search q="..." role="..."` runs the hybrid (meaning + keyword) search reports cite from (ADR 0012).
-- `make report role="..."` drafts a Role Reality Report from the latest statistics and the evidence (ADR 0013): numbers come from code, prose from Opus over checked citations. Drafts go to `reports/` (git-ignored).
+- `make report role="..."` writes a Role Reality Report from the latest statistics and the evidence (ADR 0013), has a model from another family check every claim and scores its confidence (ADR 0014), then stores it in `role_reports`. Numbers come from code, prose from Opus over checked citations. The markdown goes to `reports/` (git-ignored); `verify=no` gives a draft only. Needs `OPENAI_API_KEY` for the verifier.
 - `make eval-classifier` and `make eval-extraction` score stored decisions and extractions against the hand labels in `data/eval/` (ADR 0009). Run them before and after any change to a role definition, a prompt or the taxonomy.
 
 ## Layout

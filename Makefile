@@ -87,5 +87,5 @@ index-evidence: ## Split postings and articles into passages and embed them (fre
 search: ## Search the evidence: make search q="how is LLM output evaluated" [role="GenAI Engineer"]
 	uv run python -m firstweek_research search "$(q)" $(if $(role),--role "$(role)")
 
-report: ## Draft a Role Reality Report from the evidence (under $1 with Opus): make report role="GenAI Engineer"
-	uv run python -m firstweek_research report --role "$(role)" --out "reports/$$(echo '$(role)' | tr 'A-Z ' 'a-z-').md"
+report: ## Write, verify and store a Role Reality Report: make report role="GenAI Engineer" (verify=no for a draft only)
+	uv run python -m firstweek_research report --role "$(role)" --out "reports/$$(echo '$(role)' | tr 'A-Z ' 'a-z-').md" $(if $(filter no,$(verify)),--no-verify,)
