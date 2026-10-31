@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 Tier = Literal["posting", "blog", "forum", "interview"]
+ReportSection = Literal["summary", "responsibilities", "day_to_day", "typical_week", "pain_points"]
 Level = Literal["junior", "mid", "senior", "lead", "principal"]
 Verification = Literal["supported", "partial", "unsupported"]
 TrustLevel = Literal["golden", "on_demand"]
@@ -92,6 +93,33 @@ class GapItem(BaseModel):
     reason: str
 
 
+class DraftCitation(BaseModel):
+    """A claim's support, as the report writer gives it: a passage label and an exact quote."""
+
+    passage: str = Field(pattern=r"^P[0-9]+$", description="Label of a passage above, e.g. P3")
+    quote: str = Field(
+        min_length=3,
+        max_length=300,
+        description="Copied character for character from that passage, 5 to 40 words.",
+    )
+
+
+class DraftClaim(BaseModel):
+    text: str = Field(min_length=10, max_length=400, description="One sentence.")
+    citations: list[DraftCitation] = Field(min_length=1, max_length=3)
+
+
+class SectionDraft(BaseModel):
+    """One section of a Role Reality Report, written only from the passages it was given."""
+
+    claims: list[DraftClaim] = Field(max_length=8)
+    not_covered: str | None = Field(
+        default=None,
+        max_length=400,
+        description="What this section should cover but the passages do not support. null if none.",
+    )
+
+
 class RoleRealityReport(BaseModel):
     archetype: str
     trust_level: TrustLevel
@@ -101,6 +129,9 @@ class RoleRealityReport(BaseModel):
     date_range: tuple[date, date]
     summary: list[Claim]
     asked_for: list[SkillStat]
+    responsibilities: list[Claim] = Field(
+        default_factory=list, description="What job postings say the work involves (tier 1)."
+    )
     day_to_day: list[Claim]
     typical_week: list[Claim]
     pain_points: list[Claim]

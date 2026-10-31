@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -86,3 +86,6 @@ index-evidence: ## Split postings and articles into passages and embed them (fre
 
 search: ## Search the evidence: make search q="how is LLM output evaluated" [role="GenAI Engineer"]
 	uv run python -m firstweek_research search "$(q)" $(if $(role),--role "$(role)")
+
+report: ## Draft a Role Reality Report from the evidence (under $1 with Opus): make report role="GenAI Engineer"
+	uv run python -m firstweek_research report --role "$(role)" --out "reports/$$(echo '$(role)' | tr 'A-Z ' 'a-z-').md"

@@ -11,9 +11,10 @@ interviews.
 """
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import ColumnElement, Text, cast, func, or_, select, text
+from sqlalchemy import ColumnElement, Text, and_, cast, func, or_, select, text
 from sqlalchemy.dialects.postgresql import TSQUERY
 
 from firstweek_core.db.models import EvidencePassage, JobPosting, PostingRoleMatch, Source
@@ -71,12 +72,16 @@ async def search(
     country: str = "GB",
     k: int = 8,
     per_source: int | None = PER_SOURCE,
+    tiers: Sequence[str] | None = None,
 ) -> list[Hit]:
-    """The k best passages, at most per_source from any one source (None: no limit)."""
+    """The k best passages, at most per_source from any one source (None: no limit),
+    optionally only from some evidence tiers ("posting", "blog", "forum", "interview")."""
     embedded = await gateway.embed([query], kind="query", purpose="search-evidence")
     check_width(embedded, gateway.model_for("embedding"))
     [vector] = embedded
     allowed = _allowed(role_slug, country)
+    if tiers is not None:
+        allowed = and_(allowed, Source.tier.in_(list(tiers)))
     # Words are OR-ed, so a question finds passages that share most of its words, not only
     # those with all of them; "quoted phrases" still match as phrases.
     tsquery = cast(
