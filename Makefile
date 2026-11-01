@@ -1,7 +1,10 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+.PHONY: sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+
+need-role:
+	@test -n "$(role)" || (echo 'Add the role, for example: make $(MAKECMDGOALS) role="GenAI Engineer"' && exit 1)
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -57,10 +60,10 @@ web: ## Run the web app with hot reload (API must be running)
 resolve: ## Map a job title to a known role: make resolve title="Senior LLM Engineer"
 	uv run python -m firstweek_research resolve "$(title)"
 
-collect: ## Collect UK postings and web sources for a role: make collect role="GenAI Engineer"
+collect: need-role ## Collect UK postings and web sources for a role: make collect role="GenAI Engineer"
 	uv run python -m firstweek_research collect --role "$(role)"
 
-research: ## Collect, classify, extract and summarise a role: make research role="GenAI Engineer"
+research: need-role ## Collect, classify, extract and summarise a role: make research role="GenAI Engineer"
 	uv run python -m firstweek_research research --role "$(role)"
 
 review-skills: ## List extracted skill labels that the taxonomy does not know yet
@@ -87,17 +90,23 @@ index-evidence: ## Split postings and articles into passages and embed them (fre
 search: ## Search the evidence: make search q="how is LLM output evaluated" [role="GenAI Engineer"]
 	uv run python -m firstweek_research search "$(q)" $(if $(role),--role "$(role)")
 
-report: ## Write, verify and store a Role Reality Report: make report role="GenAI Engineer" (verify=no for a draft only)
+report: need-role ## Write, verify and store a Role Reality Report: make report role="GenAI Engineer" (verify=no for a draft only)
 	uv run python -m firstweek_research report --role "$(role)" --out "reports/$$(echo '$(role)' | tr 'A-Z ' 'a-z-').md" $(if $(filter no,$(verify)),--no-verify,)
 
-review-report: ## Accept or reject each claim of the latest report: make review-report role="GenAI Engineer"
+review-report: need-role ## Accept or reject each claim of the latest report: make review-report role="GenAI Engineer"
 	uv run python -m firstweek_research review-report --role "$(role)"
 
 spot-check: ## Check the verifier by hand on random claims: make spot-check [n=10]
 	uv run python -m firstweek_research spot-check --count $(or $(n),10)
 
-publish-report: ## Publish the reviewed report (needs every claim decided and 50 spot-checks)
+publish-report: need-role ## Publish the reviewed report (needs every claim decided and 50 spot-checks)
 	uv run python -m firstweek_research publish-report --role "$(role)"
 
-skill-gap: ## Compare your background with a role: make skill-gap role="GenAI Engineer" background="I was a mechanical engineer ..."
+skill-gap: need-role ## Compare your background with a role: make skill-gap role="GenAI Engineer" background="I was a mechanical engineer ..."
 	uv run python -m firstweek_research skill-gap --role "$(role)" --background "$(background)"
+
+sandbox-image: ## Build the code sandbox image (Docker)
+	docker build -f infra/docker/sandbox.Dockerfile -t firstweek-sandbox:py infra/docker
+
+sandbox-smoke: ## Run real jobs in the sandbox: make sandbox-smoke (backend from SANDBOX_BACKEND, default docker)
+	uv run python -m firstweek_core.sandbox.smoke

@@ -12,6 +12,7 @@ dependencies = [
     "pgvector>=0.5",
     "litellm>=1.106",
     "langfuse>=5.1",
+    "e2b>=2.62",
 ]
 
 [build-system]
