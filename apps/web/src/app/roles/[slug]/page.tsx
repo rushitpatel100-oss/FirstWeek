@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AskedFor } from "@/components/asked-for";
 import { ClaimList } from "@/components/claim-list";
+import { SkillGapForm } from "@/components/skill-gap-form";
 import { ApiUnreachable, getReport } from "@/lib/api";
 import { month } from "@/lib/format";
 import type { Claim } from "@/lib/types";
@@ -70,6 +71,13 @@ async function Report({ params }: { params: Promise<{ slug: string }> }) {
         hint="Counted from the postings by code, not written by a model."
       >
         <AskedFor skills={report.asked_for} />
+      </Section>
+
+      <Section
+        title="How do you compare?"
+        hint="Optional. Tell us about your background and we compare it with the skills above."
+      >
+        <SkillGapForm slug={published.slug} />
       </Section>
 
       <Section title="What employers say the job involves" hint="From job postings.">

@@ -127,7 +127,7 @@ def load_claims(report_id: uuid.UUID) -> list[ReviewClaim]:
         ).scalars()
         claims = [_to_claim(r, quotes) for r in rows]
     order = {name: i for i, name in enumerate(SECTION_ORDER)}
-    return sorted(claims, key=lambda c: (order.get(c.section, 99), -c.confidence))
+    return sorted(claims, key=lambda c: (order.get(c.section, 99), -c.confidence, c.text))
 
 
 def report_status(report_id: uuid.UUID) -> str:

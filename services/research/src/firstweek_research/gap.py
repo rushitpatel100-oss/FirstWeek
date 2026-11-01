@@ -44,6 +44,12 @@ class SkillGap:
         return have / total if total else 0.0
 
 
+def select_skills(stats: list[SkillStat]) -> list[SkillStat]:
+    """The skills worth a gap line: asked for by at least MIN_SHARE of postings, most first."""
+    chosen = [s for s in stats if s.share >= MIN_SHARE]
+    return sorted(chosen, key=lambda s: -s.share)[:MAX_SKILLS]
+
+
 def asked_skills(report_id: uuid.UUID | None = None, *, slug: str | None = None) -> list[SkillStat]:
     """The skills a stored report says the role asks for, most asked first."""
     with session_scope() as session:
@@ -62,8 +68,7 @@ def asked_skills(report_id: uuid.UUID | None = None, *, slug: str | None = None)
         if row is None:
             raise GapError("No stored report for this role. Run `make report` first.")
         stats = [SkillStat.model_validate(s) for s in row.report.get("asked_for") or []]
-    chosen = [s for s in stats if s.share >= MIN_SHARE]
-    return sorted(chosen, key=lambda s: -s.share)[:MAX_SKILLS]
+    return select_skills(stats)
 
 
 def check_items(

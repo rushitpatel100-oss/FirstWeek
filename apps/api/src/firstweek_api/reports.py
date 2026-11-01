@@ -50,6 +50,11 @@ def _newest_published(slug: str | None = None) -> list[tuple[RoleArchetype, Role
         return sorted(newest.values(), key=lambda pair: pair[0].name)
 
 
+def published_report_id(slug: str) -> uuid.UUID | None:
+    found = _newest_published(slug)
+    return found[0][1].id if found else None
+
+
 @router.get("")
 def list_roles() -> list[RoleSummary]:
     """Roles that have a published report."""
@@ -69,12 +74,11 @@ def list_roles() -> list[RoleSummary]:
     return found
 
 
-@router.get("/{slug}/report")
-def get_report(slug: str) -> PublishedReport:
-    """The newest published report for a role; 404 until one is published."""
+def published_report(slug: str) -> PublishedReport | None:
+    """The newest published report for a role, or None."""
     found = _newest_published(slug)
     if not found:
-        raise HTTPException(status_code=404, detail="No published report for this role yet.")
+        return None
     role, row = found[0]
     assert row.published_at is not None
     return PublishedReport(
@@ -84,3 +88,12 @@ def get_report(slug: str) -> PublishedReport:
         published_at=row.published_at,
         report=RoleRealityReport.model_validate(row.report),
     )
+
+
+@router.get("/{slug}/report")
+def get_report(slug: str) -> PublishedReport:
+    """The newest published report for a role; 404 until one is published."""
+    found = published_report(slug)
+    if found is None:
+        raise HTTPException(status_code=404, detail="No published report for this role yet.")
+    return found
