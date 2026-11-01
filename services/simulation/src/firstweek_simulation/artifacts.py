@@ -25,7 +25,7 @@ from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import BlueprintError, load_prompt
 
-STARTER_VERSION = "build-starter.v1"
+STARTER_VERSION = "build-starter.v2"
 REFERENCE_VERSION = "build-reference.v1"
 ARTIFACT_TIER: ModelTier = "mid"
 ALLOWED_SUFFIXES = {
@@ -164,7 +164,7 @@ async def build_artifacts(
         ],
         response_model=StarterDraft,
         tier=ARTIFACT_TIER,
-        max_tokens=16000,
+        max_tokens=32000,  # the ceiling: a cut-off first try would be paid for twice
         temperature=0.4,
         budget_scope="build-artifacts",
         budget_usd=budget_usd,
@@ -237,7 +237,7 @@ async def build_artifacts(
         ],
         response_model=ReferenceDraft,
         tier=ARTIFACT_TIER,
-        max_tokens=12000,
+        max_tokens=24000,
         temperature=0.2,
         budget_scope="build-artifacts",
         budget_usd=budget_usd,
