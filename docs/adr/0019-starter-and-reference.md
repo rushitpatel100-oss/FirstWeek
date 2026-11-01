@@ -22,3 +22,7 @@ A blueprint is words until there is something to work on: a repository with the 
 - A failed check does not regenerate. The validation gate (next step) will retry a failed piece up to three times, check that acceptance criteria map to checks, and flag the blueprint for approval. Until then a blueprint stays unvalidated.
 - The generator is model-written code that runs in the sandbox; the sandbox limits (time, memory, no network, no secrets) are what make that safe.
 - The mid tier may write repositories that fail checks; the check list says exactly why, which is what the gate's retry will feed back.
+
+## Addendum: size (2026-11-01)
+
+The first real run failed: the starter reply was cut off at the 32,000-token ceiling (thinking counts towards it), after a first try at 16,000 that was paid for and thrown away. Fixes: `build-starter.v2` asks for a small repository (about 700 lines in all) and the schema limits it (14 starter files, 6 key files, 12,000 characters each); the first try now uses the ceiling directly, so a long answer is paid for once.

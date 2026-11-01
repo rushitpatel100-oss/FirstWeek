@@ -122,7 +122,7 @@ class BlueprintDraft(BaseModel):
 
 class FileDraft(BaseModel):
     path: str
-    content: str = Field(max_length=40_000)
+    content: str = Field(max_length=12_000)
 
     @field_validator("path")
     @classmethod
@@ -136,11 +136,11 @@ class StarterDraft(BaseModel):
     """The material a person starts from, and the key side that never reaches them."""
 
     starter_files: list[FileDraft] = Field(
-        min_length=3, max_length=40, description="The repository the person receives."
+        min_length=3, max_length=14, description="The repository the person receives."
     )
     key_files: list[FileDraft] = Field(
         min_length=2,
-        max_length=10,
+        max_length=6,
         description="Paths under key/. Must include key/make_data.py and key/metrics.py.",
     )
     generated: list[str] = Field(
