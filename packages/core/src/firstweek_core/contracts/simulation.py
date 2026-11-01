@@ -74,3 +74,43 @@ class ProjectBlueprint(BaseModel):
     def public_view(self) -> dict[str, object]:
         """The blueprint as colleague agents may see it: no answer key."""
         return self.model_dump(exclude={"answer_key"})
+
+
+class TicketDraft(BaseModel):
+    """A ticket as the model writes it. Code assigns the key and checks the rest."""
+
+    title: str = Field(min_length=5, max_length=140)
+    description: str = Field(min_length=20)
+    acceptance_criteria: list[str] = Field(min_length=2, max_length=6)
+    task_type: TaskType
+    due_day: int = Field(ge=1, le=5)
+    skills: list[str] = Field(min_length=1, max_length=3, description="Skill ids from the list.")
+
+
+class CriterionDraft(BaseModel):
+    skill_id: str
+    weight: float = Field(gt=0, description="Relative importance; code scales the set to 1.")
+    anchors: dict[int, str]
+    checks: list[str] = Field(min_length=1, description="Deterministic checks feeding the score.")
+
+
+class BlueprintDraft(BaseModel):
+    """What the model designs. `check_draft` in the simulation service turns it into a
+    `ProjectBlueprint` or says what is wrong."""
+
+    company_name: str = Field(min_length=2, max_length=80)
+    company_context: str = Field(
+        min_length=50, description="The fictional company, in 3-5 sentences."
+    )
+    scenario: str = Field(min_length=80, description="The situation the person walks into.")
+    grounded_in: list[int] = Field(
+        min_length=1,
+        max_length=3,
+        description="Numbers of the pain points the scenario is built on.",
+    )
+    tickets: list[TicketDraft] = Field(min_length=3, max_length=5)
+    rubric: list[CriterionDraft] = Field(min_length=3, max_length=6)
+    planted_issues: list[str] = Field(
+        min_length=3, max_length=6, description="Problems hidden in the starter material."
+    )
+    expected_metrics: dict[str, float] = Field(default_factory=dict)

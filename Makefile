@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+.PHONY: blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
 
 need-role:
 	@test -n "$(role)" || (echo 'Add the role, for example: make $(MAKECMDGOALS) role="GenAI Engineer"' && exit 1)
@@ -40,7 +40,7 @@ format: ## Auto-format Python code
 	uv run ruff format .
 
 typecheck: ## Strict type checks for Python and TypeScript
-	uv run mypy packages/core/src packages/core/tests apps/api/src services/research/src services/research/tests services/worker/src
+	uv run mypy packages/core/src packages/core/tests apps/api/src services/research/src services/research/tests services/simulation/src services/simulation/tests services/worker/src
 	cd apps/web && pnpm exec next typegen && pnpm typecheck
 
 test: ## Run all Python tests (database tests need a migrated Postgres)
@@ -104,6 +104,9 @@ publish-report: need-role ## Publish the reviewed report (needs every claim deci
 
 skill-gap: need-role ## Compare your background with a role: make skill-gap role="GenAI Engineer" background="I was a mechanical engineer ..."
 	uv run python -m firstweek_research skill-gap --role "$(role)" --background "$(background)"
+
+blueprint: need-role ## Design a draft project blueprint (scenario, tickets, rubric): make blueprint role="GenAI Engineer" (costs ~$0.30)
+	uv run python -m firstweek_simulation blueprint --role "$(role)"
 
 sandbox-image: ## Build the code sandbox image (Docker)
 	docker build -f infra/docker/sandbox.Dockerfile -t firstweek-sandbox:py infra/docker

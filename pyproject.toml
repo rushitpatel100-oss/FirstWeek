@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 # Every workspace member, so a plain `uv run` installs what any of them needs: after a pull
 # that adds a dependency (fastembed, 2026-10-31), nobody has to remember `uv sync`.
-dependencies = ["firstweek-core", "firstweek-api", "firstweek-research", "firstweek-worker"]
+dependencies = ["firstweek-core", "firstweek-api", "firstweek-research", "firstweek-simulation", "firstweek-worker"]
 
 [tool.uv]
 package = false
@@ -15,10 +15,11 @@ package = false
 firstweek-core = { workspace = true }
 firstweek-api = { workspace = true }
 firstweek-research = { workspace = true }
+firstweek-simulation = { workspace = true }
 firstweek-worker = { workspace = true }
 
 [tool.uv.workspace]
-members = ["packages/core", "apps/api", "services/research", "services/worker"]
+members = ["packages/core", "apps/api", "services/research", "services/simulation", "services/worker"]
 
 [dependency-groups]
 dev = [
@@ -40,7 +41,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF", "N"]
 ignore = ["RUF012"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["firstweek_core", "firstweek_api", "firstweek_research", "firstweek_worker"]
+known-first-party = ["firstweek_core", "firstweek_api", "firstweek_research", "firstweek_simulation", "firstweek_worker"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = ["S101"]
@@ -62,6 +63,6 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-testpaths = ["packages/core/tests", "apps/api/tests", "services/research/tests", "services/worker/tests"]
+testpaths = ["packages/core/tests", "apps/api/tests", "services/research/tests", "services/simulation/tests", "services/worker/tests"]
 addopts = "-ra --strict-markers"
 markers = ["db: needs a running Postgres with pgvector (DATABASE_URL)"]

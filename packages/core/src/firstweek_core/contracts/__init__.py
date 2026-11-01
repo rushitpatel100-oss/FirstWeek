@@ -28,18 +28,28 @@ from firstweek_core.contracts.research import (
     VerifierReply,
 )
 from firstweek_core.contracts.runtime import CriterionScore, Decision, Evaluation, ProjectState
-from firstweek_core.contracts.simulation import AnswerKey, Criterion, ProjectBlueprint, Ticket
+from firstweek_core.contracts.simulation import (
+    AnswerKey,
+    BlueprintDraft,
+    Criterion,
+    CriterionDraft,
+    ProjectBlueprint,
+    Ticket,
+    TicketDraft,
+)
 
 __all__ = [
     "TIER_WEIGHTS",
     "AnswerKey",
     "ArchetypeStats",
+    "BlueprintDraft",
     "Citation",
     "CitationCheck",
     "CitationVerdict",
     "Claim",
     "ClaimCheck",
     "Criterion",
+    "CriterionDraft",
     "CriterionScore",
     "Decision",
     "DraftCitation",
@@ -61,6 +71,7 @@ __all__ = [
     "SectionDraft",
     "SkillStat",
     "Ticket",
+    "TicketDraft",
     "Tier",
     "Verification",
     "VerifierReply",

@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-11-01 (M3 step 1, sandbox runner).
+Last updated: 2026-11-01 (M3 step 2, blueprint generator).
 
 ## Where we are
 
@@ -13,9 +13,9 @@ Last updated: 2026-11-01 (M3 step 1, sandbox runner).
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
-## Next step: M3 step 2, the project blueprint
+## Next step: M3 step 3, dataset, starter repo and reference solution
 
-M3 step 1 is the code sandbox (ADR 0017, `firstweek_core.sandbox`): Docker for development, E2B for demos. Real isolation is checked with `make sandbox-image && make sandbox-smoke` on Rushit's machine. Next: the blueprint generator, then a dataset/starter repo with planted issues and a reference solution, the validation gate that runs it in the sandbox, and per-user seeds.
+M3 step 2 is the blueprint generator (ADR 0018, `services/simulation`, `make blueprint role=...`, drafts only). M3 step 1 is the code sandbox (ADR 0017, `firstweek_core.sandbox`): Docker for development, E2B for demos. Real isolation is checked with `make sandbox-image && make sandbox-smoke` on Rushit's machine. Next: a dataset/starter repo with planted issues and a reference solution, the validation gate that runs it in the sandbox, and per-user seeds.
 
 The report screen has the skill-gap form ("How do you compare?", `POST /roles/{slug}/skill-gap`, ADR 0016 addendum): rate limited, nothing stored. Left in M2: the progress screen (needs the simulation to exist, so it moves to M3), practitioner interviews, and Rushit's review and publish of the first reports. Then M3: the simulation (blueprint, tickets, AI colleagues). Read the plan doc's M3 checklist before starting.
 
