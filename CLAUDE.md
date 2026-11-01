@@ -22,6 +22,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `make index-evidence` cuts postings and articles into passages and embeds them with a free local model; `make search q="..." role="..."` runs the hybrid (meaning + keyword) search reports cite from (ADR 0012).
 - `make report role="..."` writes a Role Reality Report from the latest statistics and the evidence (ADR 0013), has a model from another family check every claim and scores its confidence (ADR 0014), then stores it in `role_reports`. Numbers come from code, prose from Opus over checked citations. The markdown goes to `reports/` (git-ignored); `verify=no` gives a draft only. The verifier is a free Gemini model: needs `GEMINI_API_KEY` (free, https://aistudio.google.com/apikey).
 - `make review-report role="..."` (accept or reject each claim), `make spot-check [n=10]` (check the verifier by hand, verdict hidden) and `make publish-report role="..."` (needs every claim decided, 50 spot-checks, at most 10% wrong; ADR 0015). Rejected claims leave the stored report; a published report is frozen.
+- `make skill-gap role="..." background="..."` compares a person's background with the stored report's skills (ADR 0016). Nothing is stored; the background is private.
 - `make eval-classifier` and `make eval-extraction` score stored decisions and extractions against the hand labels in `data/eval/` (ADR 0009). Run them before and after any change to a role definition, a prompt or the taxonomy.
 
 ## Layout

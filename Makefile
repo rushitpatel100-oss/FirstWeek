@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -98,3 +98,6 @@ spot-check: ## Check the verifier by hand on random claims: make spot-check [n=1
 
 publish-report: ## Publish the reviewed report (needs every claim decided and 50 spot-checks)
 	uv run python -m firstweek_research publish-report --role "$(role)"
+
+skill-gap: ## Compare your background with a role: make skill-gap role="GenAI Engineer" background="I was a mechanical engineer ..."
+	uv run python -m firstweek_research skill-gap --role "$(role)" --background "$(background)"

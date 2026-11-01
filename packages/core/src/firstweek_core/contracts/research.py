@@ -93,6 +93,25 @@ class GapItem(BaseModel):
     reason: str
 
 
+class GapDraftItem(BaseModel):
+    """One skill's gap as the model judges it. Code keeps 'have' and 'transferable' only when
+    the quoted words are really in the person's background."""
+
+    skill_id: str = Field(description="An id from the skills list.")
+    status: Literal["have", "transferable", "missing"]
+    background_quote: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Words copied exactly from the background. Required for have and "
+        "transferable; null for missing.",
+    )
+    reason: str = Field(min_length=3, max_length=250, description="One short sentence.")
+
+
+class GapReply(BaseModel):
+    items: list[GapDraftItem] = Field(max_length=40)
+
+
 class DraftCitation(BaseModel):
     """A claim's support, as the report writer gives it: a passage label and an exact quote."""
 
