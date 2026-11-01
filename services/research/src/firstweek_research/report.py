@@ -42,7 +42,7 @@ from firstweek_research.extract import load_prompt, quote_in_text
 from firstweek_research.retrieve import Hit, search
 from firstweek_research.roles import RoleDefinition, load_roles
 
-WRITER_VERSION = "synthesise-section.v3"
+WRITER_VERSION = "synthesise-section.v4"
 WRITER_TIER: ModelTier = "frontier"  # the report is the product, and it is written rarely
 WRITER_MAX_TOKENS = 16_000  # includes thinking; the gateway doubles it if a reply is cut off
 MAX_PASSAGES = 24  # per section: enough to cover a section, few enough to read closely

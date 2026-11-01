@@ -148,7 +148,7 @@ class VerifierReply(BaseModel):
 class RemovedClaim(BaseModel):
     section: ReportSection
     text: str
-    stage: Literal["checks", "verifier"]
+    stage: Literal["checks", "verifier", "review"]
     reason: str
 
 

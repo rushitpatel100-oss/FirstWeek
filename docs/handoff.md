@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-11-01.
+Last updated: 2026-11-01 (review flow).
 
 ## Where we are
 
@@ -13,17 +13,15 @@ Last updated: 2026-11-01.
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
-## Next step: the admin review and publish flow
+## Next step: the screens, and the skill-gap section
 
-From the plan doc's M2 checklist. Verified reports are stored in `role_reports` (with what was removed, and why) and `report_claims` (one row per claim with its confidence and label). Next: a way for Rushit to read a stored report, accept or reject claims, and publish it. The plan also asks for a hand spot-check of 50 verified claims before anything is published.
+The review flow is built (ADR 0015, in review as the PR after #20): `make review-report`, `make spot-check`, `make publish-report`. Rushit reviews the GenAI Engineer report claim by claim and does the 50 spot-checks (a second role's report will be needed for enough claims). Next: the skill-gap section driven by background, then the Home, progress and report screens, which read the stored, published report.
 
-After that, the rest of M2: the skill-gap section driven by background, the Home, progress and report screens, and the practitioner interviews.
-
-Small follow-ups from ADR 0014: record pages' publication dates when collecting (undated pages count as old), and settle whether interviews may be cited or only validate.
+Small follow-ups: record pages' publication dates when collecting (undated pages count as old); settle whether interviews may be cited or only validate; link summary claims to the claims they restate so rejecting one removes the other; the label question for GitLab's "Senior Backend Engineer, AI Engineering: Chat".
 
 ## Waiting on Rushit
 
-- Fix `.env` (delete `MODEL_JUDGE`, set a free `GEMINI_API_KEY`, blank `OPENAI_API_KEY`), then run `make collect role="GenAI Engineer"`, `make index-evidence`, `make report role="GenAI Engineer"`, and send `reports/genai-engineer.md`.
+- Run `make review-report role="GenAI Engineer"`, then `make spot-check n=20` a few times; `make report` for the other two roles gives enough claims for 50 checks.
 - Book 3 to 5 practitioner interviews. They fill "day to day" and bring back "A typical week".
 - Check that `make search` now shows `[forum]` hits after the new collection. Forum pages from Hacker News may scrape as table noise; if so, the chunker needs a filter.
 
