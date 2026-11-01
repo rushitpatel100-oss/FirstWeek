@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-10-31.
+Last updated: 2026-11-01.
 
 ## Where we are
 
@@ -10,7 +10,8 @@ Last updated: 2026-10-31.
 - **M2 is under way:**
   - Evidence passages with free local embeddings and hybrid search: #11 to #13, ADR 0012.
   - The report writer: #14, ADR 0013. The first real GenAI Engineer draft (statistics version 9, $0.44) was reviewed and the fixes merged in #15 (ADR 0013 addendum).
-  - The claim verifier and confidence scores, with verified reports stored: ADR 0014, in review as #17.
+  - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
+  - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
 ## Next step: the admin review and publish flow
 
@@ -22,9 +23,9 @@ Small follow-ups from ADR 0014: record pages' publication dates when collecting 
 
 ## Waiting on Rushit
 
-- Add a free `GEMINI_API_KEY` to `.env` (https://aistudio.google.com/apikey, the verifier), then run `make index-evidence` and `make report role="GenAI Engineer"`, and send `reports/genai-engineer.md`.
+- Fix `.env` (delete `MODEL_JUDGE`, set a free `GEMINI_API_KEY`, blank `OPENAI_API_KEY`), then run `make collect role="GenAI Engineer"`, `make index-evidence`, `make report role="GenAI Engineer"`, and send `reports/genai-engineer.md`.
 - Book 3 to 5 practitioner interviews. They fill "day to day" and bring back "A typical week".
-- Open question: the first draft cited no forum posts at all. Worth checking whether any forum pages are collected and indexed.
+- Check that `make search` now shows `[forum]` hits after the new collection. Forum pages from Hacker News may scrape as table noise; if so, the chunker needs a filter.
 
 ## How we work
 
