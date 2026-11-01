@@ -22,7 +22,7 @@ Small follow-ups from ADR 0014: record pages' publication dates when collecting 
 
 ## Waiting on Rushit
 
-- Add `OPENAI_API_KEY` to `.env` (the verifier), then run `make index-evidence` and `make report role="GenAI Engineer"`, and send `reports/genai-engineer.md`.
+- Add a free `GEMINI_API_KEY` to `.env` (https://aistudio.google.com/apikey, the verifier), then run `make index-evidence` and `make report role="GenAI Engineer"`, and send `reports/genai-engineer.md`.
 - Book 3 to 5 practitioner interviews. They fill "day to day" and bring back "A typical week".
 - Open question: the first draft cited no forum posts at all. Worth checking whether any forum pages are collected and indexed.
 

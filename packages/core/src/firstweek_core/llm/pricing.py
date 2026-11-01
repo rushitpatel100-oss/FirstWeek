@@ -32,6 +32,11 @@ PRICES: dict[str, Price] = {
     ),
     "gpt-6-sol": Price(Decimal("2"), Decimal("10")),
     "text-embedding-3-small": Price(Decimal("0.02"), Decimal("0")),
+    # Gemini models on Google's free tier cost nothing (rate-limited). If you turn on billing
+    # for the key, replace these with the paid prices so budgets stay honest.
+    "gemini-3.8-flash": Price(Decimal("0"), Decimal("0")),
+    "gemini-3.6-flash": Price(Decimal("0"), Decimal("0")),
+    "gemini-2.5-flash": Price(Decimal("0"), Decimal("0")),
 }
 
 FALLBACK_PRICE = Price(Decimal("10"), Decimal("50"))  # priced like a top-tier model

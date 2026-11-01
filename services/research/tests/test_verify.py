@@ -31,6 +31,7 @@ from firstweek_research.store import seed_roles
 
 __all__ = ["_no_versions", "db_fixture"]  # registers the fixtures here
 
+JUDGE = Settings(_env_file=None).model_judge
 TODAY = date(2026, 10, 31)
 RECENT = TODAY - timedelta(days=30)
 OLD = TODAY - timedelta(days=400)
@@ -153,7 +154,7 @@ async def test_a_claim_the_verifier_skips_is_removed_and_stray_labels_are_ignore
 
     async def judge(**kwargs: Any) -> SimpleNamespace:
         seen.append(kwargs["messages"][-1]["content"])
-        assert kwargs["model"] == "openai/gpt-6-sol"
+        assert kwargs["model"] == JUDGE
         return reply(
             [
                 ClaimCheck(
@@ -179,7 +180,7 @@ async def test_a_claim_the_verifier_skips_is_removed_and_stray_labels_are_ignore
         evidence,
         budget_scope="default",
     )
-    assert model == "openai/gpt-6-sol"
+    assert model == JUDGE
     assert "[C1] Postings ask for evaluation work.\n  cites: P1, P2" in seen[0]
     assert "[P2] job posting · Employer 2\n(This passage is no longer in the evidence.)" in seen[0]
     assert outcomes[0].verdicts == {a.passage_id: "supports", b.passage_id: "partly"}
@@ -187,9 +188,27 @@ async def test_a_claim_the_verifier_skips_is_removed_and_stray_labels_are_ignore
     assert outcomes[1].reason == "the verifier returned no verdict"
 
 
-def test_the_verifier_must_be_another_family() -> None:
+def test_the_verifier_must_be_another_family_and_have_its_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import firstweek_research.__main__ as cli
+
+    def settings(**keys: str) -> Settings:
+        return Settings(_env_file=None, **keys)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(cli, "get_settings", lambda: settings())
     assert "another model family" in (judge_problem("anthropic/claude-sonnet-5-5") or "")
-    assert judge_problem("gemini/gemini-3-pro") is None
+    assert "GEMINI_API_KEY" in (judge_problem(JUDGE) or "")
+    assert "aistudio.google.com" in (judge_problem(JUDGE) or "")
+    assert "OPENAI_API_KEY" in (judge_problem("openai/gpt-6-sol") or "")
+    monkeypatch.setattr(cli, "get_settings", lambda: settings(gemini_api_key="k"))
+    assert judge_problem(JUDGE) is None
+
+
+def test_the_free_judge_costs_nothing_and_stays_inside_any_budget() -> None:
+    from firstweek_core.llm.pricing import cost_usd, is_known
+
+    assert is_known(JUDGE) and cost_usd(JUDGE, 100_000, 10_000) == 0
 
 
 def test_the_verifier_prompt_has_its_slots() -> None:
@@ -245,7 +264,7 @@ async def test_a_verified_report_is_scored_and_stored() -> None:
     draft = await rp.draft_report(g, ROLE)
     verified = await vf.verify_report(g, draft, today=date.today())
 
-    assert verified.verifier_model == "openai/gpt-6-sol"
+    assert verified.verifier_model == JUDGE
     # The posting was seen yesterday: one recent posting is 1/3. The blog is over a year old.
     [job] = verified.sections["responsibilities"]
     assert job.confidence == pytest.approx(0.333, abs=1e-3) and job.verification == "supported"
@@ -258,7 +277,7 @@ async def test_a_verified_report_is_scored_and_stored() -> None:
         ("pain_points", "unsupported: The passage is about something else.")
     ]
     assert len(verified.dropped) == len(draft.dropped) + 1  # the checks' removals are kept
-    assert verified.cost_usd == pytest.approx(draft.cost_usd + 4 * (3000 * 2 + 500 * 10) / 1e6)
+    assert verified.cost_usd == pytest.approx(draft.cost_usd)  # the free judge adds nothing
 
     markdown = rp.to_markdown(verified)
     assert markdown.startswith("# GenAI Engineer: Role Reality Report (verified, not yet reviewed)")

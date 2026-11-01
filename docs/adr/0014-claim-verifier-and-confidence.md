@@ -9,7 +9,7 @@ The report writer (ADR 0013) checks its own output mechanically: real passages, 
 
 ## Decision
 
-**A model from another family checks every claim.** The verifier uses the gateway's judge tier (`MODEL_JUDGE`, GPT-6 Sol by default), so Claude's sentences are never graded by Claude. There is one call per section: it gets every claim, labelled C1, C2..., with the full text of each passage the claim cites, not just the quote. For each cited passage it says supports, partly, does not support or contradicts. For the whole claim it says supported, partial or unsupported, with a one-sentence reason. The prompt is `verify-claims.v1`. It is strict about attribution: a posting says what an employer asks for, a training provider isn't a practitioner, and one source can't back "several".
+**A model from another family checks every claim.** The verifier uses the gateway's judge tier (`MODEL_JUDGE`, Gemini 3.8 Flash on Google's free tier by default), so Claude's sentences are never graded by Claude. There is one call per section: it gets every claim, labelled C1, C2..., with the full text of each passage the claim cites, not just the quote. For each cited passage it says supports, partly, does not support or contradicts. For the whole claim it says supported, partial or unsupported, with a one-sentence reason. The prompt is `verify-claims.v1`. It is strict about attribution: a posting says what an employer asks for, a training provider isn't a practitioner, and one source can't back "several".
 
 **Code decides what stays.** A claim is removed when:
 
@@ -34,6 +34,8 @@ Removed claims are listed with the reason, next to the ones the writer's checks 
 
 - A single-source claim is Low by design: one recent posting scores 0.33 and one undated blog 0.19. Medium needs two independent sources; High needs about three. The first real report will show many Low claims. That is the formula doing its job, not a bug, and it is the plan's case for widening evidence and for interviews.
 - Practitioner claims are held down until pages carry publication dates. Recording `publishedTime` from page metadata when collecting is a small follow-up.
-- The verifier needs an OpenAI key (or another non-Anthropic `MODEL_JUDGE`). `make report` refuses a Claude judge.
+- The verifier needs a free Gemini key (https://aistudio.google.com/apikey, no card), or another non-Anthropic `MODEL_JUDGE` with its key. `make report` refuses a Claude judge and says which key is missing before anything is spent.
+- **Free means rate-limited, and Google may use free-tier prompts to improve its products.** Our prompts hold only public job postings and web pages, so that is acceptable here; it would not be for private data. The four section checks run at once and LiteLLM retries a refused call twice; if a free quota runs out, the draft is kept and nothing is stored. Gemini Flash is a smaller model than GPT-6 Sol, so its strictness is unmeasured: the 50-claim spot-check below matters more. Swap `MODEL_JUDGE` back to a paid model when the product is deployed.
+- Free-tier Gemini models are priced at zero in `llm/pricing.py`. If billing is turned on for the key, replace them with the paid prices.
 - The plan says interviews "validate, never generate", but the writer may cite them (ADR 0013), and `TIER_WEIGHTS` gives them 1.0. To settle when the first interviews arrive.
 - The verifier's own accuracy is unmeasured. The plan's check is a spot-check of 50 verified claims by hand, which should come before reports are published.

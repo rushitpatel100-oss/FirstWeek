@@ -364,11 +364,22 @@ def judge_problem(model: str) -> str | None:
             f"MODEL_JUDGE is {model}, but the verifier must come from another model family "
             "than the writer (Claude). Set MODEL_JUDGE in .env to an OpenAI or Google model."
         )
-    if model.startswith("openai/") and get_settings().openai_api_key is None:
-        return (
-            f"Set OPENAI_API_KEY in .env: the verifier ({model}) checks Claude's claims from "
-            "another model family. Or add --no-verify for an unverified draft."
-        )
+    settings = get_settings()
+    missing = {
+        "openai/": ("OPENAI_API_KEY", settings.openai_api_key),
+        "gemini/": ("GEMINI_API_KEY", settings.gemini_api_key),
+    }
+    for prefix, (name, key) in missing.items():
+        if model.startswith(prefix) and key is None:
+            hint = (
+                " (a free key: https://aistudio.google.com/apikey)"
+                if name == "GEMINI_API_KEY"
+                else ""
+            )
+            return (
+                f"Set {name} in .env{hint}: the verifier ({model}) checks Claude's claims "
+                "from another model family. Or use `make report ... verify=no` for a draft."
+            )
     return None
 
 
