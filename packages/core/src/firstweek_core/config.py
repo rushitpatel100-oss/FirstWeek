@@ -2,6 +2,7 @@
 
 import os
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -52,6 +53,11 @@ class Settings(BaseSettings):
     adzuna_app_key: SecretStr | None = None
     firecrawl_api_key: SecretStr | None = None
 
+    # Code sandbox (ADR 0017): Docker on this machine in development, E2B for demos and evals
+    sandbox_backend: Literal["docker", "e2b"] = "docker"
+    sandbox_image: str = "firstweek-sandbox:py"
+    e2b_api_key: SecretStr | None = None
+
     @field_validator(
         "anthropic_api_key",
         "openai_api_key",
@@ -61,6 +67,7 @@ class Settings(BaseSettings):
         "adzuna_app_id",
         "adzuna_app_key",
         "firecrawl_api_key",
+        "e2b_api_key",
         mode="before",
     )
     @classmethod
