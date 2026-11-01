@@ -376,6 +376,33 @@ def check_claims(
     return kept, dropped
 
 
+def drop_repeats(
+    sections: dict[ReportSection, list[DraftedClaim]],
+) -> list[DroppedClaim]:
+    """A claim resting on a sentence an earlier claim already used says the same thing again
+    (the same career-guide line once under "day to day" and once under "hard parts").
+    The earlier claim stays; sections are visited in report order."""
+    seen: set[str] = set()
+    dropped: list[DroppedClaim] = []
+    for name, claims in sections.items():
+        kept: list[DraftedClaim] = []
+        for claim in claims:
+            keys = {" ".join(c.quote.lower().split()) for c in claim.citations}
+            if keys & seen:
+                dropped.append(
+                    DroppedClaim(
+                        section=name,
+                        text=claim.text,
+                        reason="repeats an earlier claim: it rests on the same quote",
+                    )
+                )
+            else:
+                seen |= keys
+                kept.append(claim)
+        sections[name] = kept
+    return dropped
+
+
 # ---------------------------------------------------------------------- writing
 
 
@@ -472,6 +499,7 @@ async def draft_report(
         dropped += lost
         if draft.not_covered:
             not_covered[spec.name] = draft.not_covered
+    dropped += drop_repeats(sections)
 
     # The summary sees only what survived the checks, with those claims' own passages.
     cited: dict[uuid.UUID, Hit] = {}
