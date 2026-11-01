@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-11-01 (skill gap).
+Last updated: 2026-11-01 (report screen).
 
 ## Where we are
 
@@ -13,11 +13,11 @@ Last updated: 2026-11-01 (skill gap).
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
-## Next step: the report screen
+## Next step: the skill-gap form, then progress
 
-The API serves published reports (`GET /roles`, `GET /roles/{slug}/report`; ADR 0015 addendum). `apps/web` is still the bare scaffold: next is the report screen there (confidence badges, source popovers, the asked-for list with intervals), then the skill-gap form (needs a gap endpoint, which means the API depends on the research package), then Home and progress.
+The report screen (`/roles/[slug]`) and Home (`/`) read the published report from the API (`apps/web/src/lib/api.ts`). Claims show a confidence badge (High / Medium / Low with the number) and their exact quotes in an expandable "sources" list; skill shares are bars with their 95% intervals; Low claims are flagged, not hidden. Left to do on the report screen: the skill-gap form (needs `POST /roles/{slug}/skill-gap`, which makes the research package an API dependency), a "Start the simulation" button once the simulation exists, and the progress screen.
 
-The review flow (#21, ADR 0015) and the skill gap (ADR 0016, `make skill-gap`) are built. Next: the Home, progress and report screens in `apps/web`, reading the published report from the API. Report screen: confidence badges, source popovers, the skill-gap form, one button to start the simulation. Needs an API endpoint for a published report and for the gap.
+Known gaps: the stored report does not keep each section's "not covered" notes, so the screen cannot show them; a missing role renders Next's 404 content but with status 200 (the data loads inside Suspense after headers are sent).
 
 Small follow-ups: record pages' publication dates when collecting (undated pages count as old); settle whether interviews may be cited or only validate; link summary claims to the claims they restate so rejecting one removes the other; the label question for GitLab's "Senior Backend Engineer, AI Engineering: Chat"; storing a personal report once accounts exist.
 
