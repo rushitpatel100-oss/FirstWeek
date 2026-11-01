@@ -63,3 +63,10 @@ The dropped "30% of the job" claim was a correct drop: the article does say it, 
 - **Headline.** It said "Dec 2024 to Oct 2026", which read as the collection window. Those are posting dates; every posting was seen open in the last six months. It now says both.
 - **Forums were never searched.** The collector ran only general searches, which return blogs for job-specific questions, so no forum evidence existed. Each role now has `forum_queries`, run with Firecrawl `includeDomains` limited to the forum list (Reddit, Hacker News, Stack Exchange, Lobsters, OpenAI community, CareerVillage). Cost: about 15 extra Firecrawl credits per role per collection. Forum passages still weigh 0.5 and can never be a claim's only support.
 - **Verifier preflight.** `make report` sends one tiny call to the judge model before the paid draft, so a wrong key or model name fails in a second instead of after $0.35.
+
+## Addendum: cleanup after the first forum run (2026-11-01)
+
+- **CareerVillage is excluded**, not a forum. Its top answer for "day in the life of an AI engineer" came from a product manager's point of view; the site is advice from students and managers, not people doing the job.
+- **Hacker News comments arrive as table rows** (`| | | user 11 months ago | parent | prev | next[-]Text`). The chunker (version 3) strips that chrome before cutting passages; re-run `make index-evidence` to re-chunk. The first forum hits were also off-topic (a thread about coding assistants), and Reddit returned nothing useful: for a title this new, forums add little, and interviews are the real fix for the practitioner sections.
+- **No claim may repeat an earlier one.** A claim that rests on a quote an earlier claim already used (compared after lower-casing and collapsing spaces) is removed with the reason "repeats an earlier claim". Sections are visited in report order; the summary is exempt, because it restates on purpose.
+- **Single-source practitioner claims score Low (0.19) by design**: one blog is worth 0.8 of the 3 points needed. The formula is not loosened; more independent sources or interviews raise it.

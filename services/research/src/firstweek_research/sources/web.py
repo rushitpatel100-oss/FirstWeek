@@ -23,9 +23,9 @@ FORUM_DOMAINS = {
     "stackexchange.com",
     "lobste.rs",
     "community.openai.com",
-    "careervillage.org",
 }
 EXCLUDED_DOMAINS = [
+    "careervillage.org",  # advice from students and managers, not people doing the job
     "linkedin.com",
     "glassdoor.com",
     "glassdoor.co.uk",

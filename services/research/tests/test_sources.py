@@ -151,11 +151,11 @@ async def test_forum_search_sends_include_domains_and_no_exclude_list() -> None:
     assert "includeDomains" not in bodies[1] and "excludeDomains" in bodies[1]
 
 
-def test_roles_have_forum_queries_and_careervillage_counts_as_a_forum() -> None:
+def test_roles_have_forum_queries_and_careervillage_is_excluded() -> None:
     from firstweek_research.roles import load_roles
-    from firstweek_research.sources.web import tier_for
+    from firstweek_research.sources.web import is_excluded
 
     for role in load_roles().values():
         assert role.forum_search_queries(), role.name
         assert all("{" not in q for q in role.forum_search_queries())
-    assert tier_for("www.careervillage.org") == "forum"
+    assert is_excluded("https://www.careervillage.org/questions/1/day-in-the-life")

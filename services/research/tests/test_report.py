@@ -271,7 +271,9 @@ def fake_writer(**kwargs: Any) -> SimpleNamespace:
     section = re.search(r"^Section: (.+)$", user, re.MULTILINE)
     assert section and "Passages:" in user
     label, text = _PASSAGE.findall(user)[0]
-    quote = " ".join(text.split()[:6])
+    # A different stretch of the passage per section: one sentence is not reused across sections.
+    offset = sum(map(ord, section.group(1))) % 5
+    quote = " ".join(text.split()[offset : offset + 6])
     reply = SectionDraft(
         claims=[
             claim(f"One source on {section.group(1).lower()} says: {quote}.", (label, quote)),
@@ -362,3 +364,34 @@ def test_the_writer_prompt_has_one_section_rules_slot() -> None:
         "passages",
     }
     assert json.dumps(SectionDraft.model_json_schema())  # the contract the reply must match
+
+
+def test_a_claim_resting_on_an_earlier_claims_quote_is_dropped() -> None:
+    def drafted(text: str, quote: str) -> rp.DraftedClaim:
+        kept, _ = rp.check_claims(
+            "day_to_day",
+            SectionDraft(claims=[claim(text, ("P1", quote))]),
+            {"P1": PASSAGES["P1"]},
+        )
+        return kept[0]
+
+    quote = PASSAGES["P1"].text.split()
+    one = " ".join(quote[:6])
+    other = " ".join(quote[-5:])
+    sections: dict[Any, list[rp.DraftedClaim]] = {
+        "day_to_day": [drafted("A career guide describes a week of debugging.", one)],
+        "pain_points": [
+            drafted("The same guide calls the work unglamorous firefighting.", one.upper()),
+            drafted("A different sentence from that passage stands.", other),
+        ],
+    }
+    lost = rp.drop_repeats(sections)
+    assert [c.text for c in sections["day_to_day"]] == [
+        "A career guide describes a week of debugging."
+    ]
+    assert [c.text for c in sections["pain_points"]] == [
+        "A different sentence from that passage stands."
+    ]
+    assert [(d.section, d.reason) for d in lost] == [
+        ("pain_points", "repeats an earlier claim: it rests on the same quote")
+    ]

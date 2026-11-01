@@ -26,7 +26,7 @@ from firstweek_research.sources.web import is_excluded
 from firstweek_research.stats import window_start
 
 MAX_CHARS = 900  # about 200 tokens: precise enough to cite, well inside the model's 512
-CHUNKER_VERSION = 2  # raise when the splitting rules change, so every source is re-chunked
+CHUNKER_VERSION = 3  # raise when the splitting rules change, so every source is re-chunked
 MIN_WORDS = 8  # shorter passages are leftovers ("Location: #LI-Remote"), not evidence
 EMBED_BATCH = 64  # passages per embedding call and per database commit
 WEB_TIERS = ("blog", "forum", "interview")  # evidence that is not a job posting
@@ -43,6 +43,11 @@ _HTML_TAG = re.compile(r"</?[A-Za-z][^>\n]*>")
 _ESCAPE = re.compile(r"\\([\\`*_{}\[\]()#+\-.!|>])")
 _BULLET = re.compile(r"^[ \t]*[*+][ \t]+", flags=re.MULTILINE)
 _STRONG = re.compile(r"\*\*|`")
+# Hacker News comments arrive as table rows: "| | | user 11 months ago | parent | next [-]Text".
+_COMMENT_CHROME = re.compile(
+    r"^(?:\|\s*)+[\w.-]+ \d+ \w+ ago(?:\s*\|\s*[a-z]+(?::[^|]*)?(?:\s?\[[\u2013+-]\])?)*",
+    flags=re.MULTILINE,
+)
 _EMPHASIS = re.compile(r"(?<![\w*_])([*_])(?![\s*_])(.+?)(?<![\s*_])\1(?![\w*_])")
 
 
@@ -56,6 +61,7 @@ def readable(text: str) -> str:
     text = _LINK.sub(lambda m: m.group(1), text)
     text = _URL.sub("", text)
     text = _HTML_TAG.sub("", text)
+    text = _COMMENT_CHROME.sub("", text)
     text = _BULLET.sub("- ", text)
     text = _STRONG.sub("", text)
     text = _EMPHASIS.sub(lambda m: m.group(2), text)

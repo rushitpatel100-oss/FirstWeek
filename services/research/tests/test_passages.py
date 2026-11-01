@@ -319,3 +319,16 @@ async def test_vectors_of_the_wrong_width_are_refused_with_the_fix() -> None:
     with pytest.raises(ValueError, match=r"1536-wide.*stores 384.*\.env"):
         await index_evidence(evidence_gateway(wide))
     assert passages_by_source() == {}
+
+
+def test_hacker_news_comment_chrome_is_removed_but_the_comment_stays() -> None:
+    page = (
+        "| | | andrei_says_ 11 months ago | parent | prev | next[\u2013]My dismissal indicates "
+        "exhaustion from the additional work I would need to do.\n\n"
+        "| | afavour 11 months ago | root | parent | next [\u2013]"
+        "I have experimented with AI a bunch."
+    )
+    text = readable(page)
+    assert "parent" not in text and "ago" not in text and "|" not in text
+    assert "My dismissal indicates exhaustion" in text
+    assert "I have experimented with AI a bunch." in text
