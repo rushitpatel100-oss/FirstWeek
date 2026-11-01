@@ -92,7 +92,8 @@ def test_the_headline_states_the_sample_and_the_bands() -> None:
     items = rp.asked_for(s)
     assert [i.label for i in items] == ["Python", "RAG", "Docker"]  # under 10% is left out
     assert rp.headline(s, items) == (
-        "Based on 20 GB job postings from 14 employers, May 2026 to Oct 2026. "
+        "Based on 20 GB job postings from 14 employers, all open in the last six months "
+        "(posted May 2026 to Oct 2026). "
         "Most roles ask for Python (80%) and RAG (65%). Many roles ask for Docker (35%)."
     )
 
@@ -195,6 +196,10 @@ def test_claims_are_kept_only_with_real_quotes_from_passages_shown() -> None:
         ("They describe evals as boring.", 1, '"They" points back'),
         ("One blog says engineers review these evals daily.", 1, None),
         ("One posting says they will mentor others.", 1, None),  # "they" mid-sentence
+        ("Cloud4C describes prompt work and a v2 pipeline.", 1, None),  # digits inside names
+        ("Hallucinations cascade when several AI workflows are strung together.", 1, None),
+        ("Several postings ask for evaluation work.", 1, '"Several postings" needs at least two'),
+        ("Debugging takes 30% of the job.", 1, "the number 30 is not in a cited quote"),
     ],
 )
 def test_frequency_words_must_match_the_evidence(

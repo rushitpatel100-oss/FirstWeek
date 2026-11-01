@@ -34,3 +34,8 @@ web_queries:
   - '{name} day in the life'
   - 'generative AI engineer real work challenges production'
   - 'LLM engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as a generative AI engineer'
+  - 'generative AI engineer frustrations at work'
+  - 'LLM engineer job hours on-call burnout'
+  - 'moved into a GenAI engineer role what surprised me'

@@ -21,7 +21,7 @@ from firstweek_research.roles import RoleDefinition, load_roles
 from firstweek_research.sources.adzuna import AdzunaCredentials, search_adzuna
 from firstweek_research.sources.base import FetchError, RawPosting, WebDocument, make_client
 from firstweek_research.sources.boards import fetch_boards, load_boards
-from firstweek_research.sources.web import search_web
+from firstweek_research.sources.web import FORUM_DOMAINS, search_web
 from firstweek_research.store import (
     PreparedPosting,
     apply_dedup,
@@ -152,13 +152,15 @@ async def gather_web(
         summary.skipped["web"] = "FIRECRAWL_API_KEY not set in .env"
         return []
     docs: dict[str, WebDocument] = {}
-    queries = role.queries()
-    progress(f"Searching blogs and forums ({len(queries)} searches)...")
-    for query in queries:
+    key = settings.firecrawl_api_key.get_secret_value()
+    # General searches find blogs; forum searches are limited to forum sites, because a
+    # general search never surfaces them for job-specific questions.
+    searches: list[tuple[str, list[str] | None]] = [(q, None) for q in role.queries()]
+    searches += [(q, sorted(FORUM_DOMAINS)) for q in role.forum_search_queries()]
+    progress(f"Searching blogs and forums ({len(searches)} searches)...")
+    for query, include in searches:
         try:
-            for doc in await search_web(
-                client, settings.firecrawl_api_key.get_secret_value(), query
-            ):
+            for doc in await search_web(client, key, query, include_domains=include):
                 docs.setdefault(doc.url, doc)
         except FetchError as exc:
             summary.errors[f"web:{query}"] = str(exc)

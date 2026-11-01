@@ -54,3 +54,12 @@ The first GenAI Engineer draft (statistics version 9, $0.44) held up on its cita
 - **Reading the draft.** A source cited through two of its passages now gets one number (`[1][2]`, not `[1][2][1]`). "What employers ask for" lists the top 15 skills one per line with their interval (ties with the 15th included) and the rest on one line per band.
 
 The dropped "30% of the job" claim was a correct drop: the article does say it, but the model didn't quote the sentence with the number.
+
+## Addendum: fixes after the second real draft (2026-11-01)
+
+- **Digits inside names are not numbers.** The number check counted the 4 in "Cloud4C". It now matches a number only when it stands alone, so "Cloud4C" and "v2" are ignored.
+- **"Several" counts sources, not things.** "Several AI workflows" was flagged as needing two sources. `several`, `many` and `numerous` now trigger only before a source noun (postings, teams, writers, engineers ...); `often`, `common`, `commonly`, `frequently` and `widely` still always do.
+- **`synthesise-section.v3`** adds: if a sentence has a number, a cited quote must contain it, otherwise leave the number out. This stops the correct-but-wasteful drops of true claims.
+- **Headline.** It said "Dec 2024 to Oct 2026", which read as the collection window. Those are posting dates; every posting was seen open in the last six months. It now says both.
+- **Forums were never searched.** The collector ran only general searches, which return blogs for job-specific questions, so no forum evidence existed. Each role now has `forum_queries`, run with Firecrawl `includeDomains` limited to the forum list (Reddit, Hacker News, Stack Exchange, Lobsters, OpenAI community, CareerVillage). Cost: about 15 extra Firecrawl credits per role per collection. Forum passages still weigh 0.5 and can never be a claim's only support.
+- **Verifier preflight.** `make report` sends one tiny call to the judge model before the paid draft, so a wrong key or model name fails in a second instead of after $0.35.

@@ -357,6 +357,28 @@ def _search(query: str, slug: str | None, country: str, k: int, per_source: int 
             print(textwrap.fill(line, 96, initial_indent="   ", subsequent_indent="   "))
 
 
+def preflight_judge(gateway: "LLMGateway") -> str | None:
+    """One tiny call to the verifier before the paid draft, so a bad key fails in a second."""
+    from firstweek_research.verify import VERIFIER_TIER
+
+    model = gateway.model_for(VERIFIER_TIER)
+    try:
+        asyncio.run(
+            gateway.complete(
+                purpose="preflight-judge",
+                messages=[{"role": "user", "content": "Reply with the word ok."}],
+                tier=VERIFIER_TIER,
+                max_tokens=32,
+            )
+        )
+    except Exception as exc:
+        return (
+            f"The verifier ({model}) did not answer: {str(exc)[:200]}\n"
+            "Check GEMINI_API_KEY and MODEL_JUDGE in .env. Nothing was spent on the draft."
+        )
+    return None
+
+
 def judge_problem(model: str) -> str | None:
     """Why the verifier can't run, before any money is spent on the draft."""
     if model.startswith("anthropic/"):
@@ -393,6 +415,10 @@ def _report(slug: str, budget: float, out: str | None, verify: bool = True) -> N
     gateway = _gateway()
     if verify and (problem := judge_problem(gateway.model_for(VERIFIER_TIER))):
         print(problem)
+        sys.exit(1)
+    if verify and (problem := preflight_judge(gateway)):
+        print(problem)
+        gateway.flush()
         sys.exit(1)
 
     async def run() -> tuple[ReportDraft, BaseException | None]:

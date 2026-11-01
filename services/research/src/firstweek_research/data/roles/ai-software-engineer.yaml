@@ -36,3 +36,7 @@ web_queries:
   - 'what does an {name} do day to day'
   - 'software engineer working on AI products day in the life'
   - 'shipping LLM features to production lessons learned engineering blog'
+forum_queries:
+  - 'what is it really like as a software engineer working on LLM features'
+  - 'AI software engineer job frustrations at work'
+  - 'software engineer moved to AI team what surprised me'
