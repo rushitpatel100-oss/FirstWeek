@@ -13,7 +13,9 @@ Last updated: 2026-11-01 (skill gap).
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
-## Next step: the screens
+## Next step: the report screen
+
+The API serves published reports (`GET /roles`, `GET /roles/{slug}/report`; ADR 0015 addendum). `apps/web` is still the bare scaffold: next is the report screen there (confidence badges, source popovers, the asked-for list with intervals), then the skill-gap form (needs a gap endpoint, which means the API depends on the research package), then Home and progress.
 
 The review flow (#21, ADR 0015) and the skill gap (ADR 0016, `make skill-gap`) are built. Next: the Home, progress and report screens in `apps/web`, reading the published report from the API. Report screen: confidence badges, source popovers, the skill-gap form, one button to start the simulation. Needs an API endpoint for a published report and for the gap.
 

@@ -26,3 +26,7 @@ Status moves `draft` -> `reviewed` (every claim decided) -> `published`. The gat
 ## Also in this change
 
 - `synthesise-section.v4`: vendors, training providers and career-guide sites are named as the source, never called practitioners; a number must be in a quote, with the sentence that holds it cited when it sits apart from the point.
+
+## Addendum: serving published reports
+
+`GET /roles` lists roles with a published report; `GET /roles/{slug}/report` returns the newest one (404 until one is published). Only `status = 'published'` is ever returned, so drafts and reviewed-but-unpublished reports stay in the database. The response is the stored `RoleRealityReport` as it was published, rejected claims already removed. No authentication yet: published reports are public by design (their claims cite public sources). The skill-gap endpoint comes with the report screen, since it needs the person's background and the research package.
