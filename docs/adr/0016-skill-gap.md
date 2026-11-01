@@ -20,3 +20,7 @@ The plan has a career-switcher feature: a background field ("I was a mechanical 
 - Cost is one call, a few cents. The background text goes to the model provider (Claude), as the report's own writing does for public data; the screens must say so before asking for it.
 - The check stops invented credit, but not a generous reading: `transferable` is a judgement. The reason must say what carries over and what is new, and the wording is tagged as judgement.
 - The gap is only as good as the skills list, which rests on the postings sample (15 for GenAI Engineer so far).
+
+## Addendum: the endpoint and the form (2026-11-01)
+
+`POST /roles/{slug}/skill-gap` with `{"background": "..."}` returns each skill's status and reason plus the coverage figure, for a role with a published report only (404 otherwise). It costs a model call and takes private text, so it is fenced: 1 to 2,000 characters; five comparisons an hour per client address and 200 a day in all (429 beyond that); 503 without a model key. The limits are in memory, which suits one API process; move them to Redis before running more than one. The text is never stored, and the form says it is sent to Claude. The web form (`/roles/[slug]`, "How do you compare?") posts through a server action, so the browser never talks to the API directly. Behind a proxy the client address needs the forwarded header; handle that when deploying.

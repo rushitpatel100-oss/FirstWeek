@@ -11,6 +11,7 @@ from sqlalchemy import text
 from temporalio.client import Client
 
 from firstweek_api.reports import router as reports_router
+from firstweek_api.skill_gap import router as skill_gap_router
 from firstweek_core import __version__
 from firstweek_core.config import get_settings
 from firstweek_core.db.session import get_engine
@@ -18,6 +19,8 @@ from firstweek_core.db.session import get_engine
 app = FastAPI(title="FirstWeek API", version=__version__)
 
 app.include_router(reports_router)
+app.include_router(skill_gap_router)
+app.include_router(skill_gap_router)
 
 CHECK_TIMEOUT_S = 3.0
 

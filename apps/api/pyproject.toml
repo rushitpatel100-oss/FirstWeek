@@ -5,6 +5,7 @@ description = "FirstWeek HTTP API."
 requires-python = ">=3.12"
 dependencies = [
     "firstweek-core",
+    "firstweek-research",
     "fastapi>=0.162",
     "uvicorn[standard]>=0.54",
     "redis>=8.1",
@@ -16,6 +17,7 @@ dev = ["httpx2>=2.16"]
 
 [tool.uv.sources]
 firstweek-core = { workspace = true }
+firstweek-research = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

@@ -8,7 +8,7 @@ from sqlalchemy import delete, text
 from sqlalchemy.exc import OperationalError
 
 from firstweek_api.main import app
-from firstweek_core.contracts import Citation, Claim, RoleRealityReport
+from firstweek_core.contracts import Citation, Claim, RoleRealityReport, SkillStat
 from firstweek_core.db.models import ArchetypeVersion, RoleArchetype, RoleReport
 from firstweek_core.db.session import get_engine, session_scope
 
@@ -49,7 +49,17 @@ def report(marker: str) -> RoleRealityReport:
         sample_size=15,
         date_range=(date(2026, 5, 1), date(2026, 10, 1)),
         summary=[claim],
-        asked_for=[],
+        asked_for=[
+            SkillStat(
+                skill_id="python",
+                label="Python",
+                count=12,
+                share=0.8,
+                ci_low=0.55,
+                ci_high=0.93,
+                n=15,
+            )
+        ],
         day_to_day=[],
         typical_week=[],
         pain_points=[],

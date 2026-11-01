@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-11-01 (report screen).
+Last updated: 2026-11-01 (skill-gap form).
 
 ## Where we are
 
@@ -13,11 +13,11 @@ Last updated: 2026-11-01 (report screen).
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
-## Next step: the skill-gap form, then progress
+## Next step: progress screen, then the simulation
 
-The report screen (`/roles/[slug]`) and Home (`/`) read the published report from the API (`apps/web/src/lib/api.ts`). Claims show a confidence badge (High / Medium / Low with the number) and their exact quotes in an expandable "sources" list; skill shares are bars with their 95% intervals; Low claims are flagged, not hidden. Left to do on the report screen: the skill-gap form (needs `POST /roles/{slug}/skill-gap`, which makes the research package an API dependency), a "Start the simulation" button once the simulation exists, and the progress screen.
+The report screen has the skill-gap form ("How do you compare?", `POST /roles/{slug}/skill-gap`, ADR 0016 addendum): rate limited, nothing stored. Left in M2: the progress screen (needs the simulation to exist, so it moves to M3), practitioner interviews, and Rushit's review and publish of the first reports. Then M3: the simulation (blueprint, tickets, AI colleagues). Read the plan doc's M3 checklist before starting.
 
-Known gaps: the stored report does not keep each section's "not covered" notes, so the screen cannot show them; a missing role renders Next's 404 content but with status 200 (the data loads inside Suspense after headers are sent).
+Known gaps: the stored report does not keep each section's "not covered" notes; a missing role renders Next's 404 content with status 200; the rate limits are in memory (one API process); the form clears after submitting (React resets it), the result stays.
 
 Small follow-ups: record pages' publication dates when collecting (undated pages count as old); settle whether interviews may be cited or only validate; link summary claims to the claims they restate so rejecting one removes the other; the label question for GitLab's "Senior Backend Engineer, AI Engineering: Chat"; storing a personal report once accounts exist.
 

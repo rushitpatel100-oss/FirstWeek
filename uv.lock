@@ -679,6 +679,7 @@ source = { editable = "apps/api" }
 dependencies = [
     { name = "fastapi" },
     { name = "firstweek-core" },
+    { name = "firstweek-research" },
     { name = "redis" },
     { name = "temporalio" },
     { name = "uvicorn", extra = ["standard"] },
@@ -693,6 +694,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.162" },
     { name = "firstweek-core", editable = "packages/core" },
+    { name = "firstweek-research", editable = "services/research" },
     { name = "redis", specifier = ">=8.1" },
     { name = "temporalio", specifier = ">=1.35" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54" },

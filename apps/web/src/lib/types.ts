@@ -62,3 +62,13 @@ export type PublishedReport = {
   published_at: string;
   report: Report;
 };
+
+export type GapLine = {
+  skill_id: string;
+  label: string;
+  share: number;
+  status: "have" | "transferable" | "missing";
+  reason: string;
+};
+
+export type GapResult = { lines: GapLine[]; coverage: number; model: string };
