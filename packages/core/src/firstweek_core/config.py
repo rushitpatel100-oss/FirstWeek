@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     sandbox_backend: Literal["docker", "e2b"] = "docker"
     sandbox_image: str = "firstweek-sandbox:py"
     e2b_api_key: SecretStr | None = None
+    # Generated project material (ADR 0019); an object store replaces this when we deploy
+    artifacts_dir: str = "var/artifacts"
 
     @field_validator(
         "anthropic_api_key",

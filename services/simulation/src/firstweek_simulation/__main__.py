@@ -51,6 +51,39 @@ def _blueprint(slug: str, budget: float, *, store: bool) -> None:
         print(f"\nStored as draft blueprint {store_blueprint(findings, designed)}.")
 
 
+def _artifacts(slug: str, budget: float, seed: int) -> None:
+    from pathlib import Path
+
+    from firstweek_core.llm import LLMGateway
+    from firstweek_core.llm.recorder import record_to_db
+    from firstweek_core.sandbox import get_runner
+    from firstweek_simulation.artifacts import (
+        build_artifacts,
+        latest_draft,
+        save_artifacts,
+        to_text,
+    )
+
+    settings = get_settings()
+    if settings.anthropic_api_key is None:
+        print("Set ANTHROPIC_API_KEY in .env first: the material is written by Claude.")
+        sys.exit(1)
+    gateway = LLMGateway(settings=settings, recorder=record_to_db)
+    try:
+        blueprint_id, blueprint = latest_draft(slug)
+        built = asyncio.run(
+            build_artifacts(gateway, get_runner(settings), blueprint, seed=seed, budget_usd=budget)
+        )
+    except BlueprintError as exc:
+        print(exc)
+        sys.exit(1)
+    finally:
+        gateway.flush()
+    folder = save_artifacts(blueprint_id, built, Path(settings.artifacts_dir))
+    print(to_text(built, folder))
+    sys.exit(0 if built.ok else 1)
+
+
 def main() -> None:
     try:
         _main()
@@ -68,7 +101,14 @@ def _main() -> None:
     p.add_argument("--role", required=True)
     p.add_argument("--budget", type=float, default=1.0, help="Spend limit in USD")
     p.add_argument("--no-store", action="store_true", help="Print only; do not save a draft")
+    a = sub.add_parser("artifacts", help="Build the starter repo, data and reference solution")
+    a.add_argument("--role", required=True)
+    a.add_argument("--budget", type=float, default=1.0, help="Spend limit in USD")
+    a.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
+    if args.command == "artifacts":
+        _artifacts(_slug(args.role), args.budget, args.seed)
+        return
     _blueprint(_slug(args.role), args.budget, store=not args.no_store)
 
 

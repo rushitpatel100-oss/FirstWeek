@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 TaskType = Literal[
     "code",
@@ -118,3 +118,42 @@ class BlueprintDraft(BaseModel):
         min_length=3, max_length=6, description="Problems hidden in the starter material."
     )
     expected_metrics: dict[str, float] = Field(default_factory=dict)
+
+
+class FileDraft(BaseModel):
+    path: str
+    content: str = Field(max_length=40_000)
+
+    @field_validator("path")
+    @classmethod
+    def _plain_path(cls, path: str) -> str:
+        from firstweek_core.sandbox.runner import check_relative_path
+
+        return check_relative_path(path)
+
+
+class StarterDraft(BaseModel):
+    """The material a person starts from, and the key side that never reaches them."""
+
+    starter_files: list[FileDraft] = Field(
+        min_length=3, max_length=40, description="The repository the person receives."
+    )
+    key_files: list[FileDraft] = Field(
+        min_length=2,
+        max_length=10,
+        description="Paths under key/. Must include key/make_data.py and key/metrics.py.",
+    )
+    generated: list[str] = Field(
+        min_length=1,
+        max_length=40,
+        description="Every path key/make_data.py writes. Paths under key/ stay hidden.",
+    )
+
+
+class ReferenceDraft(BaseModel):
+    files: list[FileDraft] = Field(
+        min_length=1,
+        max_length=30,
+        description="Full contents of every starter file the solution changes, and new files.",
+    )
+    summary: str = Field(min_length=20, description="What was changed, per planted issue.")

@@ -25,6 +25,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `make skill-gap role="..." background="..."` compares a person's background with the stored report's skills (ADR 0016). Nothing is stored; the background is private.
 - `make sandbox-image` builds the code sandbox image; `make sandbox-smoke` runs real jobs against the backend in `SANDBOX_BACKEND` (`docker` or `e2b`, needs `E2B_API_KEY`; ADR 0017). Code from people or models runs only through `firstweek_core.sandbox`, never `subprocess`.
 - `make blueprint role="..."` designs a draft project blueprint (scenario, tickets, rubric) from the stored report and saves it unvalidated (ADR 0018). The answer key never goes to colleague agents: use `public_view()`.
+- `make artifacts role="..."` builds the starter repo, data and reference solution for the latest draft blueprint, runs them in the sandbox and records the measured metrics (ADR 0019; needs `make sandbox-image`). Output goes to `var/artifacts/` (git-ignored).
 - `make eval-classifier` and `make eval-extraction` score stored decisions and extractions against the hand labels in `data/eval/` (ADR 0009). Run them before and after any change to a role definition, a prompt or the taxonomy.
 
 ## Layout
