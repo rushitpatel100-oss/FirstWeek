@@ -20,12 +20,13 @@ class Settings(BaseSettings):
     # Model providers
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None  # free tier: https://aistudio.google.com/apikey
 
     # Model routing: LiteLLM model strings per tier
     model_frontier: str = "anthropic/claude-opus-5-5"
     model_mid: str = "anthropic/claude-sonnet-5-5"
     model_small: str = "anthropic/claude-haiku-5-5"
-    model_judge: str = "openai/gpt-6-sol"
+    model_judge: str = "gemini/gemini-3.8-flash"  # free tier; not Claude, so it can judge it
     # "local/<name>" runs a free open-source model on this machine (ADR 0012); any other
     # value is a LiteLLM embedding model string such as "openai/text-embedding-3-small".
     model_embedding: str = "local/BAAI/bge-small-en-v1.5"
@@ -54,6 +55,7 @@ class Settings(BaseSettings):
     @field_validator(
         "anthropic_api_key",
         "openai_api_key",
+        "gemini_api_key",
         "langfuse_public_key",
         "langfuse_secret_key",
         "adzuna_app_id",
@@ -79,6 +81,7 @@ class Settings(BaseSettings):
         secrets = {
             "ANTHROPIC_API_KEY": self.anthropic_api_key,
             "OPENAI_API_KEY": self.openai_api_key,
+            "GEMINI_API_KEY": self.gemini_api_key,
             "LANGFUSE_PUBLIC_KEY": self.langfuse_public_key,
             "LANGFUSE_SECRET_KEY": self.langfuse_secret_key,
         }

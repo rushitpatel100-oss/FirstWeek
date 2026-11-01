@@ -21,7 +21,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import cast
+from typing import Literal, cast
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -32,6 +32,7 @@ from firstweek_core.contracts import (
     SectionDraft,
     SkillStat,
     Tier,
+    Verification,
 )
 from firstweek_core.db.models import ArchetypeVersion, RoleArchetype
 from firstweek_core.db.session import session_scope
@@ -132,17 +133,23 @@ class CitedPassage(BaseModel):
     title: str | None
     publisher: str | None
     quote: str
+    published: date | None = None  # filled in by the verifier, which reads the sources
 
 
 class DraftedClaim(BaseModel):
     text: str
     citations: list[CitedPassage]
+    # Set by the verifier (verify.py); None in an unverified draft.
+    verification: Verification | None = None
+    confidence: float | None = None
+    note: str | None = None  # the verifier's reason, kept for partly supported claims
 
 
 class DroppedClaim(BaseModel):
     section: ReportSection
     text: str
     reason: str
+    stage: Literal["checks", "verifier"] = "checks"
 
 
 class ReportDraft(BaseModel):
@@ -163,7 +170,9 @@ class ReportDraft(BaseModel):
     passages_shown: dict[ReportSection, int]
     model: str
     prompt_version: str
-    cost_usd: float
+    cost_usd: float  # everything spent on this report, the verifier included
+    verifier_model: str | None = None
+    verifier_prompt: str | None = None
 
 
 class NoStatisticsError(LookupError):
@@ -171,6 +180,16 @@ class NoStatisticsError(LookupError):
 
 
 # ---------------------------------------------------------------------- statistics
+
+
+HIGH = 0.75  # the plan's confidence levels
+MEDIUM = 0.5
+
+
+def level(confidence: float) -> Literal["High", "Medium", "Low"]:
+    if confidence >= HIGH:
+        return "High"
+    return "Medium" if confidence >= MEDIUM else "Low"
 
 
 def latest_stats(role_slug: str) -> tuple[int, ArchetypeStats]:
@@ -530,12 +549,15 @@ def asked_for_lines(items: Sequence[SkillStat]) -> list[str]:
 
 def to_markdown(draft: ReportDraft) -> str:
     """For review in a terminal or an editor: claims, numbered sources and what was cut."""
-    lines = [
-        f"# {draft.role}: Role Reality Report (draft, not yet verified)",
-        "",
-        draft.headline,
-        "",
-    ]
+    verified = draft.verifier_model is not None
+    state = "verified, not yet reviewed" if verified else "draft, not yet verified"
+    lines = [f"# {draft.role}: Role Reality Report ({state})", "", draft.headline, ""]
+    if verified:
+        lines += [
+            "_Each claim shows its confidence: High is 0.75 or more, Medium 0.5 to 0.75, "
+            "Low under 0.5. Low claims are hidden or flagged in the product._",
+            "",
+        ]
     numbers: dict[uuid.UUID, int] = {}
     sources: list[CitedPassage] = []
 
@@ -547,9 +569,15 @@ def to_markdown(draft: ReportDraft) -> str:
                 sources.append(c)
         return "".join(f"[{n}]" for n in sorted({numbers[c.source_id] for c in claim.citations}))
 
+    def badge(claim: DraftedClaim) -> str:
+        if claim.confidence is None:
+            return ""
+        partly = f" · partly supported: _{claim.note}_" if claim.verification == "partial" else ""
+        return f" · **{level(claim.confidence)}** {claim.confidence:.2f}{partly}"
+
     def section(name: ReportSection, title: str) -> None:
         lines.extend([f"## {title}", ""])
-        lines.extend(f"- {c.text} {refs(c)}" for c in draft.sections.get(name, []))
+        lines.extend(f"- {c.text} {refs(c)}{badge(c)}" for c in draft.sections.get(name, []))
         if name in draft.not_covered:
             lines.append(f"- _Not covered: {draft.not_covered[name]}_")
         lines.append("")
@@ -564,12 +592,20 @@ def to_markdown(draft: ReportDraft) -> str:
     for i, c in enumerate(sources, 1):
         who = " · ".join(p for p in (_TIER_NAMES[c.tier], c.publisher, c.title) if p)
         lines.append(f"{i}. {who}: {c.url}")
-    if draft.dropped:
-        lines += ["", "## Left out by the checks", ""]
-        lines += [f"- ({d.section}) {d.text} **Why:** {d.reason}" for d in draft.dropped]
+    for stage, heading in (
+        ("checks", "Left out by the checks"),
+        ("verifier", "Removed by the verifier"),
+    ):
+        gone = [d for d in draft.dropped if d.stage == stage]
+        if gone:
+            lines += ["", f"## {heading}", ""]
+            lines += [f"- ({d.section}) {d.text} **Why:** {d.reason}" for d in gone]
+    checked = (
+        f" Checked by {draft.verifier_model} with {draft.verifier_prompt}." if verified else ""
+    )
     lines += [
         "",
         f"_Statistics version {draft.stats_version}. Written by {draft.model} with "
-        f"{draft.prompt_version}; cost ${draft.cost_usd:.2f}._",
+        f"{draft.prompt_version}.{checked} Cost ${draft.cost_usd:.2f}._",
     ]
     return "\n".join(lines) + "\n"

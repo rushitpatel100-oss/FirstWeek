@@ -120,6 +120,50 @@ class SectionDraft(BaseModel):
     )
 
 
+# ---- Verification: a model from another family checks each claim (ADR 0014) ----
+
+CitationVerdict = Literal["supports", "partly", "does_not_support", "contradicts"]
+
+
+class CitationCheck(BaseModel):
+    passage: str = Field(pattern=r"^P[0-9]+$", description="A passage the claim cites.")
+    verdict: CitationVerdict
+
+
+class ClaimCheck(BaseModel):
+    claim: str = Field(pattern=r"^C[0-9]+$", description="The claim's label, e.g. C1.")
+    citations: list[CitationCheck] = Field(min_length=1, max_length=3)
+    verification: Verification
+    reason: str = Field(
+        min_length=3,
+        max_length=400,
+        description="One sentence. For partial or unsupported: what is missing or overstated.",
+    )
+
+
+class VerifierReply(BaseModel):
+    checks: list[ClaimCheck] = Field(max_length=12)
+
+
+class RemovedClaim(BaseModel):
+    section: ReportSection
+    text: str
+    stage: Literal["checks", "verifier"]
+    reason: str
+
+
+class ReportProvenance(BaseModel):
+    """How a stored report was made, and what was left out of it."""
+
+    stats_version: int
+    writer_model: str
+    writer_prompt: str
+    verifier_model: str
+    verifier_prompt: str
+    cost_usd: float
+    removed: list[RemovedClaim] = Field(default_factory=list)
+
+
 class RoleRealityReport(BaseModel):
     archetype: str
     trust_level: TrustLevel
@@ -136,6 +180,7 @@ class RoleRealityReport(BaseModel):
     typical_week: list[Claim]
     pain_points: list[Claim]
     skill_gap: list[GapItem] | None = None
+    provenance: ReportProvenance | None = None
 
     @model_validator(mode="after")
     def _dates_in_order(self) -> "RoleRealityReport":
