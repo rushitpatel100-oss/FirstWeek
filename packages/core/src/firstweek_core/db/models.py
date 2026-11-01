@@ -281,6 +281,9 @@ class User(IdMixin, TimestampMixin, Base):
 
 class RoleReport(IdMixin, TimestampMixin, Base):
     __tablename__ = "role_reports"
+    __table_args__ = (
+        CheckConstraint("status IN ('draft', 'reviewed', 'published')", name="status"),
+    )
 
     archetype_version_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("archetype_versions.id", ondelete="CASCADE"), index=True
@@ -293,6 +296,9 @@ class RoleReport(IdMixin, TimestampMixin, Base):
     )
     user_background: Mapped[str | None] = mapped_column(Text)
     report: Mapped[JSON] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16), default="draft", server_default="draft")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ReportClaim(IdMixin, Base):
@@ -302,6 +308,8 @@ class ReportClaim(IdMixin, Base):
         CheckConstraint(
             "verification IN ('supported', 'partial', 'unsupported')", name="verification"
         ),
+        CheckConstraint("review IN ('pending', 'accepted', 'rejected')", name="review"),
+        CheckConstraint("spot_check IS NULL OR spot_check IN ('ok', 'wrong')", name="spot_check"),
     )
 
     report_id: Mapped[uuid.UUID] = mapped_column(
@@ -312,6 +320,11 @@ class ReportClaim(IdMixin, Base):
     confidence: Mapped[float] = mapped_column(Float)
     verification: Mapped[str] = mapped_column(String(16))
     passage_ids: Mapped[JSONList] = mapped_column(JSONB, default=list)
+    review: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending")
+    review_note: Mapped[str | None] = mapped_column(Text)
+    spot_check: Mapped[str | None] = mapped_column(
+        String(8), comment="Hand check: do the quotes back the claim? Independent of the review."
+    )
 
 
 # ---------------------------------------------------------------- Simulation

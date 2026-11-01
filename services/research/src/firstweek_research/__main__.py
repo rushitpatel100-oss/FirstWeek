@@ -379,6 +379,28 @@ def preflight_judge(gateway: "LLMGateway") -> str | None:
     return None
 
 
+def _human_review(command: str, slug: str | None, *, count: int = 10) -> None:
+    """The three review commands; they read the database and never call a model."""
+    from firstweek_research import review as rv
+    from firstweek_research import review_cli as cli
+
+    try:
+        if command == "spot-check":
+            cli.spot_check(count, input, print)
+        elif slug is not None:
+            report_id = rv.latest_report_id(slug)
+            if command == "review-report":
+                cli.review_report(report_id, input, print)
+            else:
+                removed = rv.publish(report_id)
+                print(f"Published {report_id}. {removed} rejected claims were removed from it.")
+    except rv.ReviewError as exc:
+        print(exc)
+        sys.exit(1)
+    except (KeyboardInterrupt, EOFError):
+        print("\nStopped. Decisions so far are saved.")
+
+
 def judge_problem(model: str) -> str | None:
     """Why the verifier can't run, before any money is spent on the draft."""
     if model.startswith("anthropic/"):
@@ -540,7 +562,17 @@ def _main(argv: list[str] | None) -> None:
         "--no-verify", action="store_true", help="Draft only: skip the verifier, store nothing"
     )
 
+    p_review_report = sub.add_parser("review-report", help="Accept or reject each claim")
+    p_review_report.add_argument("--role", required=True)
+    p_spot = sub.add_parser("spot-check", help="Check the verifier by hand on a random sample")
+    p_spot.add_argument("--count", type=int, default=10)
+    p_publish = sub.add_parser("publish-report", help="Publish a reviewed report")
+    p_publish.add_argument("--role", required=True)
+
     args = parser.parse_args(argv)
+    if args.command == "spot-check":
+        _human_review("spot-check", None, count=args.count)
+        return
     if args.command == "index-evidence":
         _index_evidence()
         return
@@ -563,6 +595,9 @@ def _main(argv: list[str] | None) -> None:
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
     if args.command == "report":
         _report(slug, args.budget, args.out, verify=not args.no_verify)
+        return
+    if args.command in {"review-report", "publish-report"}:
+        _human_review(args.command, slug)
         return
     if args.command == "review-matches":
         _print_matches(slug, args.country.upper(), args.urls)

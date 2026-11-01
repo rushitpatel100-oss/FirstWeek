@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report
+.PHONY: help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -89,3 +89,12 @@ search: ## Search the evidence: make search q="how is LLM output evaluated" [rol
 
 report: ## Write, verify and store a Role Reality Report: make report role="GenAI Engineer" (verify=no for a draft only)
 	uv run python -m firstweek_research report --role "$(role)" --out "reports/$$(echo '$(role)' | tr 'A-Z ' 'a-z-').md" $(if $(filter no,$(verify)),--no-verify,)
+
+review-report: ## Accept or reject each claim of the latest report: make review-report role="GenAI Engineer"
+	uv run python -m firstweek_research review-report --role "$(role)"
+
+spot-check: ## Check the verifier by hand on random claims: make spot-check [n=10]
+	uv run python -m firstweek_research spot-check --count $(or $(n),10)
+
+publish-report: ## Publish the reviewed report (needs every claim decided and 50 spot-checks)
+	uv run python -m firstweek_research publish-report --role "$(role)"
