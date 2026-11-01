@@ -1,0 +1,24 @@
+[project]
+name = "firstweek-simulation"
+version = "0.1.0"
+description = "FirstWeek simulation design: task types, project blueprints and (later) the validation gate."
+requires-python = ">=3.12"
+dependencies = [
+    "firstweek-core",
+    "firstweek-research",
+    "pyyaml>=6.0.3",
+]
+
+[tool.uv.sources]
+firstweek-core = { workspace = true }
+firstweek-research = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["types-pyyaml>=6.0.12.20261030"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/firstweek_simulation"]

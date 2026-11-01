@@ -14,6 +14,7 @@ members = [
     "firstweek-api",
     "firstweek-core",
     "firstweek-research",
+    "firstweek-simulation",
     "firstweek-worker",
 ]
 
@@ -697,6 +698,7 @@ dependencies = [
     { name = "firstweek-api" },
     { name = "firstweek-core" },
     { name = "firstweek-research" },
+    { name = "firstweek-simulation" },
     { name = "firstweek-worker" },
 ]
 
@@ -714,6 +716,7 @@ requires-dist = [
     { name = "firstweek-api", editable = "apps/api" },
     { name = "firstweek-core", editable = "packages/core" },
     { name = "firstweek-research", editable = "services/research" },
+    { name = "firstweek-simulation", editable = "services/simulation" },
     { name = "firstweek-worker", editable = "services/worker" },
 ]
 
@@ -822,6 +825,31 @@ dev = [
     { name = "types-beautifulsoup4", specifier = ">=4.12.0.20250516" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261030" },
 ]
+
+[[package]]
+name = "firstweek-simulation"
+version = "0.1.0"
+source = { editable = "services/simulation" }
+dependencies = [
+    { name = "firstweek-core" },
+    { name = "firstweek-research" },
+    { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "types-pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "firstweek-core", editable = "packages/core" },
+    { name = "firstweek-research", editable = "services/research" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "types-pyyaml", specifier = ">=6.0.12.20261030" }]
 
 [[package]]
 name = "firstweek-worker"

@@ -24,6 +24,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `make review-report role="..."` (accept or reject each claim), `make spot-check [n=10]` (check the verifier by hand, verdict hidden) and `make publish-report role="..."` (needs every claim decided, 50 spot-checks, at most 10% wrong; ADR 0015). Rejected claims leave the stored report; a published report is frozen.
 - `make skill-gap role="..." background="..."` compares a person's background with the stored report's skills (ADR 0016). Nothing is stored; the background is private.
 - `make sandbox-image` builds the code sandbox image; `make sandbox-smoke` runs real jobs against the backend in `SANDBOX_BACKEND` (`docker` or `e2b`, needs `E2B_API_KEY`; ADR 0017). Code from people or models runs only through `firstweek_core.sandbox`, never `subprocess`.
+- `make blueprint role="..."` designs a draft project blueprint (scenario, tickets, rubric) from the stored report and saves it unvalidated (ADR 0018). The answer key never goes to colleague agents: use `public_view()`.
 - `make eval-classifier` and `make eval-extraction` score stored decisions and extractions against the hand labels in `data/eval/` (ADR 0009). Run them before and after any change to a role definition, a prompt or the taxonomy.
 
 ## Layout
@@ -31,6 +32,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `packages/core`: contracts, models, migrations, LLM gateway (strict mypy)
 - `apps/api`: FastAPI
 - `services/research`: role definitions (`data/roles/*.yaml`), taxonomy (`data/taxonomy/ai_skills.yaml`), collectors, cleaning, dedup, classification, quote-verified extraction, stats. Prompts are versioned files in `firstweek_research/prompts/`: never edit a released version, add `.v2`.
+- `services/simulation`: task-type library, blueprint design (later: dataset, starter repo, validation gate). Prompts are versioned files in `firstweek_simulation/prompts/`.
 - `services/worker`: Temporal worker; workflows in their own modules
 - `apps/web`: Next.js 16 with Cache Components. Read `apps/web/AGENTS.md` first: its APIs differ from older Next.js.
 

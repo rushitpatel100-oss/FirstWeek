@@ -1,0 +1,32 @@
+# The task-type library (ADR 0018). A blueprint may only use the task types its role allows,
+# so a role gets work that fits it. `checkable` says whether code can verify the result
+# without a model (tests, metrics, schema), which the validation gate relies on.
+types:
+  code:
+    summary: Write or fix code in a starter repository; the result is judged by tests and lint.
+    checkable: true
+  notebook:
+    summary: Explore data and answer a question in a notebook; judged by numbers it must reproduce.
+    checkable: true
+  data_analysis:
+    summary: Analyse a dataset and report findings with figures; judged by figures against a key.
+    checkable: true
+  design_doc:
+    summary: Write a short design document for a decision; judged by a rubric against the brief.
+    checkable: false
+  message:
+    summary: Write a message to a colleague or stakeholder; judged by a rubric.
+    checkable: false
+  prioritisation:
+    summary: Order work under constraints and justify the order; judged by a rubric.
+    checkable: false
+  incident_triage:
+    summary: Work out what broke from logs and metrics and decide what to do first; judged by a key.
+    checkable: true
+
+# Which types each role may use. Every engineering role needs at least one checkable code task.
+roles:
+  genai-engineer: [code, notebook, design_doc, message, incident_triage]
+  agentic-ai-engineer: [code, design_doc, message, incident_triage, prioritisation]
+  ai-software-engineer: [code, design_doc, message, incident_triage, prioritisation]
+default: [code, design_doc, message, prioritisation]
