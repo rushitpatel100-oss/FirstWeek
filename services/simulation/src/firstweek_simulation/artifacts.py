@@ -8,15 +8,20 @@ is acceptable and regenerates."""
 import json
 import shutil
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from firstweek_core.contracts import (
+    FileDraft,
+    PlannedFile,
     ProjectBlueprint,
-    ReferenceDraft,
+    ReferencePlan,
     StarterDraft,
+    StarterPlan,
 )
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype
 from firstweek_core.db.session import session_scope
@@ -25,8 +30,12 @@ from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import BlueprintError, load_prompt
 
-STARTER_VERSION = "build-starter.v2"
-REFERENCE_VERSION = "build-reference.v1"
+PLAN_STARTER_VERSION = "plan-starter.v1"
+WRITE_FILE_VERSION = "write-file.v1"
+PLAN_REFERENCE_VERSION = "plan-reference.v1"
+WRITE_REFERENCE_VERSION = "write-reference-file.v1"
+PLAN_MAX_TOKENS = 12000
+FILE_MAX_TOKENS = 8000
 ARTIFACT_TIER: ModelTier = "mid"
 ALLOWED_SUFFIXES = {
     ".py", ".md", ".txt", ".json", ".jsonl", ".csv", ".log",
@@ -97,9 +106,9 @@ def starter_problems(draft: StarterDraft) -> list[str]:
     return problems
 
 
-def reference_problems(draft: ReferenceDraft, starter: dict[str, str]) -> list[str]:
+def reference_problems(draft: ReferencePlan, starter: dict[str, str]) -> list[str]:
     problems: list[str] = []
-    paths = [f.path for f in draft.files]
+    paths = [f.path for f in draft.changes]
     if len(set(paths)) != len(paths):
         problems.append("A path appears twice.")
     for path in paths:
@@ -134,6 +143,72 @@ def tail(text: str, lines: int = 12) -> str:
     return "\n".join(text.strip().splitlines()[-lines:])
 
 
+class FileWriteError(Exception):
+    """A file could not be written: the reply was cut off or empty."""
+
+
+def clean_file(text: str) -> str:
+    """The file as written, without a surrounding code fence."""
+    body = text.strip("\n")
+    lines = body.splitlines()
+    if len(lines) >= 2 and lines[0].startswith("```") and lines[-1].strip() == "```":
+        body = "\n".join(lines[1:-1])
+    return body.rstrip() + "\n"
+
+
+@dataclass
+class Spend:
+    cost_usd: float = 0.0
+    model: str = ""
+
+
+async def write_files(
+    gateway: LLMGateway,
+    spend: Spend,
+    *,
+    purpose: str,
+    version: str,
+    planned: list[PlannedFile],
+    render: Callable[[PlannedFile, dict[str, str]], dict[str, str]],
+    budget_usd: float,
+) -> dict[str, str]:
+    """One model call per file, in order, each seeing the files before it.
+
+    Small replies keep a long project from being cut off, and a bad file costs one call."""
+    system, user = load_prompt(version)
+    written: dict[str, str] = {}
+    for item in planned:
+        result = await gateway.complete(
+            purpose=purpose,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user.format(**render(item, written))},
+            ],
+            tier=ARTIFACT_TIER,
+            max_tokens=FILE_MAX_TOKENS,
+            temperature=0.3,
+            budget_scope="build-artifacts",
+            budget_usd=budget_usd,
+            prompt_version=version,
+        )
+        spend.cost_usd += float(result.cost_usd)
+        spend.model = result.model
+        if result.finish_reason == "length":
+            raise FileWriteError(f"{item.path}: the reply was cut off at {FILE_MAX_TOKENS} tokens")
+        if not result.content.strip():
+            raise FileWriteError(f"{item.path}: the reply was empty")
+        written[item.path] = clean_file(result.content)
+    return written
+
+
+def shown(files: dict[str, str]) -> str:
+    return "\n\n".join(f"=== {p} ===\n{c}" for p, c in sorted(files.items())) or "(none yet)"
+
+
+def plan_text(items: list[PlannedFile]) -> str:
+    return "\n".join(f"- {i.path}: {i.purpose}" for i in items)
+
+
 async def build_artifacts(
     gateway: LLMGateway,
     runner: SandboxRunner,
@@ -142,11 +217,18 @@ async def build_artifacts(
     seed: int = SHARED_SEED,
     budget_usd: float = 1.0,
 ) -> BuiltArtifacts:
-    """Writes, generates and runs everything. Returns the result with every check, pass or fail."""
+    """Plans, writes, generates and runs everything. Returns every check, pass or fail."""
     tickets, rubric, issues = listing(blueprint)
-    system, user = load_prompt(STARTER_VERSION)
-    first = await gateway.structured(
-        purpose="build-starter",
+    spend = Spend()
+    built = BuiltArtifacts(starter={}, reference={}, key={}, metrics={}, summary="")
+
+    def finish() -> BuiltArtifacts:
+        built.cost_usd, built.model = spend.cost_usd, spend.model
+        return built
+
+    system, user = load_prompt(PLAN_STARTER_VERSION)
+    planned = await gateway.structured(
+        purpose="plan-starter",
         messages=[
             {"role": "system", "content": system},
             {
@@ -162,23 +244,48 @@ async def build_artifacts(
                 ),
             },
         ],
-        response_model=StarterDraft,
+        response_model=StarterPlan,
         tier=ARTIFACT_TIER,
-        max_tokens=32000,  # the ceiling: a cut-off first try would be paid for twice
+        max_tokens=PLAN_MAX_TOKENS,
         temperature=0.4,
         budget_scope="build-artifacts",
         budget_usd=budget_usd,
-        prompt_version=STARTER_VERSION,
+        prompt_version=PLAN_STARTER_VERSION,
     )
-    assert first.parsed is not None
-    draft = first.parsed
-    built = BuiltArtifacts(
-        starter={}, reference={}, key={}, metrics={}, summary="",
-        cost_usd=float(first.cost_usd), model=first.model,
-    )  # fmt: skip
+    assert planned.parsed is not None
+    plan = planned.parsed
+    spend.cost_usd += float(planned.cost_usd)
+    spend.model = planned.model
+    every = [*plan.starter_files, *plan.key_files]
+
+    def render_starter(item: PlannedFile, written: dict[str, str]) -> dict[str, str]:
+        return {
+            "scenario": blueprint.scenario,
+            "notes": plan.design_notes,
+            "plan": plan_text(every),
+            "written": shown(written),
+            "path": item.path,
+            "purpose": item.purpose,
+        }
+
+    try:
+        files = await write_files(
+            gateway, spend, purpose="write-starter-file", version=WRITE_FILE_VERSION,
+            planned=every, render=render_starter, budget_usd=budget_usd,
+        )  # fmt: skip
+        draft = StarterDraft(
+            starter_files=[
+                FileDraft(path=i.path, content=files[i.path]) for i in plan.starter_files
+            ],
+            key_files=[FileDraft(path=i.path, content=files[i.path]) for i in plan.key_files],
+            generated=plan.generated,
+        )
+    except (FileWriteError, ValidationError) as exc:
+        built.checks.append(Check("starter files are written", False, str(exc)[:600]))
+        return finish()
     if problems := starter_problems(draft):
         built.checks.append(Check("starter files are well formed", False, " ".join(problems)))
-        return built
+        return finish()
     built.checks.append(Check("starter files are well formed", True))
 
     starter = {f.path: f.content for f in draft.starter_files}
@@ -203,12 +310,12 @@ async def build_artifacts(
             else f"exit {made.exit_code}; missing {missing}; {tail(made.stderr)}",
         )
     )
-    if not generated_ok:
-        built.starter, built.key = starter, key
-        return built
-    for path, text in made.files.items():
-        (key if is_key_path(path) else starter)[path] = text
     built.starter, built.key = dict(starter), dict(key)
+    if not generated_ok:
+        return finish()
+    for path, text in made.files.items():
+        (built.key if is_key_path(path) else built.starter)[path] = text
+    starter = built.starter
 
     before = await runner.run(SandboxJob(files=dict(starter), command=TEST_COMMAND, timeout_s=120))
     if before.timed_out:
@@ -222,53 +329,73 @@ async def build_artifacts(
         verdict = f"the starter does not run (pytest exit {before.exit_code}): {output}"
     built.checks.append(Check("the starter runs and fails its target tests", not verdict, verdict))
 
-    system, user = load_prompt(REFERENCE_VERSION)
-    shown = "\n\n".join(f"=== {p} ===\n{c}" for p, c in sorted(starter.items()))
-    second = await gateway.structured(
-        purpose="build-reference",
+    system, user = load_prompt(PLAN_REFERENCE_VERSION)
+    ref_planned = await gateway.structured(
+        purpose="plan-reference",
         messages=[
             {"role": "system", "content": system},
             {
                 "role": "user",
                 "content": user.format(
-                    scenario=blueprint.scenario, tickets=tickets, issues=issues, starter=shown
+                    scenario=blueprint.scenario,
+                    tickets=tickets,
+                    issues=issues,
+                    starter=shown(starter),
                 ),
             },
         ],
-        response_model=ReferenceDraft,
+        response_model=ReferencePlan,
         tier=ARTIFACT_TIER,
-        max_tokens=24000,
+        max_tokens=PLAN_MAX_TOKENS,
         temperature=0.2,
         budget_scope="build-artifacts",
         budget_usd=budget_usd,
-        prompt_version=REFERENCE_VERSION,
+        prompt_version=PLAN_REFERENCE_VERSION,
     )
-    assert second.parsed is not None
-    built.cost_usd += float(second.cost_usd)
-    ref = second.parsed
-    built.summary = ref.summary
-    if problems := reference_problems(ref, starter):
-        built.checks.append(Check("reference files are well formed", False, " ".join(problems)))
-        return built
-    built.checks.append(Check("reference files are well formed", True))
-    reference = tree(starter, {f.path: f.content for f in ref.files})
+    assert ref_planned.parsed is not None
+    ref_plan = ref_planned.parsed
+    spend.cost_usd += float(ref_planned.cost_usd)
+    built.summary = ref_plan.summary
+    if problems := reference_problems(ref_plan, starter):
+        built.checks.append(Check("reference plan is well formed", False, " ".join(problems)))
+        return finish()
+
+    def render_reference(item: PlannedFile, written: dict[str, str]) -> dict[str, str]:
+        return {
+            "scenario": blueprint.scenario,
+            "plan": plan_text(ref_plan.changes),
+            "starter": shown(starter),
+            "written": shown(written),
+            "path": item.path,
+            "purpose": item.purpose,
+        }
+
+    try:
+        changed = await write_files(
+            gateway, spend, purpose="write-reference-file", version=WRITE_REFERENCE_VERSION,
+            planned=ref_plan.changes, render=render_reference, budget_usd=budget_usd,
+        )  # fmt: skip
+    except FileWriteError as exc:
+        built.checks.append(Check("reference files are written", False, str(exc)))
+        return finish()
+    built.checks.append(Check("reference files are written", True))
+    reference = tree(starter, changed)
     built.reference = reference
 
     after = await runner.run(SandboxJob(files=dict(reference), command=TEST_COMMAND, timeout_s=120))
-    passed = after.ok
     built.checks.append(
         Check(
             "the reference solution passes every test",
-            passed,
-            "" if passed else f"exit {after.exit_code}: {tail(after.stdout + after.stderr)}",
+            after.ok,
+            "" if after.ok else f"exit {after.exit_code}: {tail(after.stdout + after.stderr)}",
         )
     )
-    if not passed:
-        return built
+    if not after.ok:
+        return finish()
 
     measured = await runner.run(
         SandboxJob(
-            files=tree(reference, key),
+            files=tree(reference, built.key),
             command=["python", "-m", "key.metrics"],
             collect=["metrics.json"],
             timeout_s=60,
@@ -285,7 +412,7 @@ async def build_artifacts(
     )
     if metrics_ok and metrics is not None:
         built.metrics = metrics
-    return built
+    return finish()
 
 
 def parse_metrics(text: str) -> dict[str, float] | None:

@@ -23,6 +23,10 @@ A blueprint is words until there is something to work on: a repository with the 
 - The generator is model-written code that runs in the sandbox; the sandbox limits (time, memory, no network, no secrets) are what make that safe.
 - The mid tier may write repositories that fail checks; the check list says exactly why, which is what the gate's retry will feed back.
 
-## Addendum: size (2026-11-01)
+## Addendum: one file per call (2026-11-01)
 
-The first real run failed: the starter reply was cut off at the 32,000-token ceiling (thinking counts towards it), after a first try at 16,000 that was paid for and thrown away. Fixes: `build-starter.v2` asks for a small repository (about 700 lines in all) and the schema limits it (14 starter files, 6 key files, 12,000 characters each); the first try now uses the ceiling directly, so a long answer is paid for once.
+Two real runs failed with the starter reply cut off at 32,000 tokens, even after the prompt asked for a small repository and the schema capped file sizes. Claude 5.5 thinks before it answers and thinking counts towards the limit, and a whole repository inside one JSON reply (every quote and newline escaped) is the worst case for it. We could not see where the tokens went, so the design now makes the problem impossible instead of tuning it:
+
+- **Plan, then write each file** (`plan-starter.v1`, `write-file.v1`, `plan-reference.v1`, `write-reference-file.v1`; the earlier all-in-one prompts stay as released, unused). A small structured plan holds shared notes (names, signatures, data formats, which file holds which flaw) and one line per file. Each file is then a separate plain-text call (8,000-token limit) that sees the plan and the files before it.
+- A cut-off or empty file is reported by name as a failed check, and nothing runs. A surrounding code fence is stripped. File contents are still validated by the `FileDraft` contract (path, size).
+- Cost is about the same output in total plus the plan and the repeated context (small at these prices), spread over roughly 10 to 15 cheap calls; a bad file costs one call instead of the whole answer.
