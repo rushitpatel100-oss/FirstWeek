@@ -30,7 +30,7 @@ from firstweek_core.llm import LLMGateway
 from firstweek_core.llm import Tier as ModelTier
 
 BLUEPRINT_VERSION = "design-blueprint.v1"
-BLUEPRINT_TIER: ModelTier = "frontier"
+BLUEPRINT_TIER: ModelTier = "mid"
 MIN_SHARE = 0.10  # skills under 10% of postings are not worth assessing
 MAX_SKILLS = 30
 MIN_DAYS = 3
@@ -159,8 +159,10 @@ def problems_with(
     if unused := sorted(set(rubric_ids) - ticket_skills):
         problems.append(f"Rubric skills no ticket assesses: {unused}.")
     for c in draft.rubric:
-        if set(c.anchors) != {1, 2, 3, 4, 5}:
-            problems.append(f"Rubric criterion {c.skill_id} needs anchors for scores 1 to 5.")
+        if any(len(a.strip()) < 10 for a in c.anchors) or len(set(c.anchors)) < 5:
+            problems.append(
+                f"Rubric criterion {c.skill_id} needs five different, concrete anchors."
+            )
     return problems
 
 
@@ -192,7 +194,12 @@ def build_blueprint(draft: BlueprintDraft, findings: Findings) -> ProjectBluepri
     ]
     weights = scale_weights([c.weight for c in draft.rubric])
     rubric = [
-        Criterion(skill_id=c.skill_id, weight=w, anchors=c.anchors, checks=c.checks)
+        Criterion(
+            skill_id=c.skill_id,
+            weight=w,
+            anchors=dict(enumerate(c.anchors, 1)),
+            checks=c.checks,
+        )
         for c, w in zip(draft.rubric, weights, strict=True)
     ]
     return ProjectBlueprint(

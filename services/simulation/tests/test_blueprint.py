@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import OperationalError
 
@@ -52,7 +53,7 @@ FINDINGS = bp.Findings(
 )
 LIBRARY = bp.load_task_library()
 ALLOWED = LIBRARY.allowed(ROLE)
-ANCHORS = {i: f"Level {i} work looks like this." for i in range(1, 6)}
+ANCHORS = [f"Level {i} work looks like this." for i in range(1, 6)]
 
 
 def ticket(
@@ -198,6 +199,18 @@ def test_skills_a_ticket_assesses_must_be_in_the_rubric_and_the_reverse() -> Non
     assert any("no ticket assesses" in p for p in missing)
     short = issues(good_draft(rubric=[criterion("python"), criterion("rag"), criterion("python")]))
     assert short
+
+
+def test_five_different_concrete_anchors_are_required() -> None:
+    same = CriterionDraft(
+        skill_id="python", weight=1, anchors=["Same words here."] * 5, checks=["t"]
+    )
+    draft = good_draft(rubric=[same, criterion("rag"), criterion("evals")])
+    assert any("five different" in p for p in issues(draft))
+    with pytest.raises(ValidationError):
+        CriterionDraft(skill_id="python", weight=1, anchors=["Only one anchor."], checks=["t"])
+    built = bp.build_blueprint(good_draft(), FINDINGS)
+    assert set(built.rubric[0].anchors) == {1, 2, 3, 4, 5}
 
 
 def test_weights_scale_to_one() -> None:

@@ -90,7 +90,11 @@ class TicketDraft(BaseModel):
 class CriterionDraft(BaseModel):
     skill_id: str
     weight: float = Field(gt=0, description="Relative importance; code scales the set to 1.")
-    anchors: dict[int, str]
+    anchors: list[str] = Field(
+        min_length=5,
+        max_length=5,
+        description="Exactly five entries, in order: what score 1, 2, 3, 4 and 5 work looks like.",
+    )
     checks: list[str] = Field(min_length=1, description="Deterministic checks feeding the score.")
 
 
