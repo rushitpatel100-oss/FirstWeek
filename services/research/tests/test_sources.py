@@ -134,3 +134,28 @@ def test_course_sellers_and_job_boards_are_not_evidence() -> None:
     assert is_excluded("https://arxiv.org/html/2510.10819v1")  # papers aren't practitioners
     assert not is_excluded("https://dev.to/marianocodes/lessons-from-building-ai-agents")
     assert not is_excluded("https://notudacity.com/post")  # a suffix match, not a substring
+
+
+async def test_forum_search_sends_include_domains_and_no_exclude_list() -> None:
+    bodies: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=samples.FIRECRAWL_SEARCH)
+
+    async with make_client(httpx.MockTransport(handler)) as client:
+        await search_web(client, "fc-test", "q", include_domains=["reddit.com", "lobste.rs"])
+        await search_web(client, "fc-test", "q")
+    assert bodies[0]["includeDomains"] == ["reddit.com", "lobste.rs"]
+    assert "excludeDomains" not in bodies[0]  # Firecrawl allows only one of the two
+    assert "includeDomains" not in bodies[1] and "excludeDomains" in bodies[1]
+
+
+def test_roles_have_forum_queries_and_careervillage_counts_as_a_forum() -> None:
+    from firstweek_research.roles import load_roles
+    from firstweek_research.sources.web import tier_for
+
+    for role in load_roles().values():
+        assert role.forum_search_queries(), role.name
+        assert all("{" not in q for q in role.forum_search_queries())
+    assert tier_for("www.careervillage.org") == "forum"

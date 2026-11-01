@@ -23,6 +23,7 @@ FORUM_DOMAINS = {
     "stackexchange.com",
     "lobste.rs",
     "community.openai.com",
+    "careervillage.org",
 }
 EXCLUDED_DOMAINS = [
     "linkedin.com",
@@ -113,9 +114,23 @@ def parse_search(data: dict[str, Any], query: str) -> list[WebDocument]:
 
 
 async def search_web(
-    client: httpx.AsyncClient, api_key: str, query: str, *, limit: int = 5
+    client: httpx.AsyncClient,
+    api_key: str,
+    query: str,
+    *,
+    limit: int = 5,
+    include_domains: list[str] | None = None,
 ) -> list[WebDocument]:
-    """One search; each result is scraped to markdown. Costs ~1 Firecrawl credit per result."""
+    """One search; each result is scraped to markdown. Costs ~1 Firecrawl credit per result.
+
+    With include_domains the search is limited to those sites (Firecrawl allows either
+    includeDomains or excludeDomains, not both).
+    """
+    domains = (
+        {"includeDomains": include_domains}
+        if include_domains
+        else {"excludeDomains": EXCLUDED_DOMAINS}
+    )
     data = await request_json(
         client,
         "POST",
@@ -125,7 +140,7 @@ async def search_web(
             "query": query,
             "limit": limit,
             "sources": [{"type": "web"}],
-            "excludeDomains": EXCLUDED_DOMAINS,
+            **domains,
             "scrapeOptions": {"formats": [{"type": "markdown"}], "onlyMainContent": True},
         },
     )

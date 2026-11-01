@@ -42,7 +42,7 @@ from firstweek_research.extract import load_prompt, quote_in_text
 from firstweek_research.retrieve import Hit, search
 from firstweek_research.roles import RoleDefinition, load_roles
 
-WRITER_VERSION = "synthesise-section.v2"
+WRITER_VERSION = "synthesise-section.v3"
 WRITER_TIER: ModelTier = "frontier"  # the report is the product, and it is written rarely
 WRITER_MAX_TOKENS = 16_000  # includes thinking; the gateway doubles it if a reply is cut off
 MAX_PASSAGES = 24  # per section: enough to cover a section, few enough to read closely
@@ -234,7 +234,7 @@ def headline(stats: ArchetypeStats, items: list[SkillStat]) -> str:
     assert stats.date_range is not None
     sample = (
         f"Based on {stats.sample_size} {stats.country} job postings from {stats.employers} "
-        f"employers, {_month_range(*stats.date_range)}."
+        f"employers, all open in the last six months (posted {_month_range(*stats.date_range)})."
     )
     groups: dict[str, list[str]] = {}
     for item in items[:12]:
@@ -302,10 +302,15 @@ _NEVER = re.compile(
     r"\b(most|usually|typically|generally|majority|nearly all|almost all)\b", re.IGNORECASE
 )
 # Fine for a pattern seen in several sources, not for one source.
+# "Several workflows" counts things; "several teams" generalises across sources.
 _NEEDS_TWO = re.compile(
-    r"\b(often|many|several|common|commonly|frequently|widely|numerous)\b", re.IGNORECASE
+    r"\b(often|common|commonly|frequently|widely)\b"
+    r"|\b(many|several|numerous)\s+(postings?|employers?|teams?|practitioners?|writers?"
+    r"|engineers?|developers?|sources?|blogs?|articles?|authors?|companies|people|roles?)\b",
+    re.IGNORECASE,
 )
-_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+# A number on its own: not the 4 in "Cloud4C" or the 2 in "v2".
+_NUMBER = re.compile(r"(?<![\w.,])\d+(?:[.,]\d+)?(?!\w)")
 # Claims are checked and dropped one by one, so one that points back at another can be left
 # pointing at nothing ("The same writer ..." after the writer's first claim was dropped).
 _POINTS_BACK = re.compile(

@@ -34,3 +34,7 @@ web_queries:
   - 'what does an {name} do day to day'
   - 'building AI agents in production lessons learned'
   - 'agent engineer job what I actually work on'
+forum_queries:
+  - 'what is it really like building AI agents for a living'
+  - 'AI agent engineer frustrations at work'
+  - 'agent engineer job what surprised me'

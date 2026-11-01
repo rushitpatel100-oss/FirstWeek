@@ -41,6 +41,7 @@ class RoleDefinition(BaseModel):
     title_filter: str | None = None
     title_patterns: list[str] = Field(default_factory=list)
     web_queries: list[str] = Field(default_factory=list)
+    forum_queries: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _has_a_title_filter(self) -> "RoleDefinition":
@@ -66,6 +67,9 @@ class RoleDefinition(BaseModel):
 
     def queries(self) -> list[str]:
         return [q.format(name=self.name) for q in self.web_queries]
+
+    def forum_search_queries(self) -> list[str]:
+        return [q.format(name=self.name) for q in self.forum_queries]
 
 
 def normalize_title(title: str) -> str:
