@@ -379,6 +379,26 @@ def preflight_judge(gateway: "LLMGateway") -> str | None:
     return None
 
 
+def _skill_gap(slug: str, background: str) -> None:
+    from firstweek_research import gap
+
+    settings = get_settings()
+    if settings.anthropic_api_key is None:
+        print("Set ANTHROPIC_API_KEY in .env first: the comparison uses Claude.")
+        sys.exit(1)
+    gateway = _gateway()
+    try:
+        skills = gap.asked_skills(slug=slug)
+        result = asyncio.run(gap.skill_gap(gateway, load_roles()[slug].name, skills, background))
+    except gap.GapError as exc:
+        print(exc)
+        sys.exit(1)
+    finally:
+        gateway.flush()
+    print("\n" + gap.to_text(result, load_roles()[slug].name))
+    print(f"\n_{result.model}, cost ${result.cost_usd:.2f}._")
+
+
 def _human_review(command: str, slug: str | None, *, count: int = 10) -> None:
     """The three review commands; they read the database and never call a model."""
     from firstweek_research import review as rv
@@ -566,6 +586,11 @@ def _main(argv: list[str] | None) -> None:
     p_review_report.add_argument("--role", required=True)
     p_spot = sub.add_parser("spot-check", help="Check the verifier by hand on a random sample")
     p_spot.add_argument("--count", type=int, default=10)
+    p_gap = sub.add_parser(
+        "skill-gap", help="Compare your background with the skills a role asks for"
+    )
+    p_gap.add_argument("--role", required=True)
+    p_gap.add_argument("--background", required=True, help="A few lines about your experience")
     p_publish = sub.add_parser("publish-report", help="Publish a reviewed report")
     p_publish.add_argument("--role", required=True)
 
@@ -595,6 +620,9 @@ def _main(argv: list[str] | None) -> None:
     slug = _resolve_or_exit(args.title if args.command == "resolve" else args.role)
     if args.command == "report":
         _report(slug, args.budget, args.out, verify=not args.no_verify)
+        return
+    if args.command == "skill-gap":
+        _skill_gap(slug, args.background)
         return
     if args.command in {"review-report", "publish-report"}:
         _human_review(args.command, slug)

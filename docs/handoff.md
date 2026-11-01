@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-11-01 (review flow).
+Last updated: 2026-11-01 (skill gap).
 
 ## Where we are
 
@@ -13,11 +13,11 @@ Last updated: 2026-11-01 (review flow).
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
 
-## Next step: the screens, and the skill-gap section
+## Next step: the screens
 
-The review flow is built (ADR 0015, in review as the PR after #20): `make review-report`, `make spot-check`, `make publish-report`. Rushit reviews the GenAI Engineer report claim by claim and does the 50 spot-checks (a second role's report will be needed for enough claims). Next: the skill-gap section driven by background, then the Home, progress and report screens, which read the stored, published report.
+The review flow (#21, ADR 0015) and the skill gap (ADR 0016, `make skill-gap`) are built. Next: the Home, progress and report screens in `apps/web`, reading the published report from the API. Report screen: confidence badges, source popovers, the skill-gap form, one button to start the simulation. Needs an API endpoint for a published report and for the gap.
 
-Small follow-ups: record pages' publication dates when collecting (undated pages count as old); settle whether interviews may be cited or only validate; link summary claims to the claims they restate so rejecting one removes the other; the label question for GitLab's "Senior Backend Engineer, AI Engineering: Chat".
+Small follow-ups: record pages' publication dates when collecting (undated pages count as old); settle whether interviews may be cited or only validate; link summary claims to the claims they restate so rejecting one removes the other; the label question for GitLab's "Senior Backend Engineer, AI Engineering: Chat"; storing a personal report once accounts exist.
 
 ## Waiting on Rushit
 
