@@ -75,7 +75,7 @@ esco-suggest: ## Suggest ESCO links for taxonomy entries that have none (a perso
 review-matches: ## Show each posting's classifier decision and reason: make review-matches role="GenAI Engineer"
 	uv run python -m firstweek_research review-matches --role "$(role)"
 
-eval-classifier: ## Score the classifier against hand labels; add repeats=2 to measure stability (costs ~$0.30)
+eval-classifier: ## Score the classifier against hand labels; add repeats=2 to measure stability (costs ~$0.06)
 	uv run python -m firstweek_research eval-classifier --repeats $(or $(repeats),0)
 
 eval-extraction: ## Score skill, tool and seniority extraction against hand labels (free)
@@ -105,7 +105,7 @@ publish-report: need-role ## Publish the reviewed report (needs every claim deci
 skill-gap: need-role ## Compare your background with a role: make skill-gap role="GenAI Engineer" background="I was a mechanical engineer ..."
 	uv run python -m firstweek_research skill-gap --role "$(role)" --background "$(background)"
 
-blueprint: need-role ## Design a draft project blueprint (scenario, tickets, rubric): make blueprint role="GenAI Engineer" (costs ~$0.30)
+blueprint: need-role ## Design a draft project blueprint (scenario, tickets, rubric): make blueprint role="GenAI Engineer" (costs ~$0.06)
 	uv run python -m firstweek_simulation blueprint --role "$(role)"
 
 sandbox-image: ## Build the code sandbox image (Docker)

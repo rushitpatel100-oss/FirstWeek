@@ -38,7 +38,7 @@ async def main() -> int:
             timeout_s=20,
         )
     )
-    print("network:", net.exit_code)
+    print("network:", net.exit_code, (net.stderr.strip().splitlines() or [""])[-1][:120])
     if net.ok:
         failures.append("a job without network reached the internet")
 

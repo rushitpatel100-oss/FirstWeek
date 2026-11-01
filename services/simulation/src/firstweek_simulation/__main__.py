@@ -8,6 +8,7 @@ import asyncio
 import sys
 
 from firstweek_core.config import get_settings
+from firstweek_research.__main__ import database_unreachable
 from firstweek_research.roles import load_roles, resolve_role
 from firstweek_simulation.blueprint import (
     BlueprintError,
@@ -51,6 +52,16 @@ def _blueprint(slug: str, budget: float, *, store: bool) -> None:
 
 
 def main() -> None:
+    try:
+        _main()
+    except Exception as exc:
+        if (message := database_unreachable(exc)) is None:
+            raise
+        print(message, file=sys.stderr)
+        sys.exit(1)
+
+
+def _main() -> None:
     parser = argparse.ArgumentParser(prog="firstweek_simulation")
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("blueprint", help="Design a draft project blueprint for a role")

@@ -11,10 +11,10 @@ A simulation needs a project: a fictional company, tickets, and a rubric, built 
 - **New package `services/simulation`** (`firstweek_simulation`) holds simulation design. The validation gate, dataset and starter repo (M3 steps 3 and 4) will live here too.
 - **Built from the stored report**: its pain points (numbered), responsibilities and the skills postings ask for (10% of postings or more, at most 30). Rejected claims are already gone from the stored report.
 - **Task-type library** (`data/task_types.yaml`): seven types, each marked checkable or not, and the types each golden role may use. Other roles get a default set. Every set includes `code`.
-- **The model proposes, code checks** (`design-blueprint.v1`, frontier tier, one structured call): pain point numbers must exist (one to three, distinct); task types must be allowed for the role; tickets must fall on at least three days and include a code ticket; ticket and rubric skills must be listed ids, each rubric skill assessed by a ticket and each ticket skill in the rubric; rubric anchors cover 1 to 5. On problems, the model gets the list and one repair attempt; after that the caller sees the problems.
+- **The model proposes, code checks** (`design-blueprint.v1`, mid tier, one structured call): pain point numbers must exist (one to three, distinct); task types must be allowed for the role; tickets must fall on at least three days and include a code ticket; ticket and rubric skills must be listed ids, each rubric skill assessed by a ticket and each ticket skill in the rubric; rubric anchors are a list of exactly five different descriptions (the schema enforces the count; a dict keyed 1 to 5 failed with a mid-tier model). On problems, the model gets the list and one repair attempt; after that the caller sees the problems.
 - **Code does the bookkeeping**: ticket keys (`GENAI-101` ...) in due-day order, rubric weights scaled to sum to 1 (none under 0.05).
 - **Saved as a draft** in `blueprints` (`validated=false`): the public view in `blueprint`, the answer key apart. The answer key's reference solution is `pending:reference-solution` until step 3 produces it.
-- `make blueprint role="..."` prints the blueprint (answer key included, for the reviewer) and saves the draft; it costs about $0.30.
+- `make blueprint role="..."` prints the blueprint (answer key included, for the reviewer) and saves the draft; it costs a few cents on the mid tier. If the designs prove thin, move `BLUEPRINT_TIER` to frontier (about $0.30 each; blueprints are built once per role).
 
 ## Consequences
 
