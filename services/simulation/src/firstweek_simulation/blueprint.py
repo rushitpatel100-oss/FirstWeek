@@ -30,7 +30,7 @@ from firstweek_core.llm import LLMGateway
 from firstweek_core.llm import Tier as ModelTier
 
 BLUEPRINT_VERSION = "design-blueprint.v1"
-BLUEPRINT_TIER: ModelTier = "frontier"
+BLUEPRINT_TIER: ModelTier = "mid"
 MIN_SHARE = 0.10  # skills under 10% of postings are not worth assessing
 MAX_SKILLS = 30
 MIN_DAYS = 3
