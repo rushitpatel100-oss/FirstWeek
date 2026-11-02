@@ -1,6 +1,6 @@
 "use server";
 
-import type { Review, TestRun } from "@/lib/types";
+import type { Review, TestRun, Turn, WeekReview } from "@/lib/types";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
@@ -51,5 +51,65 @@ export async function askTechLead(slug: string, ticket: string, files: Files): P
     return res.ok ? { status: "review", review: (await res.json()) as Review } : failure(res.status);
   } catch {
     return TIMEOUT;
+  }
+}
+
+export type ChatState =
+  | { status: "ok"; reply: string }
+  | { status: "error"; message: string };
+
+export type WeekState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "done"; review: WeekReview };
+
+const TEAM_MESSAGES: Record<number, string> = {
+  404: "This project has no internship yet.",
+  422: "That message cannot be sent.",
+  429: "Too many messages just now. Please try again in a while.",
+  503: "The team is not available right now. You can keep working on the code.",
+};
+
+async function internshipPost(slug: string, path: string, body: unknown, ms: number) {
+  return fetch(`${API_URL}/roles/${encodeURIComponent(slug)}/internship/${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(ms),
+  });
+}
+
+function teamFailure(status: number): { status: "error"; message: string } {
+  return {
+    status: "error",
+    message: TEAM_MESSAGES[status] ?? "Something went wrong. Please try again.",
+  };
+}
+
+/** One message to a colleague; they answer in character. */
+export async function sendMessage(
+  slug: string,
+  colleague: string,
+  day: number,
+  message: string,
+  history: Turn[],
+): Promise<ChatState> {
+  try {
+    const res = await internshipPost(slug, "chat", { colleague, day, message, history }, 60_000);
+    if (!res.ok) return teamFailure(res.status);
+    return { status: "ok", reply: ((await res.json()) as { reply: string }).reply };
+  } catch {
+    return { status: "error", message: "That took too long or the API did not answer." };
+  }
+}
+
+/** Ends the week: the API runs the tests and the supervisor writes the review. */
+export async function finishWeek(slug: string, files: Files, chat: string[]): Promise<WeekState> {
+  try {
+    const res = await internshipPost(slug, "verdict", { files, chat }, 180_000);
+    if (!res.ok) return teamFailure(res.status);
+    return { status: "done", review: (await res.json()) as WeekReview };
+  } catch {
+    return { status: "error", message: "That took too long or the API did not answer." };
   }
 }

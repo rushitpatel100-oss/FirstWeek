@@ -18,6 +18,8 @@ from firstweek_core.contracts import AnswerKey, Criterion, ProjectBlueprint, Tic
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype
 from firstweek_core.db.session import session_scope
 from firstweek_simulation.blueprint import BlueprintError
+from firstweek_simulation.demo_internship import internship
+from firstweek_simulation.internship import write_internship
 
 ROWS = 120
 CLAUSES = 40
@@ -292,4 +294,5 @@ def seed_demo(slug: str, root: Path) -> uuid.UUID:
             target = root / str(new_id) / name / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text)
+    write_internship(root, new_id, internship())
     return new_id

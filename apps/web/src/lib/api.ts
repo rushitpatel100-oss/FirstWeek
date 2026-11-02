@@ -1,4 +1,4 @@
-import type { Project, PublishedReport, RoleSummary } from "./types";
+import type { Internship, Project, PublishedReport, RoleSummary } from "./types";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
@@ -32,4 +32,12 @@ export async function getProject(slug: string): Promise<Project | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiUnreachable(`The API answered ${res.status}.`);
   return (await res.json()) as Project;
+}
+
+/** The scripted week around the practice project, or null when it has none. */
+export async function getInternship(slug: string): Promise<Internship | null> {
+  const res = await get(`/roles/${encodeURIComponent(slug)}/internship`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiUnreachable(`The API answered ${res.status}.`);
+  return (await res.json()) as Internship;
 }

@@ -81,7 +81,15 @@ def world(
         session.flush()
         row = Blueprint(
             archetype_version_id=version.id, scenario="A claims team.",
-            blueprint={"scenario": "A claims team.", "tickets": [TICKET]},
+            blueprint={
+                "scenario": "A claims team.",
+                "company_context": "Northwind, an insurer.",
+                "tickets": [TICKET],
+                "rubric": [
+                    {"skill_id": "python", "weight": 1.0, "anchors": {"1": "bad", "5": "good"},
+                     "checks": ["tests pass"]}
+                ],
+            },
             answer_key={"planted_issues": [SECRET]}, validated=True, status="approved",
         )  # fmt: skip
         session.add(row)
