@@ -38,3 +38,7 @@ meeting), and the ticket is one of them.
 - Scripts for generated projects (the autopilot does not yet write one).
 - Colleagues that act on their own (they only answer), and a longer week than five days.
 - A progress screen beyond the end-of-week review.
+
+## Addendum 2026-11-02: autopilot writes the week
+
+After the gate approves a project, autopilot makes one more call (`design-week.v1`, up to 3 tries) that writes the colleagues and the week from the public blueprint only. Code rejects a script unless every ticket is assigned exactly once, on or before its due day, by a colleague who exists; no message mentions code or an unknown ticket; events fall on at least four days; and day 4 or 5 asks for a plain-words explanation. A week that never passes leaves the project approved and playable as a plain workspace. `internship.json` is written after `save_artifacts` (which clears the folder first); `make autopilot` also writes `week.json` to its output folder.

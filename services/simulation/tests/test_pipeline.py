@@ -41,6 +41,10 @@ def scripted(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         calls.append(kwargs)
         return replies.pop(0)
 
+    async def no_week(*_: Any, **__: Any) -> Any:
+        raise bp.BlueprintError("not under test here")
+
+    monkeypatch.setattr(pl, "design_week", no_week)
     monkeypatch.setattr(pl, "design_blueprint", fake_design)
     monkeypatch.setattr(pl, "build", fake_build)
     calls.append({"replies": replies})
@@ -153,3 +157,28 @@ def test_a_report_file_gives_the_same_findings_as_the_database(tmp_path: Path) -
 
 def test_the_default_tier_is_the_free_one() -> None:
     assert Settings(_env_file=None).simulation_tier == "judge"
+
+
+async def test_an_approved_project_gets_its_week_and_it_is_stored_beside_the_files(
+    scripted: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from test_week import script
+
+    from firstweek_simulation import week as wk
+
+    week = script(bp.build_blueprint(good_draft(), FINDINGS))
+
+    async def fake_week(*_: Any, **__: Any) -> wk.DesignedWeek:
+        return wk.DesignedWeek(week, 0.01)
+
+    monkeypatch.setattr(pl, "design_week", fake_week)
+    result, messages = await run([built(True, {"accuracy": 0.9})], scripted)
+    assert result.week == week and any("scripted week" in m for m in messages)
+    pl.write_output(tmp_path / "out", result)
+    assert (tmp_path / "out" / "week.json").is_file()
+
+
+async def test_a_failed_week_leaves_the_project_approved(scripted: list[dict[str, Any]]) -> None:
+    result, messages = await run([built(True, {"accuracy": 0.9})], scripted)
+    assert result.approved and result.week is None
+    assert any("No week script" in m for m in messages)
