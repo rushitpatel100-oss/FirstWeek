@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+.PHONY: autopilot export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
 
 need-role:
 	@test -n "$(role)" || (echo 'Add the role, for example: make $(MAKECMDGOALS) role="GenAI Engineer"' && exit 1)
@@ -107,6 +107,14 @@ skill-gap: need-role ## Compare your background with a role: make skill-gap role
 
 blueprint: need-role ## Design a draft project blueprint (scenario, tickets, rubric): make blueprint role="GenAI Engineer" (costs ~$0.06)
 	uv run python -m firstweek_simulation blueprint --role "$(role)"
+
+autopilot: need-role ## Design, build and gate a project unattended, free by default (needs make sandbox-image and GEMINI_API_KEY)
+	uv run python -m firstweek_simulation autopilot --role "$(role)"
+
+export-reports: ## Write each role's newest stored report to data/reports/*.json (for the cloud pipeline)
+	@for r in "GenAI Engineer" "Agentic AI Engineer" "AI Software Engineer"; do \
+	  f="data/reports/$$(echo $$r | tr 'A-Z ' 'a-z-').json"; \
+	  uv run python -m firstweek_simulation export-report --role "$$r" --out "$$f" || true; done
 
 artifacts: need-role ## Build the starter repo, data and reference solution for the latest draft blueprint (needs make sandbox-image; ~$0.20)
 	uv run python -m firstweek_simulation artifacts --role "$(role)"

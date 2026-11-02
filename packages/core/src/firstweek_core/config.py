@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     sandbox_backend: Literal["docker", "e2b"] = "docker"
     sandbox_image: str = "firstweek-sandbox:py"
     e2b_api_key: SecretStr | None = None
+    # Which model tier designs and builds simulation projects (ADR 0020). `judge` is the free
+    # Gemini model; the gate retries what it gets wrong. Set SIMULATION_TIER=mid for Claude.
+    simulation_tier: Literal["small", "mid", "frontier", "judge"] = "judge"
     # Generated project material (ADR 0019); an object store replaces this when we deploy
     artifacts_dir: str = "var/artifacts"
 

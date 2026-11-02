@@ -30,13 +30,12 @@ from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import BlueprintError, load_prompt
 
-PLAN_STARTER_VERSION = "plan-starter.v1"
+PLAN_STARTER_VERSION = "plan-starter.v2"
 WRITE_FILE_VERSION = "write-file.v1"
 PLAN_REFERENCE_VERSION = "plan-reference.v1"
 WRITE_REFERENCE_VERSION = "write-reference-file.v1"
 PLAN_MAX_TOKENS = 12000
 FILE_MAX_TOKENS = 8000
-ARTIFACT_TIER: ModelTier = "mid"
 ALLOWED_SUFFIXES = {
     ".py", ".md", ".txt", ".json", ".jsonl", ".csv", ".log",
     ".toml", ".cfg", ".ini", ".yaml", ".yml",
@@ -168,6 +167,7 @@ async def write_files(
     *,
     purpose: str,
     version: str,
+    tier: ModelTier,
     planned: list[PlannedFile],
     render: Callable[[PlannedFile, dict[str, str]], dict[str, str]],
     budget_usd: float,
@@ -184,7 +184,7 @@ async def write_files(
                 {"role": "system", "content": system},
                 {"role": "user", "content": user.format(**render(item, written))},
             ],
-            tier=ARTIFACT_TIER,
+            tier=tier,
             max_tokens=FILE_MAX_TOKENS,
             temperature=0.3,
             budget_scope="build-artifacts",
@@ -215,6 +215,8 @@ async def build_artifacts(
     blueprint: ProjectBlueprint,
     *,
     seed: int = SHARED_SEED,
+    tier: ModelTier = "judge",
+    feedback: str = "",
     budget_usd: float = 1.0,
 ) -> BuiltArtifacts:
     """Plans, writes, generates and runs everything. Returns every check, pass or fail."""
@@ -241,11 +243,12 @@ async def build_artifacts(
                     rubric=rubric,
                     issues=issues,
                     seed=seed,
+                    feedback=feedback or "(none: this is the first attempt)",
                 ),
             },
         ],
         response_model=StarterPlan,
-        tier=ARTIFACT_TIER,
+        tier=tier,
         max_tokens=PLAN_MAX_TOKENS,
         temperature=0.4,
         budget_scope="build-artifacts",
@@ -270,7 +273,7 @@ async def build_artifacts(
 
     try:
         files = await write_files(
-            gateway, spend, purpose="write-starter-file", version=WRITE_FILE_VERSION,
+            gateway, spend, purpose="write-starter-file", version=WRITE_FILE_VERSION, tier=tier,
             planned=every, render=render_starter, budget_usd=budget_usd,
         )  # fmt: skip
         draft = StarterDraft(
@@ -345,7 +348,7 @@ async def build_artifacts(
             },
         ],
         response_model=ReferencePlan,
-        tier=ARTIFACT_TIER,
+        tier=tier,
         max_tokens=PLAN_MAX_TOKENS,
         temperature=0.2,
         budget_scope="build-artifacts",
@@ -372,8 +375,9 @@ async def build_artifacts(
 
     try:
         changed = await write_files(
-            gateway, spend, purpose="write-reference-file", version=WRITE_REFERENCE_VERSION,
-            planned=ref_plan.changes, render=render_reference, budget_usd=budget_usd,
+            gateway, spend, purpose="write-reference-file", tier=tier,
+            version=WRITE_REFERENCE_VERSION, planned=ref_plan.changes,
+            render=render_reference, budget_usd=budget_usd,
         )  # fmt: skip
     except FileWriteError as exc:
         built.checks.append(Check("reference files are written", False, str(exc)))

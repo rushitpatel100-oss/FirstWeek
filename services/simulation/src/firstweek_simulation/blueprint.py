@@ -30,7 +30,6 @@ from firstweek_core.llm import LLMGateway
 from firstweek_core.llm import Tier as ModelTier
 
 BLUEPRINT_VERSION = "design-blueprint.v1"
-BLUEPRINT_TIER: ModelTier = "mid"
 MIN_SHARE = 0.10  # skills under 10% of postings are not worth assessing
 MAX_SKILLS = 30
 MIN_DAYS = 3
@@ -82,7 +81,7 @@ def load_task_library() -> TaskLibrary:
 class Findings:
     """What the design is built from: the stored report's own words and numbers."""
 
-    version_id: uuid.UUID
+    version_id: uuid.UUID | None  # None when the findings came from a file, not the database
     role_name: str
     pain_points: list[str]
     responsibilities: list[str]
@@ -109,14 +108,21 @@ def load_findings(slug: str) -> Findings:
             raise BlueprintError("No stored report for this role. Run `make report` first.")
         report = RoleRealityReport.model_validate(row[0].report)
         version_id, name = row[0].archetype_version_id, row[1]
+    return findings_from_report(report, name, version_id)
+
+
+def findings_from_report(
+    report: RoleRealityReport, role_name: str, version_id: uuid.UUID | None = None
+) -> Findings:
+    """Findings from a report held in memory or read from a file."""
     if not report.pain_points:
-        raise BlueprintError("The stored report has no pain points to build a scenario on.")
+        raise BlueprintError("The report has no pain points to build a scenario on.")
     skills = select_skills(report.asked_for)
     if not skills:
-        raise BlueprintError("The stored report lists no skills asked for by 10% of postings.")
+        raise BlueprintError("The report lists no skills asked for by 10% of postings.")
     return Findings(
         version_id=version_id,
-        role_name=name,
+        role_name=role_name,
         pain_points=[c.text for c in report.pain_points],
         responsibilities=[c.text for c in report.responsibilities[:6]],
         skills=skills,
@@ -231,6 +237,7 @@ async def design_blueprint(
     findings: Findings,
     *,
     library: TaskLibrary | None = None,
+    tier: ModelTier = "judge",
     budget_usd: float = 1.0,
 ) -> DesignedBlueprint:
     library = library or load_task_library()
@@ -260,7 +267,7 @@ async def design_blueprint(
                 },
             ],
             response_model=BlueprintDraft,
-            tier=BLUEPRINT_TIER,
+            tier=tier,
             max_tokens=6000,
             temperature=0.7,
             budget_scope="design-blueprint",
@@ -287,6 +294,10 @@ async def design_blueprint(
 def store_blueprint(findings: Findings, designed: DesignedBlueprint) -> uuid.UUID:
     """Saves a draft: the public view in `blueprint`, the answer key apart. Not validated yet."""
     bp = designed.blueprint
+    if findings.version_id is None:
+        raise BlueprintError(
+            "These findings came from a file; there is no report row to attach to."
+        )
     with session_scope() as session:
         row = Blueprint(
             archetype_version_id=findings.version_id,
