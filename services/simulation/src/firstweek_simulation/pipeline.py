@@ -14,7 +14,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from firstweek_core.contracts import RoleRealityReport
+from firstweek_core.contracts import Internship, RoleRealityReport
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype, RoleReport
 from firstweek_core.db.session import session_scope
 from firstweek_core.llm import LLMGateway
@@ -37,6 +37,8 @@ from firstweek_simulation.blueprint import (
     store_blueprint,
 )
 from firstweek_simulation.blueprint import to_text as blueprint_text
+from firstweek_simulation.internship import write_internship
+from firstweek_simulation.week import design_week
 
 MAX_ATTEMPTS = 3
 
@@ -48,6 +50,7 @@ class PipelineResult:
     attempts: int
     history: list[list[Check]] = field(default_factory=list)  # every attempt's checks
     cost_usd: float = 0.0
+    week: Internship | None = None  # the scripted week, when one could be written
 
     @property
     def approved(self) -> bool:
@@ -95,6 +98,17 @@ async def run_pipeline(
             break
         feedback = failures_text(built)
     assert result is not None
+    if result.approved:
+        progress("Writing the scripted week ...")
+        try:
+            week = await design_week(gateway, designed.blueprint, tier=tier, budget_usd=budget_usd)
+        except Exception as exc:  # the project stays approved; it just has no week yet
+            progress(
+                f"No week script ({type(exc).__name__}); the project opens as a plain workspace."
+            )
+        else:
+            result.week = week.script
+            result.cost_usd += week.cost_usd
     return result
 
 
@@ -116,6 +130,8 @@ def write_output(folder: Path, result: PipelineResult) -> None:
     ]
     (folder / "attempts.json").write_text(json.dumps(attempts, indent=2))
     (folder / "metrics.json").write_text(json.dumps(result.built.metrics, indent=2))
+    if result.week is not None:
+        (folder / "week.json").write_text(result.week.model_dump_json(indent=2))
     for name, files in (
         ("starter", result.built.starter),
         ("reference", result.built.reference),
@@ -131,6 +147,8 @@ def store_result(findings: Findings, result: PipelineResult, root: Path) -> str:
     """Saves to the database: the draft, its files, and (if the gate passed) the approval."""
     blueprint_id = store_blueprint(findings, result.designed)
     save_artifacts(blueprint_id, result.built, root)
+    if result.week is not None:  # after save_artifacts, which clears the folder first
+        write_internship(root, blueprint_id, result.week)
     if result.approved:
         with session_scope() as session:
             row = session.get(Blueprint, blueprint_id)
