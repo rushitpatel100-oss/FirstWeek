@@ -52,6 +52,7 @@ TRANSIENT_ERRORS = {
 }
 TRANSIENT_STATUS = {429, 500, 502, 503, 504}
 FREE_TIER_ROUNDS = 4  # passes over the model list before giving up
+FREE_TIER_TIMEOUT_S = 120.0  # one call; LiteLLM waits 600s by default, which looks like a hang
 FREE_TIER_PAUSE_S = 20.0  # first pause between passes; doubles each time
 
 
@@ -165,6 +166,8 @@ class LLMGateway:
         assert self.completion_fn is not None
         if tier != "judge":
             return await self.completion_fn(**kwargs), str(kwargs["model"])
+        # We do the retrying here, so LiteLLM's own quick retries and long default timeout go.
+        kwargs = {**kwargs, "timeout": FREE_TIER_TIMEOUT_S, "num_retries": 0}
         models = [str(kwargs["model"]), *self.settings.model_judge_fallbacks]
         pause = FREE_TIER_PAUSE_S
         for attempt in range(FREE_TIER_ROUNDS):
@@ -173,7 +176,8 @@ class LLMGateway:
                 try:
                     return await self.completion_fn(**{**kwargs, "model": candidate}), candidate
                 except Exception as exc:
-                    if not is_transient(exc):
+                    # A retired model (404) is skipped like a busy one; the next may work.
+                    if not (is_transient(exc) or type(exc).__name__ == "NotFoundError"):
                         raise
                     error = exc
             if attempt == FREE_TIER_ROUNDS - 1 and error is not None:
