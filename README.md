@@ -4,6 +4,16 @@
 
 > Status: **M1 Research pipeline, part 2.** Postings are collected, classified against role definitions, and mined for skills with quote-verified extraction, giving skill shares with 95% intervals. See the [roadmap](#roadmap).
 
+## Try it (free demo)
+
+The [demo page](apps/demo) is a static site: a week at a made-up insurer, with a team chat, tickets
+arriving day by day, and a real Python project you edit and test. The tests run for real in your
+browser (pytest through Pyodide). Colleague replies, the code review and the end-of-week verdict
+are recorded samples; the full app answers with a live model. See [ADR 0025](docs/adr/0025-static-portfolio-demo.md).
+Run it locally: `cd apps/demo && pnpm install && pnpm dev`.
+
+![The demo page](docs/img/demo.png)
+
 ## Why
 
 New AI roles are hard to understand from the outside. Career switchers can learn the tools, but cannot see what the work looks like day to day, so their projects often miss what employers need. FirstWeek makes these roles visible, then lets people try them.
