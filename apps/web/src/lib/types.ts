@@ -72,3 +72,27 @@ export type GapLine = {
 };
 
 export type GapResult = { lines: GapLine[]; coverage: number; model: string };
+
+export type ProjectTicket = {
+  key: string;
+  title: string;
+  description: string;
+  acceptance_criteria: string[];
+  task_type: string;
+  due_day: number;
+  skills: string[];
+};
+
+export type Project = {
+  blueprint: {
+    archetype: string;
+    scenario: string;
+    company_context: string;
+    tickets: ProjectTicket[];
+  };
+  files: Record<string, string>;
+};
+
+export type TestRun = { exit_code: number; output: string; timed_out: boolean; passed: boolean };
+
+export type Review = { review: string; model: string; tests: TestRun };
