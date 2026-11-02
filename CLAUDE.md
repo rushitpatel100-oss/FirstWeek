@@ -39,6 +39,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `services/research`: role definitions (`data/roles/*.yaml`), taxonomy (`data/taxonomy/ai_skills.yaml`), collectors, cleaning, dedup, classification, quote-verified extraction, stats. Prompts are versioned files in `firstweek_research/prompts/`: never edit a released version, add `.v2`.
 - `services/simulation`: task-type library, blueprint design (later: dataset, starter repo, validation gate). Prompts are versioned files in `firstweek_simulation/prompts/`.
 - `services/worker`: Temporal worker; workflows in their own modules
+- `apps/demo`: free static portfolio demo (Vite + React, Pyodide, recorded replies; ADR 0025). `python scripts/export_demo_data.py` refreshes `src/data.json`; `pnpm build` there; GitHub Pages deploys it.
 - `apps/web`: Next.js 16 with Cache Components. Read `apps/web/AGENTS.md` first: its APIs differ from older Next.js.
 
 ## Working style

@@ -1,0 +1,38 @@
+name: Demo page
+on:
+  push:
+    branches: [main]
+    paths: ["apps/demo/**"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/demo/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/demo
+      - run: pnpm build
+        working-directory: apps/demo
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/demo/dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
