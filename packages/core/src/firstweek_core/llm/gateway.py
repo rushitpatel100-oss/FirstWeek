@@ -42,6 +42,27 @@ CHARS_PER_TOKEN = 3  # deliberately pessimistic, so pre-call estimates overshoot
 MAX_TOKENS_CEILING = 32_000
 
 
+TRANSIENT_ERRORS = {
+    "ServiceUnavailableError",
+    "RateLimitError",
+    "InternalServerError",
+    "BadGatewayError",
+    "Timeout",
+    "APIConnectionError",
+}
+TRANSIENT_STATUS = {429, 500, 502, 503, 504}
+FREE_TIER_ROUNDS = 4  # passes over the model list before giving up
+FREE_TIER_PAUSE_S = 20.0  # first pause between passes; doubles each time
+
+
+def is_transient(exc: BaseException) -> bool:
+    """A provider hiccup worth waiting out: overloaded, rate limited, unreachable."""
+    return (
+        type(exc).__name__ in TRANSIENT_ERRORS
+        or getattr(exc, "status_code", None) in TRANSIENT_STATUS
+    )
+
+
 class StructuredOutputError(Exception):
     """The model never produced output that validates against the requested schema."""
 
@@ -99,6 +120,7 @@ class LLMGateway:
     recorder: Recorder | None = None
     budgets: BudgetRegistry | None = None
     embed_fn: EmbedFn | None = None  # local embedder; tests inject a fake
+    sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep  # tests skip the waiting
 
     def __post_init__(self) -> None:
         self.settings.export_credentials()
@@ -136,6 +158,29 @@ class LLMGateway:
             current = DOWNGRADE[current] if allow_downgrade else None
         budget.ensure(worst_case(self.model_for(tier)))  # raises with a clear message
         return tier  # pragma: no cover
+
+    async def _call(self, kwargs: dict[str, Any], tier: Tier) -> tuple[Any, str]:
+        """One provider call. The free tier waits out overload and falls back to other free
+        models; every other tier fails at once, so a paid model is never swapped silently."""
+        assert self.completion_fn is not None
+        if tier != "judge":
+            return await self.completion_fn(**kwargs), str(kwargs["model"])
+        models = [str(kwargs["model"]), *self.settings.model_judge_fallbacks]
+        pause = FREE_TIER_PAUSE_S
+        for attempt in range(FREE_TIER_ROUNDS):
+            error: Exception | None = None
+            for candidate in models:
+                try:
+                    return await self.completion_fn(**{**kwargs, "model": candidate}), candidate
+                except Exception as exc:
+                    if not is_transient(exc):
+                        raise
+                    error = exc
+            if attempt == FREE_TIER_ROUNDS - 1 and error is not None:
+                raise error
+            await self.sleep_fn(pause)
+            pause *= 2
+        raise AssertionError("unreachable")
 
     # ------------------------------------------------------------ public API
 
@@ -191,7 +236,7 @@ class LLMGateway:
             name=purpose, model=model, input=messages, metadata=metadata
         ) as gen:
             try:
-                response = await self.completion_fn(**kwargs)
+                response, model = await self._call(kwargs, chosen)
             except Exception as exc:
                 latency = int((time.perf_counter() - started) * 1000)
                 gen.finish(
