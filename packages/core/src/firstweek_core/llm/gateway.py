@@ -152,6 +152,8 @@ class LLMGateway:
         if self.completion_fn is None:
             import litellm
 
+            litellm.suppress_debug_info = True  # no 'Give Feedback / Get Help' after every error
+
             self.completion_fn = litellm.acompletion
         if self.tracer is None:
             self.tracer = default_tracer(self.settings.tracing_enabled)
