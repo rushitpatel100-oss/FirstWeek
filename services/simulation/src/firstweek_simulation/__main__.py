@@ -93,10 +93,11 @@ def _artifacts(slug: str, budget: float, seed: int) -> None:
 
 def _need_key(tier: str) -> None:
     settings = get_settings()
-    if tier == "judge" and settings.gemini_api_key is None:
+    if tier == "judge" and not settings.has_judge_key:
         print(
-            "Set GEMINI_API_KEY (free: https://aistudio.google.com/apikey) in .env or the "
-            "environment, or use SIMULATION_TIER=mid with ANTHROPIC_API_KEY."
+            "Set GEMINI_API_KEY (free: https://aistudio.google.com/apikey) or GROQ_API_KEY "
+            "(free: https://console.groq.com) in .env or the environment, or use "
+            "SIMULATION_TIER=mid with ANTHROPIC_API_KEY."
         )
         sys.exit(1)
     if tier != "judge" and settings.anthropic_api_key is None:
