@@ -150,10 +150,38 @@ class StarterDraft(BaseModel):
     )
 
 
-class ReferenceDraft(BaseModel):
-    files: list[FileDraft] = Field(
-        min_length=1,
-        max_length=30,
-        description="Full contents of every starter file the solution changes, and new files.",
+class PlannedFile(BaseModel):
+    path: str
+    purpose: str = Field(
+        min_length=10,
+        description="What the file does and, for a flaw, exactly what the flaw is.",
     )
-    summary: str = Field(min_length=20, description="What was changed, per planted issue.")
+
+    @field_validator("path")
+    @classmethod
+    def _plain_path(cls, path: str) -> str:
+        from firstweek_core.sandbox.runner import check_relative_path
+
+        return check_relative_path(path)
+
+
+class StarterPlan(BaseModel):
+    """The plan every file is written from: who owns which flaw, and the shared interfaces."""
+
+    design_notes: str = Field(
+        min_length=50,
+        max_length=4000,
+        description="Module names, function signatures, data formats and the seeded flaws.",
+    )
+    starter_files: list[PlannedFile] = Field(min_length=3, max_length=14)
+    key_files: list[PlannedFile] = Field(
+        min_length=2, max_length=6, description="Under key/. Must include make_data.py, metrics.py."
+    )
+    generated: list[str] = Field(min_length=1, max_length=40)
+
+
+class ReferencePlan(BaseModel):
+    changes: list[PlannedFile] = Field(
+        min_length=1, max_length=10, description="Starter files to change, and new files."
+    )
+    summary: str = Field(min_length=20, description="What changes, per planted issue.")

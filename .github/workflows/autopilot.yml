@@ -1,0 +1,56 @@
+name: Autopilot
+
+# Designs, builds and gates a simulation project in the cloud, so it needs nobody's terminal.
+# Run by hand: Actions > Autopilot > Run workflow. Needs the repository secret GEMINI_API_KEY
+# (free) and a report snapshot in data/reports/ (make export-reports). Costs nothing by default.
+on:
+  workflow_dispatch:
+    inputs:
+      role_file:
+        description: Report snapshot to build from
+        default: data/reports/genai-engineer.json
+      tier:
+        description: Model tier (judge is the free Gemini model)
+        default: judge
+        type: choice
+        options: [judge, mid, frontier]
+      attempts:
+        description: Gate attempts
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  autopilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages --frozen
+      - name: Build the sandbox image
+        run: docker build -f infra/docker/sandbox.Dockerfile -t firstweek-sandbox:py infra/docker
+      - name: Autopilot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+          uv run python -m firstweek_simulation autopilot \
+            --report-file "${{ inputs.role_file }}" --tier "${{ inputs.tier }}" \
+            --attempts "${{ inputs.attempts }}" --out var/autopilot/out 2>&1 | tee autopilot.log
+      - name: Summary
+        if: always()
+        run: |
+          { echo '```'; tail -n 80 autopilot.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autopilot-result
+          path: |
+            var/autopilot/out
+            autopilot.log
+          retention-days: 14

@@ -2,10 +2,12 @@
 
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,9 +19,11 @@ from sqlalchemy.exc import OperationalError
 
 from firstweek_core.contracts import (
     FileDraft,
+    PlannedFile,
     ProjectBlueprint,
-    ReferenceDraft,
+    ReferencePlan,
     StarterDraft,
+    StarterPlan,
 )
 from firstweek_core.db.models import ArchetypeVersion, Blueprint
 from firstweek_core.db.session import get_engine, session_scope
@@ -65,13 +69,24 @@ def starter_draft(**changes: Any) -> StarterDraft:
     return StarterDraft(**fields)
 
 
-def reference_draft(**changes: Any) -> ReferenceDraft:
+@dataclass
+class RefScript:
+    files: list[FileDraft]
+    summary: str
+
+
+def reference_draft(**changes: Any) -> RefScript:
     fields: dict[str, Any] = {
         "files": [f("src/calc.py", FIXED)],
         "summary": "total() now includes the last element.",
     }
     fields.update(changes)
-    return ReferenceDraft(**fields)
+    return RefScript(**fields)
+
+
+def ref_plan(paths: list[str]) -> ReferencePlan:
+    items = [PlannedFile(path=p, purpose="Change it as the plan says.") for p in paths]
+    return ReferencePlan(changes=items, summary="Fixes every planted issue in place.")
 
 
 class LocalRunner:
@@ -112,12 +127,49 @@ class LocalRunner:
 
 
 class FakeGateway:
-    def __init__(self, *replies: Any) -> None:
-        self.replies, self.calls = list(replies), []  # type: ignore[var-annotated]
+    """Plans come from `structured`; each file comes from its own `complete` call."""
+
+    def __init__(self, starter: StarterDraft, reference: RefScript | None = None) -> None:
+        self.starter, self.reference = starter, reference
+        self.structured_calls: list[dict[str, Any]] = []
+        self.complete_calls: list[dict[str, Any]] = []
+        self.cut_off: set[str] = set()
+        starter_all = [*starter.starter_files, *starter.key_files]
+        self.content = {
+            "write-starter-file": {x.path: x.content for x in starter_all},
+            "write-reference-file": {x.path: x.content for x in reference.files}
+            if reference
+            else {},
+        }
 
     async def structured(self, **kwargs: Any) -> SimpleNamespace:
-        self.calls.append(kwargs)
-        return SimpleNamespace(parsed=self.replies.pop(0), cost_usd=Decimal("0.05"), model="fake")
+        self.structured_calls.append(kwargs)
+        if kwargs["purpose"] == "plan-starter":
+
+            def planned(files: list[FileDraft]) -> list[PlannedFile]:
+                return [PlannedFile(path=x.path, purpose="Does what the plan says.") for x in files]
+
+            plan = StarterPlan(
+                design_notes="Shared notes about names and signatures. " * 3,
+                starter_files=planned(self.starter.starter_files),
+                key_files=planned(self.starter.key_files),
+                generated=self.starter.generated,
+            )
+            return SimpleNamespace(parsed=plan, cost_usd=Decimal("0.02"), model="fake")
+        assert self.reference is not None, "the reference was requested"
+        paths = [x.path for x in self.reference.files]
+        return SimpleNamespace(parsed=ref_plan(paths), cost_usd=Decimal("0.02"), model="fake")
+
+    async def complete(self, **kwargs: Any) -> SimpleNamespace:
+        self.complete_calls.append(kwargs)
+        path = re.search(r"Write this file: (\S+)", kwargs["messages"][1]["content"])
+        assert path is not None
+        name = path.group(1)
+        text = self.content[kwargs["purpose"]][name]
+        return SimpleNamespace(
+            content=text, cost_usd=Decimal("0.01"), model="fake",
+            finish_reason="length" if name in self.cut_off else "stop",
+        )  # fmt: skip
 
 
 def blueprint() -> ProjectBlueprint:
@@ -148,7 +200,7 @@ async def test_a_sound_project_passes_every_check_and_the_numbers_are_measured()
     assert built.metrics == {"sum_matches": 1.0}
     assert built.starter["data/nums.json"] == "[1, 2, 3]" and "key/truth.json" in built.key
     assert built.reference["src/calc.py"] == FIXED and built.starter["src/calc.py"] == BUGGY
-    assert built.cost_usd == pytest.approx(0.10) and built.summary.startswith("total()")
+    assert built.cost_usd == pytest.approx(0.10) and built.summary.startswith("Fixes every")
     # The person's tree never contains the hidden side, and the key script never runs on it.
     assert not any(art.is_key_path(p) for p in built.starter)
     starter_run = runner.jobs[1]
@@ -156,13 +208,37 @@ async def test_a_sound_project_passes_every_check_and_the_numbers_are_measured()
     assert starter_run.network is False
 
 
-async def test_the_model_is_told_the_planted_issues_and_the_starter_it_must_fix() -> None:
+async def test_the_planner_gets_the_issues_and_each_file_is_its_own_call() -> None:
     gateway = FakeGateway(starter_draft(), reference_draft())
     await build(gateway)
-    first, second = (c["messages"][1]["content"] for c in gateway.calls)
-    assert "Index never drops superseded documents." in first and "Seed for this build: 1" in first
-    assert "Index never drops superseded documents." in second
-    assert "=== src/calc.py ===" in second and BUGGY in second
+    plan, ref_plan_call = (c["messages"][1]["content"] for c in gateway.structured_calls)
+    assert "Index never drops superseded documents." in plan and "Seed for this build: 1" in plan
+    assert "Index never drops superseded documents." in ref_plan_call
+    assert "=== src/calc.py ===" in ref_plan_call and BUGGY in ref_plan_call
+    starter_calls = [c for c in gateway.complete_calls if c["purpose"] == "write-starter-file"]
+    assert len(starter_calls) == 5  # three starter files and two key files, one call each
+    assert all(c["max_tokens"] == art.FILE_MAX_TOKENS for c in gateway.complete_calls)
+    first, last = (c["messages"][1]["content"] for c in (starter_calls[0], starter_calls[-1]))
+    assert "(none yet)" in first and "=== src/calc.py ===" in last
+    reference_calls = [c for c in gateway.complete_calls if c["purpose"] == "write-reference-file"]
+    assert len(reference_calls) == 1
+    assert "def total(xs):\n    return sum(xs[:-1])" in reference_calls[0]["messages"][1]["content"]
+
+
+async def test_a_file_that_is_cut_off_is_reported_by_name_and_nothing_runs() -> None:
+    gateway = FakeGateway(starter_draft(), reference_draft())
+    gateway.cut_off = {"src/calc.py"}
+    runner = LocalRunner()
+    built = await build(gateway, runner)
+    assert failed(built) == ["starter files are written"]
+    assert "src/calc.py" in built.checks[0].detail and "cut off" in built.checks[0].detail
+    assert runner.jobs == []
+
+
+def test_a_surrounding_code_fence_is_removed() -> None:
+    assert art.clean_file("```python\nx = 1\n```") == "x = 1\n"
+    assert art.clean_file("\n\nx = 1\n\n") == "x = 1\n"
+    assert art.clean_file("print('```')") == "print('```')\n"
 
 
 async def test_a_starter_that_already_passes_has_nothing_planted() -> None:
@@ -202,7 +278,7 @@ async def test_a_generator_that_fails_stops_the_build_before_the_reference_is_re
     gateway = FakeGateway(bad)
     built = await build(gateway)
     assert failed(built) == ["the data generator runs and writes every file it lists"]
-    assert len(gateway.calls) == 1
+    assert len(gateway.structured_calls) == 1
 
 
 async def test_a_reference_that_does_not_fix_it_is_reported() -> None:
@@ -254,16 +330,14 @@ def test_starter_problems(changes: dict[str, Any], fragment: str) -> None:
 
 def test_reference_problems() -> None:
     starter = {"src/calc.py": BUGGY, "tests/test_calc.py": TEST}
-    assert art.reference_problems(reference_draft(), starter) == []
+    assert art.reference_problems(ref_plan(["src/calc.py"]), starter) == []
     for path, fragment in [
         ("key/metrics.py", "must not touch"),
         ("tests/test_calc.py", "must not be changed"),
         ("src/x.exe", "file type"),
     ]:
-        assert any(
-            fragment in p for p in art.reference_problems(reference_draft(files=[f(path)]), starter)
-        )
-    assert art.reference_problems(reference_draft(files=[f("tests/test_new.py")]), starter) == []
+        assert any(fragment in p for p in art.reference_problems(ref_plan([path]), starter))
+    assert art.reference_problems(ref_plan(["tests/test_new.py"]), starter) == []
 
 
 def test_unsafe_paths_never_reach_the_sandbox() -> None:
