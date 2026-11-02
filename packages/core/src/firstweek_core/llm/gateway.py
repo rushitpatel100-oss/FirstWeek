@@ -7,6 +7,7 @@ retries, tracing, and a record of every call.
 
 import asyncio
 import json
+import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -56,11 +57,28 @@ FREE_TIER_TIMEOUT_S = 120.0  # one call; LiteLLM waits 600s by default, which lo
 FREE_TIER_PAUSE_S = 20.0  # first pause between passes; doubles each time
 
 
+class _DropSamplingNotice(logging.Filter):
+    """Gemini 3 models make LiteLLM warn on every call that temperature is planned for removal.
+    We do not send it to those models; the notice only buries real output."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "`temperature`, `top_p`, and `top_k` continue to function" not in record.getMessage()
+
+
+logging.getLogger("LiteLLM").addFilter(_DropSamplingNotice())
+
+# LiteLLM sometimes wraps a Gemini 429 in a BadRequestError, so the type says nothing; the text
+# still carries the provider's own status.
+RATE_LIMIT_TEXT = ("RESOURCE_EXHAUSTED", "429 Too Many Requests", '"code": 429')
+
+
 def is_transient(exc: BaseException) -> bool:
     """A provider hiccup worth waiting out: overloaded, rate limited, unreachable."""
+    text = str(exc)
     return (
         type(exc).__name__ in TRANSIENT_ERRORS
         or getattr(exc, "status_code", None) in TRANSIENT_STATUS
+        or any(marker in text for marker in RATE_LIMIT_TEXT)
     )
 
 
