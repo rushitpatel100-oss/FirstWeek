@@ -153,6 +153,20 @@ def _autopilot(args: argparse.Namespace) -> None:
     sys.exit(0 if result.approved else 1)
 
 
+def _seed_demo(slug: str) -> None:
+    from pathlib import Path
+
+    from firstweek_simulation.demo_project import seed_demo
+
+    try:
+        new_id = seed_demo(slug, Path(get_settings().artifacts_dir))
+    except BlueprintError as exc:
+        print(exc)
+        sys.exit(1)
+    print(f"Stored the hand-written demo project as approved blueprint {new_id}.")
+    print(f"Open it at http://localhost:3000/roles/{slug}/practice (make web, make up).")
+
+
 def _export_report(slug: str, out: str) -> None:
     import json
     from pathlib import Path
@@ -195,6 +209,8 @@ def _main() -> None:
     pilot.add_argument("--attempts", type=int, default=3)
     pilot.add_argument("--seed", type=int, default=1)
     pilot.add_argument("--budget", type=float, default=1.0)
+    d = sub.add_parser("seed-demo", help="Store the hand-written practice project (no model call)")
+    d.add_argument("--role", required=True)
     exp = sub.add_parser("export-report", help="Write a stored report to a JSON file")
     exp.add_argument("--role", required=True)
     exp.add_argument("--out", required=True)
@@ -211,6 +227,9 @@ def _main() -> None:
         return
     if args.command == "export-report":
         _export_report(_slug(args.role), args.out)
+        return
+    if args.command == "seed-demo":
+        _seed_demo(_slug(args.role))
         return
     if args.command == "artifacts":
         _artifacts(_slug(args.role), args.budget, args.seed)
