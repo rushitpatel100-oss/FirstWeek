@@ -174,7 +174,7 @@ class LLMGateway:
             return await self.completion_fn(**kwargs), str(kwargs["model"])
         # We do the retrying here, so LiteLLM's own quick retries and long default timeout go.
         kwargs = {**kwargs, "timeout": FREE_TIER_TIMEOUT_S, "num_retries": 0}
-        models = [str(kwargs["model"]), *self.settings.model_judge_fallbacks]
+        models = [str(kwargs["model"]), *self.settings.judge_fallbacks()]
         pause = FREE_TIER_PAUSE_S
         spent: set[str] = set()  # models whose daily quota is gone; not worth asking again
         for attempt in range(FREE_TIER_ROUNDS):

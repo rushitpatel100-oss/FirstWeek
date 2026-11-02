@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from firstweek_core.config import Settings
 from firstweek_core.llm import (
@@ -18,6 +18,7 @@ from firstweek_core.llm import (
     StructuredOutputError,
     Tier,
 )
+from firstweek_core.llm.gateway import is_daily_quota
 
 
 def _response(
@@ -509,3 +510,16 @@ async def test_a_spent_daily_quota_is_not_retried_and_fails_at_once_when_all_are
         )
     assert seen == [settings.model_judge, *settings.model_judge_fallbacks]  # each asked once
     assert sleeps == []
+
+
+def test_groq_joins_the_free_chain_only_when_its_key_is_set() -> None:
+    without = Settings(_env_file=None, gemini_api_key=SecretStr("g"))
+    assert without.judge_fallbacks() == without.model_judge_fallbacks
+    with_groq = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    assert with_groq.judge_fallbacks() == [*with_groq.model_judge_fallbacks, with_groq.model_groq]
+    assert with_groq.has_judge_key and not Settings(_env_file=None).has_judge_key
+
+
+def test_groq_daily_limits_are_recognised_as_spent_for_the_day() -> None:
+    assert is_daily_quota(Exception("Rate limit reached ... on tokens per day (TPD): Limit 200000"))
+    assert not is_daily_quota(Exception("Rate limit reached ... on tokens per minute (TPM)"))

@@ -62,12 +62,12 @@ def _script(project: ws.Project) -> Internship:
 
 def _need_key() -> None:
     settings = wsapi.current_settings()
-    key = (
-        settings.gemini_api_key
+    has_key = (
+        settings.has_judge_key
         if settings.simulation_tier == "judge"
-        else settings.anthropic_api_key
+        else settings.anthropic_api_key is not None
     )
-    if key is None:
+    if not has_key:
         raise HTTPException(status_code=503, detail="The team is not available right now.")
 
 

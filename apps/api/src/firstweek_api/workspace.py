@@ -105,12 +105,12 @@ async def review(slug: str, body: ReviewRequest, request: Request) -> ReviewResp
     """Run the tests, then ask the Tech Lead to review the work against one ticket."""
     found = _project(slug)
     settings = get_settings()
-    key = (
-        settings.gemini_api_key
+    has_key = (
+        settings.has_judge_key
         if settings.simulation_tier == "judge"
-        else settings.anthropic_api_key
+        else settings.anthropic_api_key is not None
     )
-    if key is None:
+    if not has_key:
         raise HTTPException(status_code=503, detail="The review is not available right now.")
     if not review_limit.allow(_who(request)) or not review_day_limit.allow("all"):
         raise HTTPException(status_code=429, detail="Too many reviews just now. Try again later.")

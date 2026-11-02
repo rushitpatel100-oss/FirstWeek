@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None  # free tier: https://aistudio.google.com/apikey
+    groq_api_key: SecretStr | None = None  # free tier, a second source: https://console.groq.com
 
     # Model routing: LiteLLM model strings per tier
     model_frontier: str = "anthropic/claude-opus-5-5"
@@ -31,6 +32,9 @@ class Settings(BaseSettings):
     # Tried in order when the free model is overloaded (503) or rate limited (429). Free only:
     # a paid tier never silently switches to another model.
     model_judge_fallbacks: list[str] = ["gemini/gemini-3.6-flash"]
+    # Added last to the free chain when GROQ_API_KEY is set (8K tokens a minute: fine for chat,
+    # tight for long reviews). A different provider, so one provider's daily cap does not stop us.
+    model_groq: str = "groq/openai/gpt-oss-120b"
     # "local/<name>" runs a free open-source model on this machine (ADR 0012); any other
     # value is a LiteLLM embedding model string such as "openai/text-embedding-3-small".
     model_embedding: str = "local/BAAI/bge-small-en-v1.5"
@@ -70,6 +74,7 @@ class Settings(BaseSettings):
         "anthropic_api_key",
         "openai_api_key",
         "gemini_api_key",
+        "groq_api_key",
         "langfuse_public_key",
         "langfuse_secret_key",
         "adzuna_app_id",
@@ -82,6 +87,19 @@ class Settings(BaseSettings):
     def _blank_is_unset(cls, value: object) -> object:
         """`KEY=` in .env means 'not set', not an empty key."""
         return None if value == "" else value
+
+    @property
+    def has_judge_key(self) -> bool:
+        """Whether any free provider is set up for the judge tier."""
+        return self.gemini_api_key is not None or self.groq_api_key is not None
+
+    def judge_fallbacks(self) -> list[str]:
+        """Free models tried after the judge model, in order. Groq joins when its key is set."""
+        extra = [self.model_groq] if self.groq_api_key is not None else []
+        return [
+            *self.model_judge_fallbacks,
+            *(m for m in extra if m not in self.model_judge_fallbacks),
+        ]
 
     @property
     def tracing_enabled(self) -> bool:
@@ -97,6 +115,7 @@ class Settings(BaseSettings):
             "ANTHROPIC_API_KEY": self.anthropic_api_key,
             "OPENAI_API_KEY": self.openai_api_key,
             "GEMINI_API_KEY": self.gemini_api_key,
+            "GROQ_API_KEY": self.groq_api_key,
             "LANGFUSE_PUBLIC_KEY": self.langfuse_public_key,
             "LANGFUSE_SECRET_KEY": self.langfuse_secret_key,
         }
