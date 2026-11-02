@@ -41,4 +41,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-02: free-tier calls time out at 120s (was a 10 minute hang) and skip retired models (404).
 - 2026-11-02: first full autopilot attempt reached the build gate; free Gemini caps at 20 requests/day/model, so the gateway now fails fast on a spent daily quota.
 - 2026-11-02: practice workspace API (project, run tests, Tech Lead review); the review runs the tests itself so the reviewer reads real output.
-- 2026-11-02: practice screen (tickets, editor, run tests, Tech Lead) and a Try the job link on the report page.
+- 2026-11-02: hand-written demo project (make seed-demo) so the workspace works without waiting for model quota; it passes the same gate as model output.
