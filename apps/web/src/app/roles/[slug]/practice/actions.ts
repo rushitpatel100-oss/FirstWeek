@@ -14,7 +14,7 @@ const MESSAGES: Record<number, string> = {
   404: "This role has no practice project yet.",
   422: "That change cannot be run. Check the file names and that each file is plain text.",
   429: "Too many runs just now. Please try again in a while.",
-  503: "The Tech Lead is not available right now. You can still run the tests.",
+  503: "The code runner or the Tech Lead is not available right now. Please try again later.",
 };
 
 type Files = Record<string, string>;
