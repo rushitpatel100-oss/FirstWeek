@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None  # free tier: https://aistudio.google.com/apikey
     groq_api_key: SecretStr | None = None  # free tier, a second source: https://console.groq.com
 
+    # Shared secret between the web app and the API. When set, the API trusts the client address
+    # the web app forwards (the web app is the API's only client in production).
+    internal_api_key: SecretStr | None = None
+
     # Model routing: LiteLLM model strings per tier
     model_frontier: str = "anthropic/claude-opus-5-5"
     model_mid: str = "anthropic/claude-sonnet-5-5"
@@ -75,6 +79,7 @@ class Settings(BaseSettings):
         "openai_api_key",
         "gemini_api_key",
         "groq_api_key",
+        "internal_api_key",
         "langfuse_public_key",
         "langfuse_secret_key",
         "adzuna_app_id",

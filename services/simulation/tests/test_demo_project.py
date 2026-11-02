@@ -87,3 +87,34 @@ def test_seeding_stores_an_approved_project_the_workspace_can_open(tmp_path: Pat
     assert "src/metrics.py" in found.files and "tests/test_metrics.py" in found.files
     assert not any(p.startswith(("key/", "reference/")) for p in found.files)
     assert "reference" not in str(found.blueprint).lower() or "planted" not in str(found.blueprint)
+
+
+@pytest.mark.db
+@pytest.mark.usefixtures("_db")
+def test_ensure_demo_seeds_once_and_restores_files_a_restart_lost(tmp_path: Path) -> None:
+    import shutil
+    from datetime import date
+
+    from firstweek_simulation.workspace import approved_project
+
+    with session_scope() as session:
+        role = RoleArchetype(
+            slug="genai-engineer", name="GenAI Engineer", definition="d", trust_level="golden"
+        )
+        session.add(role)
+        session.flush()
+        session.add(ArchetypeVersion(
+            archetype_id=role.id, version=1, country="GB", date_from=date(2026, 5, 1),
+            date_to=date(2026, 10, 1), sample_size=15, status="published",
+        ))  # fmt: skip
+    first, what = demo.ensure_demo("genai-engineer", tmp_path)
+    assert what == "seeded"
+    again, what = demo.ensure_demo("genai-engineer", tmp_path)
+    assert (again, what) == (first, "kept")
+    shutil.rmtree(tmp_path)  # a new container with an empty disk
+    tmp_path.mkdir()
+    restored, what = demo.ensure_demo("genai-engineer", tmp_path)
+    assert (restored, what) == (first, "files restored")
+    found = approved_project("genai-engineer", tmp_path)
+    assert found is not None and found.blueprint_id == first
+    assert (tmp_path / str(first) / "internship.json").is_file()

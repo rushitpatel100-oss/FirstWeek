@@ -15,7 +15,7 @@ Last updated: 2026-11-02 (virtual internship slice).
 
 ## Direction (2026-11-02): a virtual internship
 
-The product is a virtual internship: a week at a made-up company with colleagues who message you, work that arrives in different forms (a manager's message, a colleague's complaint, a ticket, a meeting) and a supervisor's review at the end. The Role Reality Report is the evidence engine behind it, not the front door. Built (ADR 0023, PR `internship-slice`): the scripted Northwind week, in-character chat, the end-of-week review and the screen `/roles/{slug}/practice`. Next: scripts for generated projects (autopilot), then deployment, then colleagues that act on their own.
+The product is a virtual internship: a week at a made-up company with colleagues who message you, work that arrives in different forms (a manager's message, a colleague's complaint, a ticket, a meeting) and a supervisor's review at the end. The Role Reality Report is the evidence engine behind it, not the front door. Built (ADR 0023, PR `internship-slice`): the scripted Northwind week, in-character chat, the end-of-week review and the screen `/roles/{slug}/practice`. Autopilot now writes a week for each approved project (ADR 0023 addendum; not yet run against a real model: free quotas ran out on 2026-11-02, rerun after about 08:00 on 2026-11-03 or with Gemini billing). The deployment kit is prepared (ADR 0024, `docs/deploy.md`); it needs Rushit's hosting accounts and an E2B key. Next: deploy, then colleagues that act on their own.
 
 ## Next step: run autopilot (Gemini free quota resets about 07:30 on 2026-11-03), then the workspace screen
 

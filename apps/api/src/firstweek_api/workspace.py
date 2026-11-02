@@ -5,6 +5,7 @@ sandbox; a review runs the tests itself so the reviewer reads real results, not 
 browser. Both endpoints are rate limited per client (a review also spends model money, so it has
 a daily ceiling in all)."""
 
+import hmac
 import logging
 from pathlib import Path
 
@@ -80,6 +81,13 @@ def _project(slug: str) -> ws.Project:
 
 
 def _who(request: Request) -> str:
+    """The client a rate limit counts. Behind the web app every request comes from the web
+    server, so it forwards the visitor's address; that is believed only with the shared key."""
+    key = current_settings().internal_api_key
+    forwarded = request.headers.get("x-forwarded-for", "")
+    sent = request.headers.get("x-internal-key", "")
+    if key is not None and forwarded and hmac.compare_digest(sent, key.get_secret_value()):
+        return forwarded.split(",")[0].strip()[:64] or "unknown"
     return request.client.host if request.client else "unknown"
 
 

@@ -1,8 +1,18 @@
 "use server";
 
+import { headers } from "next/headers";
 import type { Review, TestRun, Turn, WeekReview } from "@/lib/types";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
+
+/** The API counts rate limits per visitor. It sees only this server, so pass the visitor's
+ * address along, proved with a shared key (INTERNAL_API_KEY on both sides). */
+async function visitor(): Promise<Record<string, string>> {
+  const key = process.env.INTERNAL_API_KEY;
+  if (!key) return {};
+  const forwarded = (await headers()).get("x-forwarded-for") ?? "";
+  return { "x-internal-key": key, "x-forwarded-for": forwarded };
+}
 
 export type RunState =
   | { status: "idle" }
@@ -23,7 +33,7 @@ type Files = Record<string, string>;
 async function post(slug: string, path: string, body: unknown, ms: number): Promise<Response> {
   return fetch(`${API_URL}/roles/${encodeURIComponent(slug)}/project/${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(await visitor()) },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(ms),
   });
@@ -75,7 +85,7 @@ const TEAM_MESSAGES: Record<number, string> = {
 async function internshipPost(slug: string, path: string, body: unknown, ms: number) {
   return fetch(`${API_URL}/roles/${encodeURIComponent(slug)}/internship/${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(await visitor()) },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(ms),
   });

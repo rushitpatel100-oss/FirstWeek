@@ -48,3 +48,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-02: autopilot writes a scripted week for each approved project (ADR 0023 addendum); a rejected week leaves the project approved.
 - 2026-11-02: a Gemini 429 that LiteLLM wraps as BadRequestError now counts as a rate limit, so the free chain falls through to Groq; the repeated Gemini temperature notice is filtered.
 - 2026-11-02: Groq model priced at zero (it was priced as top-tier and tripped the $1 budget); a test checks the whole free chain is priced.
+- 2026-11-02: deployment kit (ADR 0024): ensure-demo, API start script, visitor address forwarded with a shared key, docs/deploy.md.
