@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { AskedFor } from "@/components/asked-for";
 import { ClaimList } from "@/components/claim-list";
 import { SkillGapForm } from "@/components/skill-gap-form";
-import { ApiUnreachable, getReport } from "@/lib/api";
+import { ApiUnreachable, getProject, getReport } from "@/lib/api";
 import { month } from "@/lib/format";
 import type { Claim } from "@/lib/types";
 
@@ -43,6 +43,7 @@ async function Report({ params }: { params: Promise<{ slug: string }> }) {
     throw error;
   }
   if (!published) notFound();
+  const hasProject = await getProject(slug).then((p) => p !== null, () => false);
 
   const { report } = published;
   const [from, to] = report.date_range;
@@ -94,6 +95,20 @@ async function Report({ params }: { params: Promise<{ slug: string }> }) {
       <Section title="The hard parts" hint="From blogs and practitioners' own writing.">
         <Claims claims={report.pain_points} empty="Nothing here passed our checks yet." />
       </Section>
+
+      {hasProject && (
+        <Section
+          title="Try the job"
+          hint="A practice project built from this report: tickets, starter code, tests and a Tech Lead who reviews your work."
+        >
+          <Link
+            href={`/roles/${slug}/practice`}
+            className="w-fit rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Start the practice project
+          </Link>
+        </Section>
+      )}
 
       <footer className="flex flex-col gap-2 border-t border-zinc-200 pt-6 text-sm text-zinc-500 dark:border-zinc-800">
         <p>

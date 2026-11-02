@@ -15,7 +15,7 @@ Last updated: 2026-11-02 (practice workspace API).
 
 ## Next step: run autopilot (Gemini free quota resets about 07:30 on 2026-11-03), then the workspace screen
 
-Workspace API is built (ADR 0021, PR `workspace-backend`): project, run tests, Tech Lead review. Next: a web screen (ticket list, file editor, Run tests, Ask the Tech Lead) in `apps/web`, once autopilot has produced an approved project to look at. Free Gemini allows 20 requests per day per model, so a run needs billing on the key or a quiet day.
+Workspace API (ADR 0021, #36) and its screen `/roles/{slug}/practice` (PR `workspace-web`) are built. Next: once autopilot approves a project, try it in the browser with Docker running; then deploy and the evaluator. Free Gemini allows 20 requests per day per model, so a run needs billing on the key or a quiet day.
 
 M3 gate and autopilot: `make autopilot role=...` (ADR 0020), free tier, retries, auto-approves; cloud workflow `Autopilot`. M3 step 3 builds the starter repo, data and reference solution (ADR 0019, `make artifacts role=...`, measured metrics, no retries yet). M3 step 2 is the blueprint generator (ADR 0018, `services/simulation`, `make blueprint role=...`, drafts only). M3 step 1 is the code sandbox (ADR 0017, `firstweek_core.sandbox`): Docker for development, E2B for demos. Real isolation is checked with `make sandbox-image && make sandbox-smoke` on Rushit's machine. Next: a dataset/starter repo with planted issues and a reference solution, the validation gate that runs it in the sandbox, and per-user seeds.
 

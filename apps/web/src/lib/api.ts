@@ -1,4 +1,4 @@
-import type { PublishedReport, RoleSummary } from "./types";
+import type { Project, PublishedReport, RoleSummary } from "./types";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
@@ -24,4 +24,12 @@ export async function getReport(slug: string): Promise<PublishedReport | null> {
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiUnreachable(`The API answered ${res.status}.`);
   return (await res.json()) as PublishedReport;
+}
+
+/** The approved practice project for a role, or null when there is none yet. */
+export async function getProject(slug: string): Promise<Project | null> {
+  const res = await get(`/roles/${encodeURIComponent(slug)}/project`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ApiUnreachable(`The API answered ${res.status}.`);
+  return (await res.json()) as Project;
 }

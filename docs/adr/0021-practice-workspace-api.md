@@ -18,3 +18,7 @@ The shortened finish line needs a learner to open an approved project, edit file
 ## Consequences
 
 One reviewer instead of a team of colleagues, no five-day clock: enough for a demo and for a first real user. The reviewer does not know the planted issues, so it reviews like a colleague who only reads the code; catching them is the learner's job, and the evaluator (later) is the one that reads the key.
+
+## Addendum: the screen
+
+`/roles/{slug}/practice` (server component fetches the project; `Workspace` client component holds the edits): scenario, ticket tabs with acceptance criteria, file tabs with a plain textarea editor (no code-editor library: one fewer dependency, enough for a demo), Run tests, Ask the Tech Lead, Reset. Only changed files are sent. The report page shows "Try the job" only when the role has an approved project. Checked in a real browser against a seeded project; the sandbox itself needs Docker, so running tests was checked through the API tests with a fake runner.
