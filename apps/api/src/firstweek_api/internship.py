@@ -98,6 +98,8 @@ async def chat(slug: str, body: ChatRequest, request: Request) -> ChatReply:
         )
     except ws.WorkspaceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise wsapi.model_failure(exc) from exc
     finally:
         g.flush()
     return ChatReply(reply=text, model=model)
@@ -130,6 +132,8 @@ async def verdict(slug: str, body: VerdictRequest, request: Request) -> VerdictR
         )
     except ws.WorkspaceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise wsapi.model_failure(exc) from exc
     finally:
         g.flush()
     return VerdictResponse(verdict=written, model=model, tests=tests)

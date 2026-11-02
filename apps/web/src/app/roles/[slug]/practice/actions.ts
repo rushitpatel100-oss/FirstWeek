@@ -14,7 +14,8 @@ const MESSAGES: Record<number, string> = {
   404: "This role has no practice project yet.",
   422: "That change cannot be run. Check the file names and that each file is plain text.",
   429: "Too many runs just now. Please try again in a while.",
-  503: "The Tech Lead is not available right now. You can still run the tests.",
+  502: "The Tech Lead's answer could not be used. Please try again.",
+  503: "The Tech Lead is busy or out of free quota. You can still run the tests.",
 };
 
 type Files = Record<string, string>;
@@ -67,7 +68,8 @@ const TEAM_MESSAGES: Record<number, string> = {
   404: "This project has no internship yet.",
   422: "That message cannot be sent.",
   429: "Too many messages just now. Please try again in a while.",
-  503: "The team is not available right now. You can keep working on the code.",
+  502: "The supervisor's answer could not be used. Please try again.",
+  503: "The team is busy or out of free quota. You can keep working on the code and try again later.",
 };
 
 async function internshipPost(slug: string, path: string, body: unknown, ms: number) {
