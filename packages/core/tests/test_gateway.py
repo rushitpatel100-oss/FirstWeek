@@ -373,6 +373,13 @@ class OverloadedError(Exception):
 OverloadedError.__name__ = "ServiceUnavailableError"
 
 
+class RetiredError(Exception):
+    """Named like litellm's 404 error: the model no longer exists."""
+
+
+RetiredError.__name__ = "NotFoundError"
+
+
 class Flaky:
     def __init__(self, failing_models: set[str], fail_times: int = 99) -> None:
         self.failing, self.fail_times = failing_models, fail_times
@@ -419,7 +426,7 @@ async def test_when_every_free_model_is_busy_it_waits_with_growing_pauses_then_g
             purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
         )
     assert sleeps == [20.0, 40.0, 80.0]
-    assert len(llm.models) == 3 * 4  # three models, four passes
+    assert len(llm.models) == 2 * 4  # two models, four passes
 
 
 async def test_the_free_tier_recovers_after_a_pause() -> None:
@@ -430,6 +437,25 @@ async def test_the_free_tier_recovers_after_a_pause() -> None:
         purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
     )
     assert sleeps == [20.0] and result.content == "ok"
+
+
+async def test_a_retired_free_model_is_skipped_and_calls_get_a_short_timeout() -> None:
+    settings = Settings(_env_file=None)
+    seen: list[dict[str, Any]] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs)
+        if kwargs["model"] == settings.model_judge:
+            raise RetiredError("404 no longer available")
+        return _response("ok")
+
+    gateway = _free_gateway(Flaky(set()), [])
+    gateway.completion_fn = llm
+    result = await gateway.complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
+    assert result.model == settings.model_judge_fallbacks[0]
+    assert seen[0]["timeout"] == 120.0 and seen[0]["num_retries"] == 0
 
 
 async def test_a_paid_tier_never_falls_back_or_waits() -> None:
