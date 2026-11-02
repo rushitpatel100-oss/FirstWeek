@@ -523,3 +523,36 @@ def test_groq_joins_the_free_chain_only_when_its_key_is_set() -> None:
 def test_groq_daily_limits_are_recognised_as_spent_for_the_day() -> None:
     assert is_daily_quota(Exception("Rate limit reached ... on tokens per day (TPD): Limit 200000"))
     assert not is_daily_quota(Exception("Rate limit reached ... on tokens per minute (TPM)"))
+
+
+class DisguisedQuotaError(Exception):
+    pass
+
+
+DisguisedQuotaError.__name__ = "BadRequestError"
+
+
+async def test_a_gemini_429_wrapped_as_a_bad_request_still_falls_back_to_the_next_model() -> None:
+    settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        if kwargs["model"].startswith("gemini/"):
+            raise DisguisedQuotaError(
+                'GeminiException BadRequestError - {"error": {"code": 429, "status": '
+                '"RESOURCE_EXHAUSTED", "message": "Generate content requests per day limit '
+                'exceeded on Free Tier"}}'
+            )
+        return _response("from groq")
+
+    sleeps: list[float] = []
+    gateway = _free_gateway(Flaky(set()), sleeps)
+    gateway.settings = settings
+    gateway.completion_fn = llm
+    result = await gateway.complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
+    assert result.model == settings.model_groq and result.content == "from groq"
+    assert seen == [settings.model_judge, *settings.model_judge_fallbacks, settings.model_groq]
+    assert sleeps == []  # a daily quota is not worth waiting for
