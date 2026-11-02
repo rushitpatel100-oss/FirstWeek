@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: seed-demo autopilot export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+.PHONY: api seed-demo autopilot export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
 
 need-role:
 	@test -n "$(role)" || (echo 'Add the role, for example: make $(MAKECMDGOALS) role="GenAI Engineer"' && exit 1)
@@ -53,6 +53,9 @@ smoke: ## End-to-end check: API -> Temporal -> worker -> database
 
 smoke-llm: ## One real, traced model call (needs ANTHROPIC_API_KEY)
 	uv run python scripts/smoke_llm.py
+
+api: ## Run the API on your machine (needed for the practice project: it uses your Docker for the sandbox and your var/artifacts)
+	uv run uvicorn firstweek_api.main:app --reload --port 8000
 
 web: ## Run the web app with hot reload (API must be running)
 	cd apps/web && pnpm dev
