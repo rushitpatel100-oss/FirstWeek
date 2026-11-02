@@ -5,6 +5,7 @@ sandbox; a review runs the tests itself so the reviewer reads real results, not 
 browser. Both endpoints are rate limited per client (a review also spends model money, so it has
 a daily ceiling in all)."""
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -12,11 +13,12 @@ from pydantic import BaseModel, Field
 
 from firstweek_api.skill_gap import Limiter
 from firstweek_core.config import Settings, get_settings
-from firstweek_core.llm import LLMGateway
+from firstweek_core.llm import LLMGateway, StructuredOutputError
 from firstweek_core.llm.recorder import record_to_db
 from firstweek_core.sandbox import JobResult, SandboxRunner, get_runner
 from firstweek_simulation import workspace as ws
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/roles", tags=["workspace"])
 
 MAX_EDIT_FILES = 40
@@ -54,6 +56,15 @@ def runner() -> SandboxRunner:
 def gateway() -> LLMGateway:
     """Overridden in tests."""
     return LLMGateway(settings=get_settings(), recorder=record_to_db)
+
+
+def model_failure(exc: Exception) -> HTTPException:
+    """A model call failed (out of free quota, overloaded, or an answer that never validated).
+    The reason goes to the API log; the learner gets a clear status instead of a bare 500."""
+    log.exception("model call failed", exc_info=exc)
+    if isinstance(exc, StructuredOutputError):
+        return HTTPException(502, "The model's answer could not be used. Please try again.")
+    return HTTPException(503, "The model is busy or out of free quota. Please try again later.")
 
 
 def current_settings() -> Settings:
@@ -133,6 +144,8 @@ async def review(slug: str, body: ReviewRequest, request: Request) -> ReviewResp
         )
     except ws.WorkspaceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise model_failure(exc) from exc
     finally:
         g.flush()
     return ReviewResponse(review=text, model=model, tests=tests)

@@ -149,3 +149,44 @@ def test_without_a_key_the_team_is_unavailable(
     monkeypatch.setattr(wsapi, "get_settings", lambda: settings)
     res = client.post("/roles/genai-engineer/internship/chat", json=CHAT)
     assert res.status_code == 503
+
+
+class Broken(Prompts):
+    def __init__(self, content: str | None) -> None:
+        super().__init__()
+        self.content = content
+
+    async def __call__(self, **kwargs: Any) -> SimpleNamespace:
+        if self.content is None:
+            raise RuntimeError("quota gone")
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(message=SimpleNamespace(content=self.content), finish_reason="stop")
+            ],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+        )
+
+
+def _use(monkeypatch: pytest.MonkeyPatch, completion: Prompts) -> None:
+    settings = wsapi.get_settings()
+    monkeypatch.setattr(
+        wsapi,
+        "gateway",
+        lambda: LLMGateway(
+            settings=settings, completion_fn=completion, tracer=NoopTracer(),
+            budgets=BudgetRegistry(Decimal("5")), recorder=lambda _: None,
+        ),
+    )  # fmt: skip
+
+
+@pytest.mark.db
+def test_a_failing_model_gives_a_clear_status_not_a_bare_500(
+    team: tuple[FakeRunner, Replies], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _use(monkeypatch, Broken(None))
+    assert client.post("/roles/genai-engineer/internship/chat", json=CHAT).status_code == 503
+    verdict = client.post("/roles/genai-engineer/internship/verdict", json={"files": {}})
+    assert verdict.status_code == 503 and "free quota" in verdict.json()["detail"]
+    _use(monkeypatch, Broken("not json at all"))
+    again = client.post("/roles/genai-engineer/internship/verdict", json={"files": {}})
+    assert again.status_code == 502
