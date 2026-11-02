@@ -556,3 +556,12 @@ async def test_a_gemini_429_wrapped_as_a_bad_request_still_falls_back_to_the_nex
     assert result.model == settings.model_groq and result.content == "from groq"
     assert seen == [settings.model_judge, *settings.model_judge_fallbacks, settings.model_groq]
     assert sleeps == []  # a daily quota is not worth waiting for
+
+
+def test_every_model_in_the_free_chain_has_a_price_so_budgets_stay_honest() -> None:
+    from firstweek_core.llm.pricing import cost_usd, is_known
+
+    settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    chain = [settings.model_judge, *settings.judge_fallbacks()]
+    assert all(is_known(model) for model in chain)  # an unknown model is priced as top-tier
+    assert all(cost_usd(model, 100_000, 10_000) == 0 for model in chain)

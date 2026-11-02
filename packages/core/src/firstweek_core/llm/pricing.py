@@ -37,6 +37,8 @@ PRICES: dict[str, Price] = {
     "gemini-3.8-flash": Price(Decimal("0"), Decimal("0")),
     "gemini-3.6-flash": Price(Decimal("0"), Decimal("0")),
     "gemini-2.5-flash": Price(Decimal("0"), Decimal("0")),
+    # Groq's free plan (a rate-limited allowance, no charge). On a paid Groq plan, set real prices.
+    "gpt-oss-120b": Price(Decimal("0"), Decimal("0")),
 }
 
 FALLBACK_PRICE = Price(Decimal("10"), Decimal("50"))  # priced like a top-tier model
