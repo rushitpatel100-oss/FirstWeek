@@ -364,3 +364,96 @@ def test_bge_queries_carry_the_search_instruction(monkeypatch: pytest.MonkeyPatc
         "We run evals.",
         "evals?",
     ]
+
+
+class OverloadedError(Exception):
+    """Named like litellm's error so the gateway treats it as a provider hiccup."""
+
+
+OverloadedError.__name__ = "ServiceUnavailableError"
+
+
+class Flaky:
+    def __init__(self, failing_models: set[str], fail_times: int = 99) -> None:
+        self.failing, self.fail_times = failing_models, fail_times
+        self.models: list[str] = []
+
+    async def __call__(self, **kwargs: Any) -> SimpleNamespace:
+        self.models.append(kwargs["model"])
+        if kwargs["model"] in self.failing and self.fail_times > 0:
+            self.fail_times -= 1
+            raise OverloadedError("503 high demand")
+        return _response("ok")
+
+
+def _free_gateway(llm: Flaky, sleeps: list[float]) -> LLMGateway:
+    async def no_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    return LLMGateway(
+        settings=Settings(_env_file=None),
+        completion_fn=llm,
+        tracer=FakeTracer(),
+        recorder=lambda _: None,
+        budgets=BudgetRegistry(Decimal("1")),
+        sleep_fn=no_sleep,
+    )
+
+
+async def test_an_overloaded_free_model_falls_back_to_the_next_free_one() -> None:
+    settings = Settings(_env_file=None)
+    llm = Flaky({settings.model_judge})
+    result = await _free_gateway(llm, []).complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
+    assert llm.models == [settings.model_judge, settings.model_judge_fallbacks[0]]
+    assert result.model == settings.model_judge_fallbacks[0]
+
+
+async def test_when_every_free_model_is_busy_it_waits_with_growing_pauses_then_gives_up() -> None:
+    settings = Settings(_env_file=None)
+    llm = Flaky({settings.model_judge, *settings.model_judge_fallbacks})
+    sleeps: list[float] = []
+    with pytest.raises(OverloadedError):
+        await _free_gateway(llm, sleeps).complete(
+            purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+        )
+    assert sleeps == [20.0, 40.0, 80.0]
+    assert len(llm.models) == 3 * 4  # three models, four passes
+
+
+async def test_the_free_tier_recovers_after_a_pause() -> None:
+    settings = Settings(_env_file=None)
+    llm = Flaky({settings.model_judge, *settings.model_judge_fallbacks}, fail_times=3)
+    sleeps: list[float] = []
+    result = await _free_gateway(llm, sleeps).complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
+    assert sleeps == [20.0] and result.content == "ok"
+
+
+async def test_a_paid_tier_never_falls_back_or_waits() -> None:
+    llm = Flaky({"anthropic/claude-sonnet-5-5"})
+    sleeps: list[float] = []
+    with pytest.raises(OverloadedError):
+        await _free_gateway(llm, sleeps).complete(
+            purpose="x", messages=[{"role": "user", "content": "hi"}], tier="mid"
+        )
+    assert llm.models == ["anthropic/claude-sonnet-5-5"] and sleeps == []
+
+
+async def test_an_error_that_is_not_a_hiccup_is_raised_at_once() -> None:
+    async def broken(**_: Any) -> None:
+        raise ValueError("bad request")
+
+    gateway = LLMGateway(
+        settings=Settings(_env_file=None),
+        completion_fn=broken,
+        tracer=FakeTracer(),
+        recorder=lambda _: None,
+        budgets=BudgetRegistry(Decimal("1")),
+    )
+    with pytest.raises(ValueError):
+        await gateway.complete(
+            purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+        )

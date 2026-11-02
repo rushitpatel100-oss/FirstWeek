@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     model_mid: str = "anthropic/claude-sonnet-5-5"
     model_small: str = "anthropic/claude-haiku-5-5"
     model_judge: str = "gemini/gemini-3.8-flash"  # free tier; not Claude, so it can judge it
+    # Tried in order when the free model is overloaded (503) or rate limited (429). Free only:
+    # a paid tier never silently switches to another model.
+    model_judge_fallbacks: list[str] = ["gemini/gemini-3.6-flash", "gemini/gemini-2.5-flash"]
     # "local/<name>" runs a free open-source model on this machine (ADR 0012); any other
     # value is a LiteLLM embedding model string such as "openai/text-embedding-3-small".
     model_embedding: str = "local/BAAI/bge-small-en-v1.5"
