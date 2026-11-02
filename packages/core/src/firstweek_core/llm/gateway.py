@@ -64,6 +64,12 @@ def is_transient(exc: BaseException) -> bool:
     )
 
 
+def is_daily_quota(exc: BaseException) -> bool:
+    """The free tier's per-day request cap: waiting minutes will not help, only tomorrow."""
+    text = str(exc)
+    return "PerDay" in text or "per day" in text.lower()
+
+
 class StructuredOutputError(Exception):
     """The model never produced output that validates against the requested schema."""
 
@@ -170,9 +176,10 @@ class LLMGateway:
         kwargs = {**kwargs, "timeout": FREE_TIER_TIMEOUT_S, "num_retries": 0}
         models = [str(kwargs["model"]), *self.settings.model_judge_fallbacks]
         pause = FREE_TIER_PAUSE_S
+        spent: set[str] = set()  # models whose daily quota is gone; not worth asking again
         for attempt in range(FREE_TIER_ROUNDS):
             error: Exception | None = None
-            for candidate in models:
+            for candidate in (m for m in models if m not in spent):
                 try:
                     return await self.completion_fn(**{**kwargs, "model": candidate}), candidate
                 except Exception as exc:
@@ -180,6 +187,10 @@ class LLMGateway:
                     if not (is_transient(exc) or type(exc).__name__ == "NotFoundError"):
                         raise
                     error = exc
+                    if is_daily_quota(exc):
+                        spent.add(candidate)
+            if len(spent) == len(models) and error is not None:
+                raise error  # every free model is out for the day: fail now, not in 140s
             if attempt == FREE_TIER_ROUNDS - 1 and error is not None:
                 raise error
             await self.sleep_fn(pause)

@@ -483,3 +483,29 @@ async def test_an_error_that_is_not_a_hiccup_is_raised_at_once() -> None:
         await gateway.complete(
             purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
         )
+
+
+class DailyQuotaError(Exception):
+    pass
+
+
+DailyQuotaError.__name__ = "RateLimitError"
+
+
+async def test_a_spent_daily_quota_is_not_retried_and_fails_at_once_when_all_are_spent() -> None:
+    settings = Settings(_env_file=None)
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        raise DailyQuotaError("limit exceeded GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+
+    sleeps: list[float] = []
+    gateway = _free_gateway(Flaky(set()), sleeps)
+    gateway.completion_fn = llm
+    with pytest.raises(DailyQuotaError):
+        await gateway.complete(
+            purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+        )
+    assert seen == [settings.model_judge, *settings.model_judge_fallbacks]  # each asked once
+    assert sleeps == []

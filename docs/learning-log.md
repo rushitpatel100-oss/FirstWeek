@@ -39,5 +39,6 @@ One line per session: what was built and the one idea worth remembering.
 | 2026-11-02 | M3 | Autopilot: design, build and gate a project unattended on the free Gemini tier, retrying failed builds with the failures fed back; a manual GitHub Actions workflow runs it without anyone's terminal | When the goal changes to "finish fast and free", move the loop out of the human: make the checks strict enough to trust, let the machine retry, and look only at the end. A cloud runner is a terminal you do not have to be at. |
 - 2026-11-02: free tier now waits out Gemini 503s (fallback models plus backoff, judge tier only) after the first autopilot run failed on overload.
 - 2026-11-02: free-tier calls time out at 120s (was a 10 minute hang) and skip retired models (404).
+- 2026-11-02: first full autopilot attempt reached the build gate; free Gemini caps at 20 requests/day/model, so the gateway now fails fast on a spent daily quota.
 - 2026-11-02: practice workspace API (project, run tests, Tech Lead review); the review runs the tests itself so the reviewer reads real output.
 - 2026-11-02: hand-written demo project (make seed-demo) so the workspace works without waiting for model quota; it passes the same gate as model output.
