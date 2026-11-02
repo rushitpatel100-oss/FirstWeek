@@ -2,7 +2,7 @@
 
 Start a new conversation with: **"Continue FirstWeek: read `docs/handoff.md`."** This page, `CLAUDE.md`, the ADRs, the learning log and the plan doc hold everything a new conversation needs. Update this page at the end of every step.
 
-Last updated: 2026-11-02 (practice workspace API).
+Last updated: 2026-11-02 (virtual internship slice).
 
 ## Where we are
 
@@ -12,6 +12,10 @@ Last updated: 2026-11-02 (practice workspace API).
   - The report writer: #14, ADR 0013. The first real GenAI Engineer draft (statistics version 9, $0.44) was reviewed and the fixes merged in #15 (ADR 0013 addendum).
   - The claim verifier and confidence scores, with verified reports stored: ADR 0014, merged as #17. Free Gemini judge, merged with it.
   - Report evidence fixes: #18 (ADR 0013 addendum): number and wording checks, writer prompt v3, forum-only searches per role, judge preflight.
+
+## Direction (2026-11-02): a virtual internship
+
+The product is a virtual internship: a week at a made-up company with colleagues who message you, work that arrives in different forms (a manager's message, a colleague's complaint, a ticket, a meeting) and a supervisor's review at the end. The Role Reality Report is the evidence engine behind it, not the front door. Built (ADR 0023, PR `internship-slice`): the scripted Northwind week, in-character chat, the end-of-week review and the screen `/roles/{slug}/practice`. Next: scripts for generated projects (autopilot), then deployment, then colleagues that act on their own.
 
 ## Next step: run autopilot (Gemini free quota resets about 07:30 on 2026-11-03), then the workspace screen
 

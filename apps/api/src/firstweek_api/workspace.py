@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from firstweek_api.skill_gap import Limiter
-from firstweek_core.config import get_settings
+from firstweek_core.config import Settings, get_settings
 from firstweek_core.llm import LLMGateway
 from firstweek_core.llm.recorder import record_to_db
 from firstweek_core.sandbox import JobResult, SandboxRunner, get_runner
@@ -54,6 +54,11 @@ def runner() -> SandboxRunner:
 def gateway() -> LLMGateway:
     """Overridden in tests."""
     return LLMGateway(settings=get_settings(), recorder=record_to_db)
+
+
+def current_settings() -> Settings:
+    """The settings every workspace-style endpoint reads (tests replace `get_settings`)."""
+    return get_settings()
 
 
 def _project(slug: str) -> ws.Project:

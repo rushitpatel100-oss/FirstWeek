@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { askTechLead, runTests, type RunState } from "@/app/roles/[slug]/practice/actions";
 import type { Project } from "@/lib/types";
 
@@ -39,10 +39,23 @@ function Output({ state }: { state: RunState }) {
   );
 }
 
-export function Workspace({ slug, project }: { slug: string; project: Project }) {
+export function Workspace({
+  slug,
+  project,
+  onFiles,
+}: {
+  slug: string;
+  project: Project;
+  /** Called with the changed files whenever they change (the internship sends them at the end). */
+  onFiles?: (changed: Record<string, string>) => void;
+}) {
   const { tickets, scenario, company_context: company } = project.blueprint;
   const [files, setFiles] = useState<Record<string, string>>(project.files);
-  const [open, setOpen] = useState(Object.keys(project.files).find((p) => p.endsWith(".py")) ?? "");
+  const [open, setOpen] = useState(
+    Object.keys(project.files)
+      .sort()
+      .find((p) => p.endsWith(".py") && !p.endsWith("__init__.py") && project.files[p].trim()) ?? "",
+  );
   const [ticketKey, setTicketKey] = useState(tickets[0].key);
   const [state, setState] = useState<RunState>({ status: "idle" });
   const [pending, start] = useTransition();
@@ -52,6 +65,10 @@ export function Workspace({ slug, project }: { slug: string; project: Project })
   const changed = Object.fromEntries(
     Object.entries(files).filter(([p, t]) => project.files[p] !== t),
   );
+
+  useEffect(() => {
+    onFiles?.(changed);
+  }, [onFiles, changed]);
 
   return (
     <div className="flex flex-col gap-10">

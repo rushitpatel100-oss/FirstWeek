@@ -185,3 +185,45 @@ class ReferencePlan(BaseModel):
         min_length=1, max_length=10, description="Starter files to change, and new files."
     )
     summary: str = Field(min_length=20, description="What changes, per planted issue.")
+
+
+class Colleague(BaseModel):
+    """A person at the made-up company. The persona is private to the server."""
+
+    key: str = Field(pattern=r"^[a-z][a-z0-9-]{1,30}$")
+    name: str
+    role: str
+    persona: str = Field(description="How they talk and what they care about. Never sent out.")
+
+
+class InternshipEvent(BaseModel):
+    """Something that happens on a day: a message arrives, a ticket is assigned, a meeting."""
+
+    day: int = Field(ge=1, le=5)
+    kind: Literal["message", "ticket", "meeting"]
+    sender: str = Field(description="A colleague key.")
+    text: str
+    ticket: str | None = Field(default=None, description="Ticket key assigned by this event.")
+
+
+class Internship(BaseModel):
+    """The scripted week around a project: who is there and what happens each day."""
+
+    colleagues: list[Colleague] = Field(min_length=1)
+    events: list[InternshipEvent] = Field(min_length=1)
+
+
+class SkillEvidence(BaseModel):
+    skill_id: str
+    score: int = Field(ge=1, le=5)
+    evidence: str = Field(min_length=10, description="What in the work or the chat shows this.")
+
+
+class SupervisorVerdict(BaseModel):
+    """The end-of-week review. Evidence about the work, not a judgement of the person."""
+
+    summary: str = Field(min_length=30)
+    skills: list[SkillEvidence] = Field(min_length=1)
+    went_well: list[str] = Field(max_length=4)
+    to_work_on: list[str] = Field(max_length=4)
+    next_step: str = Field(min_length=10)
