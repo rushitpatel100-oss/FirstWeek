@@ -27,6 +27,7 @@ FirstWeek turns any job title into an evidence-backed Role Reality Report and a 
 - `make blueprint role="..."` designs a draft project blueprint (scenario, tickets, rubric) from the stored report and saves it unvalidated (ADR 0018). The answer key never goes to colleague agents: use `public_view()`.
 - `make artifacts role="..."` builds the starter repo, data and reference solution for the latest draft blueprint, runs them in the sandbox and records the measured metrics (ADR 0019; needs `make sandbox-image`). Output goes to `var/artifacts/` (git-ignored).
 - `make autopilot role="..."` designs, builds and gates a project unattended, retrying failures up to 3 times; free by default (`SIMULATION_TIER=judge`, needs `GEMINI_API_KEY`) (ADR 0020). `make export-reports` writes `data/reports/*.json` so the manual `Autopilot` workflow can run it in the cloud from the `--report-file`.
+- The API serves the approved project (`GET /roles/{slug}/project`), runs a learner's tests in the sandbox (`POST .../project/tests`) and returns a Tech Lead review (`POST .../project/review`) (ADR 0021). Learners never receive the answer key.
 - `make eval-classifier` and `make eval-extraction` score stored decisions and extractions against the hand labels in `data/eval/` (ADR 0009). Run them before and after any change to a role definition, a prompt or the taxonomy.
 
 ## Layout
