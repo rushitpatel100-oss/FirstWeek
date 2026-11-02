@@ -288,11 +288,43 @@ def seed_demo(slug: str, root: Path) -> uuid.UUID:
             blueprint=project.public_view(), answer_key=project.answer_key.model_dump(),
             validated=True, status="approved",
         ))  # fmt: skip
+    _write_files(root / str(new_id))
+    write_internship(root, new_id, internship())
+    return new_id
+
+
+def _write_files(folder: Path) -> None:
     starter, reference = files()
     for name, content in (("starter", starter), ("reference", reference)):
         for path, text in content.items():
-            target = root / str(new_id) / name / path
+            target = folder / name / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text)
-    write_internship(root, new_id, internship())
-    return new_id
+
+
+def ensure_demo(slug: str, root: Path) -> tuple[uuid.UUID, str]:
+    """Idempotent seeding for a deployed API: run on every start, change nothing that is fine.
+
+    Returns (blueprint id, what happened): "kept", "files restored" (the database has the demo
+    but this container's disk lost its files) or "seeded"."""
+    with session_scope() as session:
+        found = session.execute(
+            select(Blueprint.id)
+            .join(ArchetypeVersion, Blueprint.archetype_version_id == ArchetypeVersion.id)
+            .join(RoleArchetype, ArchetypeVersion.archetype_id == RoleArchetype.id)
+            .where(
+                RoleArchetype.slug == slug,
+                Blueprint.status == "approved",
+                Blueprint.scenario == SCENARIO,
+            )
+            .order_by(Blueprint.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+    if found is None:
+        return seed_demo(slug, root), "seeded"
+    folder = root / str(found)
+    if (folder / "starter").is_dir() and (folder / "internship.json").is_file():
+        return found, "kept"
+    _write_files(folder)
+    write_internship(root, found, internship())
+    return found, "files restored"

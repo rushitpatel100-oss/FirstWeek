@@ -168,6 +168,19 @@ def _seed_demo(slug: str) -> None:
     print(f"Open it at http://localhost:3000/roles/{slug}/practice (make web, make up).")
 
 
+def _ensure_demo(slug: str) -> None:
+    from pathlib import Path
+
+    from firstweek_simulation.demo_project import ensure_demo
+
+    try:
+        found, what = ensure_demo(slug, Path(get_settings().artifacts_dir))
+    except BlueprintError as exc:
+        print(exc)
+        sys.exit(1)
+    print(f"Demo project {found} for {slug}: {what}.")
+
+
 def _export_report(slug: str, out: str) -> None:
     import json
     from pathlib import Path
@@ -212,6 +225,8 @@ def _main() -> None:
     pilot.add_argument("--budget", type=float, default=1.0)
     d = sub.add_parser("seed-demo", help="Store the hand-written practice project (no model call)")
     d.add_argument("--role", required=True)
+    e = sub.add_parser("ensure-demo", help="Seed the demo project unless it is already there")
+    e.add_argument("--role", required=True)
     exp = sub.add_parser("export-report", help="Write a stored report to a JSON file")
     exp.add_argument("--role", required=True)
     exp.add_argument("--out", required=True)
@@ -228,6 +243,9 @@ def _main() -> None:
         return
     if args.command == "export-report":
         _export_report(_slug(args.role), args.out)
+        return
+    if args.command == "ensure-demo":
+        _ensure_demo(_slug(args.role))
         return
     if args.command == "seed-demo":
         _seed_demo(_slug(args.role))

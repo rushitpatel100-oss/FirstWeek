@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from test_reports import _clean
 from test_workspace import SECRET, FakeRunner, Prompts, world
 
@@ -190,3 +191,26 @@ def test_a_failing_model_gives_a_clear_status_not_a_bare_500(
     _use(monkeypatch, Broken("not json at all"))
     again = client.post("/roles/genai-engineer/internship/verdict", json={"files": {}})
     assert again.status_code == 502
+
+
+@pytest.mark.db
+def test_the_visitor_address_is_believed_only_with_the_shared_key(
+    team: tuple[FakeRunner, Replies], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = wsapi.get_settings()
+    settings = base.model_copy(update={"internal_api_key": SecretStr("shh")})
+    monkeypatch.setattr(wsapi, "get_settings", lambda: settings)
+    monkeypatch.setattr(api, "chat_limit", Limiter(1, 3600))
+    url = "/roles/genai-engineer/internship/chat"
+
+    def send(ip: str, key: str) -> int:
+        headers = {"x-forwarded-for": ip, "x-internal-key": key}
+        return client.post(url, json=CHAT, headers=headers).status_code
+
+    assert send("1.1.1.1", "shh") == 200
+    assert send("2.2.2.2", "shh") == 200  # a different visitor has their own allowance
+    assert send("1.1.1.1", "shh") == 429
+    # A caller without the key cannot pick its own address to dodge the limit: every address
+    # it claims falls back to its real one, so the claims share one allowance.
+    assert send("3.3.3.3", "wrong") == 200
+    assert send("4.4.4.4", "wrong") == 429
