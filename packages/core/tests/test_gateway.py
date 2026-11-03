@@ -617,7 +617,9 @@ def test_the_free_quota_left_is_counted_per_model_from_the_last_pacific_midnight
     left = quota.remaining(settings, {settings.model_judge: 18})
     assert left[settings.model_judge] == 2
     assert left[settings.model_judge_fallbacks[0]] == 20
-    assert left[settings.model_groq] == 1_000
+    assert left[settings.model_groq] == 20  # 200,000 tokens a day at 10,000 a call
+    spent = quota.remaining(settings, {settings.model_groq: 33}, {settings.model_groq: 170_000})
+    assert spent[settings.model_groq] == 3  # its tokens run out long before its requests
 
 
 async def test_when_gemini_is_spent_and_the_prompt_is_too_big_for_groq_the_run_pauses() -> None:
