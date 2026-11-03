@@ -118,3 +118,31 @@ def test_ensure_demo_seeds_once_and_restores_files_a_restart_lost(tmp_path: Path
     found = approved_project("genai-engineer", tmp_path)
     assert found is not None and found.blueprint_id == first
     assert (tmp_path / str(first) / "internship.json").is_file()
+
+
+async def test_the_agentic_project_fails_its_tests_and_the_reference_passes_them() -> None:
+    starter, reference = demo.AGENTIC.files()
+    assert await run(starter) == 1
+    assert await run(reference) == 0
+
+
+async def test_each_agentic_bug_is_caught_by_its_own_test() -> None:
+    starter, reference = demo.AGENTIC.files()
+    for path in ("src/tools.py", "src/agent.py"):
+        assert await run({**reference, path: starter[path]}) == 1
+
+
+def test_the_agentic_report_is_green_while_the_hand_count_is_not(tmp_path: Path) -> None:
+    metrics = demo.AGENTIC.metrics()
+    assert metrics["dashboard_claims"] == 1.0
+    assert metrics["success_rate"] == 0.6
+    project = demo.blueprint("Agentic AI Engineer", tmp_path, demo.AGENTIC)
+    public = str(project.public_view())
+    assert not any(issue in public for issue in demo.AGENTIC.planted)
+    assert "reference_solution_uri" not in public
+
+
+def test_each_role_gets_its_own_project_and_others_the_default() -> None:
+    assert demo.pack_for("agentic-ai-engineer") is demo.AGENTIC
+    assert demo.pack_for("genai-engineer") is demo.GENAI
+    assert demo.pack_for("anything-else") is demo.GENAI
