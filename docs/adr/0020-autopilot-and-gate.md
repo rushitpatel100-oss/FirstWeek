@@ -55,3 +55,8 @@ A typical attempt drops from about 19 calls to about 7, and a reference-only ret
 - **Groq's per-minute cap**: Groq counts prompt plus `max_tokens` against 8,000 tokens a minute,
   so an 8,000-token reply limit could never fit. Each Groq call now asks for only the room that
   fits, and a prompt that cannot fit skips Groq instead of failing.
+- **Ask, do not only count** (later the same day): the check said 30 Gemini calls were left while
+  Google refused both models with 429. Our records miss requests Google counts. The pre-flight now
+  probes each free model with a one-token request (`LLMGateway.probe`, no fallback, recorded as
+  `quota-probe`), says why one refused (spent for today, no free tier, busy this minute, not
+  found), and counts only models that answered. It costs one request per model.

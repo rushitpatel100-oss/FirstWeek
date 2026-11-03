@@ -88,6 +88,22 @@ def is_daily_quota(exc: BaseException) -> bool:
     return "PerDay" in text or "per day" in text.lower()
 
 
+def probe_status(exc: BaseException) -> str:
+    """What a failed one-token probe says about a free model's quota."""
+    text = str(exc).replace(" ", "")
+    if '"limit":0' in text or "limit:0," in text or "limit:0\n" in text:
+        return "no free tier"
+    if is_daily_quota(exc):
+        return "spent for today"
+    if type(exc).__name__ == "NotFoundError" or getattr(exc, "status_code", None) == 404:
+        return "not found"
+    if "PerMinute" in str(exc) or "per minute" in str(exc).lower():
+        return "busy this minute"
+    if is_transient(exc):
+        return "refused (429 or overloaded)"
+    return f"error: {str(exc)[:120]}"
+
+
 class FreeQuotaExhaustedError(Exception):
     """Every free model is out of its daily quota. Waiting minutes will not help; tomorrow will."""
 
@@ -258,6 +274,26 @@ class LLMGateway:
         raise AssertionError("unreachable")
 
     # ------------------------------------------------------------ public API
+
+    async def probe(self, model: str) -> str:
+        """Asks one model for a tiny reply, with no fallback: 'ok', or why it refused (see
+        `probe_status`). Costs one request of that model's quota; it is recorded like any call."""
+        assert self.completion_fn is not None
+        started = time.perf_counter()
+        ok, error = True, None
+        try:
+            await self.completion_fn(
+                model=model, messages=[{"role": "user", "content": "Reply with OK."}],
+                max_tokens=16, timeout=30.0, num_retries=0, drop_params=True,
+            )  # fmt: skip
+            status = "ok"
+        except Exception as exc:
+            ok, error, status = False, str(exc)[:1000], probe_status(exc)
+        self._record(
+            "quota-probe", "judge", model, "quota-probe", None, 0, 0, Decimal(0),
+            int((time.perf_counter() - started) * 1000), ok, error, None,
+        )  # fmt: skip
+        return status
 
     def budget(self, scope: str, limit_usd: Decimal | None = None) -> Budget:
         """The budget for a scope, created (or its limit changed) on request."""

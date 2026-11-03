@@ -635,3 +635,34 @@ async def test_when_gemini_is_spent_and_the_prompt_is_too_big_for_groq_the_run_p
             purpose="x", messages=[{"role": "user", "content": "x" * 40_000}], tier="judge"
         )
     assert sleeps == []  # no pointless waiting
+
+
+def test_a_probe_failure_says_why_the_model_refused() -> None:
+    from firstweek_core.llm.gateway import probe_status
+
+    assert probe_status(
+        DailyQuotaError('quota_id: "GenerateRequestsPerDayPerProjectPerModel"')
+    ) == ("spent for today")
+    assert probe_status(DailyQuotaError('"quotaValue": "0", "limit": 0')) == "no free tier"
+    assert probe_status(DailyQuotaError("GenerateRequestsPerMinutePerProjectPerModel")) == (
+        "busy this minute"
+    )
+    assert probe_status(DailyQuotaError("You exceeded your current quota")) == (
+        "refused (429 or overloaded)"
+    )
+
+
+async def test_a_probe_asks_one_model_once_with_no_fallback() -> None:
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        raise DailyQuotaError("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+
+    records: list[Any] = []
+    gateway = _free_gateway(Flaky(set()), [])
+    gateway.completion_fn = llm
+    gateway.recorder = records.append
+    assert await gateway.probe("gemini/gemini-3.8-flash") == "spent for today"
+    assert seen == ["gemini/gemini-3.8-flash"]
+    assert records[0].purpose == "quota-probe" and records[0].success is False
