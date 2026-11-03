@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: api seed-demo autopilot export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+.PHONY: api seed-demo autopilot autopilot-check export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
 
 need-role:
 	@test -n "$(role)" || (echo 'Add the role, for example: make $(MAKECMDGOALS) role="GenAI Engineer"' && exit 1)
@@ -114,8 +114,11 @@ blueprint: need-role ## Design a draft project blueprint (scenario, tickets, rub
 seed-demo: need-role ## Store the hand-written practice project for a role, no model call: make seed-demo role="GenAI Engineer"
 	uv run python -m firstweek_simulation seed-demo --role "$(role)"
 
-autopilot: need-role ## Design, build and gate a project unattended, free by default (needs make sandbox-image and GEMINI_API_KEY)
+autopilot: need-role ## Design, build and gate a project unattended, free by default (needs make sandbox-image and GEMINI_API_KEY). Refuses to start unless today's free quota covers the worst case; resumes a paused run
 	uv run python -m firstweek_simulation autopilot --role "$(role)"
+
+autopilot-check: need-role ## Show today's free quota and whether an autopilot run fits (no model call)
+	uv run python -m firstweek_simulation autopilot --role "$(role)" --check
 
 export-reports: ## Write each role's newest stored report to data/reports/*.json (for the cloud pipeline)
 	@for r in "GenAI Engineer" "Agentic AI Engineer" "AI Software Engineer"; do \

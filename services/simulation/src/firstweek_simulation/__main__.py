@@ -7,7 +7,7 @@ import argparse
 import asyncio
 import sys
 
-from firstweek_core.config import get_settings
+from firstweek_core.config import Settings, get_settings
 from firstweek_research.__main__ import database_unreachable
 from firstweek_research.roles import load_roles, resolve_role
 from firstweek_simulation.blueprint import (
@@ -105,12 +105,39 @@ def _need_key(tier: str) -> None:
         sys.exit(1)
 
 
+def _quota_preflight(settings: Settings, resuming: bool) -> bool:
+    """Prints the free calls left today and whether a whole run fits. Makes no model call."""
+    from firstweek_core.llm import quota
+    from firstweek_simulation.pipeline import WORST_CASE_CALLS
+
+    models = quota.free_models(settings)
+    left = quota.remaining(settings, quota.used_today(models))
+    total = sum(left.values())
+    print("Free calls left today (counted from this app's own records):")
+    for model, count in left.items():
+        print(f"  {model}: {count} of {quota.daily_limit(model)}")
+    reset = quota.next_reset().astimezone()
+    print(f"A run needs at most {WORST_CASE_CALLS} calls (usually about 10).")
+    if resuming:
+        print("A saved run will continue: the blueprint (and any good starter) is reused.")
+    if total >= WORST_CASE_CALLS:
+        print(f"Enough for the worst case ({total} left). Safe to start.")
+        return True
+    print(
+        f"Not enough for the worst case ({total} left). The quota resets at "
+        f"{reset:%H:%M on %d %b}. Run then, or add --force to start anyway (progress is saved "
+        "if it runs out)."
+    )
+    return False
+
+
 def _autopilot(args: argparse.Namespace) -> None:
     from pathlib import Path
 
     from firstweek_core.llm import LLMGateway
     from firstweek_core.sandbox import get_runner
     from firstweek_simulation.pipeline import (
+        PipelinePausedError,
         findings_from_file,
         report_text,
         run_pipeline,
@@ -131,14 +158,25 @@ def _autopilot(args: argparse.Namespace) -> None:
         slug = _slug(args.role)
         findings = load_findings(slug)
         gateway = LLMGateway(settings=settings, recorder=record_to_db)
+    checkpoint = Path(f"var/autopilot/.checkpoints/{slug}.json")
+    if tier == "judge" and not from_file:
+        fits = _quota_preflight(settings, checkpoint.is_file())
+        if args.check:
+            sys.exit(0 if fits else 3)
+        if not fits and not args.force:
+            sys.exit(3)
     try:
         result = asyncio.run(
             run_pipeline(
                 gateway, get_runner(settings), slug, findings,
                 tier=tier, attempts=args.attempts, seed=args.seed,
                 budget_usd=args.budget, progress=lambda m: print(m, flush=True),
+                checkpoint=checkpoint,
             )
         )  # fmt: skip
+    except PipelinePausedError as exc:
+        print(f"\nPaused: {exc}")
+        sys.exit(2)
     except BlueprintError as exc:
         print(exc)
         sys.exit(1)
@@ -223,6 +261,12 @@ def _main() -> None:
     pilot.add_argument("--attempts", type=int, default=3)
     pilot.add_argument("--seed", type=int, default=1)
     pilot.add_argument("--budget", type=float, default=1.0)
+    pilot.add_argument(
+        "--check", action="store_true", help="Only show the free quota left and stop (no calls)"
+    )
+    pilot.add_argument(
+        "--force", action="store_true", help="Start even if the worst case may not fit today"
+    )
     d = sub.add_parser("seed-demo", help="Store the hand-written practice project (no model call)")
     d.add_argument("--role", required=True)
     e = sub.add_parser("ensure-demo", help="Seed the demo project unless it is already there")

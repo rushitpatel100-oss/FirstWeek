@@ -468,3 +468,55 @@ async def test_a_retry_keeps_a_good_starter_and_redoes_only_the_solution() -> No
     assert "the reference failed" in gateway.structured_calls[0]["messages"][1]["content"]
     assert all(c["purpose"] == "write-reference-file" for c in gateway.complete_calls)
     assert again.starter == first.starter
+
+
+async def test_a_full_size_project_keeps_every_prompt_inside_groqs_per_minute_cap() -> None:
+    """Rehearsal at the planner's limits: 14 files near 120 lines, 200 KB of generated data."""
+    from firstweek_core.llm.gateway import fit_reply_room
+
+    def body(n: int) -> str:
+        step = [
+            "def step_{i}(rows, limit=10):",
+            '    """One step."""',
+            "    total = 0",
+            "    for row in rows:",
+            "        total += row['score'] * limit",
+            "    return total",
+        ]
+        return "\n".join(line.format(i=i) for i in range(n // 6) for line in step) + "\n"
+
+    planned = [PlannedFile(path=f"src/m{i}.py", purpose="A precise line of purpose. " * 3)
+               for i in range(14)]  # fmt: skip
+    content = {p.path: body(118) for p in planned}
+    prompts: list[str] = []
+
+    class Measuring:
+        async def complete(self, **kwargs: Any) -> SimpleNamespace:
+            prompt = kwargs["messages"][0]["content"] + kwargs["messages"][1]["content"]
+            prompts.append(prompt)
+            assert fit_reply_room("groq/openai/gpt-oss-120b", kwargs["messages"], 8000)
+            asked = re.findall(r"^- (\S+): ", prompt.split("Write these files:\n")[1], re.M)
+            reply = "\n".join(f"=== {p} ===\n{content[p]}" for p in asked)
+            return SimpleNamespace(
+                content=reply, cost_usd=Decimal(0), model="m", finish_reason="stop"
+            )
+
+    def render(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
+        return {
+            "scenario": "s" * 600,
+            "notes": "n" * 6000,
+            "plan": art.plan_text(planned),
+            "written": art.shown_outline(written),
+            "targets": art.targets_text(group),
+        }
+
+    written = await art.write_files(
+        Measuring(), art.Spend(), purpose="write-starter-file", version=art.WRITE_FILE_VERSION,  # type: ignore[arg-type]
+        tier="judge", planned=planned, render=render, budget_usd=1.0,
+    )  # fmt: skip
+    assert len(written) == 14 and len(prompts) == 4
+    assert max(len(p) for p in prompts) // 4 < 6_000  # tokens, roughly
+
+    data = {"data/big.jsonl": ('{"id": 1, "text": "' + "x" * 300 + '"}\n') * 600}
+    assert len(data["data/big.jsonl"]) > 190_000
+    assert len(art.shown_preview(data)) // 4 < 1_500  # 200 KB of data costs about 1,000 tokens

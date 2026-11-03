@@ -14,10 +14,10 @@ from typing import Any
 
 from sqlalchemy import select
 
-from firstweek_core.contracts import Internship, RoleRealityReport
+from firstweek_core.contracts import Internship, ProjectBlueprint, RoleRealityReport
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype, RoleReport
 from firstweek_core.db.session import session_scope
-from firstweek_core.llm import LLMGateway
+from firstweek_core.llm import FreeQuotaExhaustedError, LLMGateway
 from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import SandboxRunner
 from firstweek_simulation.artifacts import (
@@ -41,6 +41,67 @@ from firstweek_simulation.internship import write_internship
 from firstweek_simulation.week import design_week
 
 MAX_ATTEMPTS = 3
+# The most model calls one run can make: design (up to 3 tries), a first build (plan, four
+# batches, a split or a missing file, reference plan and write), two retries that rebuild
+# everything, and the week (up to 3 tries). A typical run makes about 10.
+WORST_CASE_CALLS = 3 + 3 * 10 + 3
+CHECKPOINT = "checkpoint.json"
+
+
+class PipelinePausedError(Exception):
+    """Every free model ran out mid-run. Progress is saved; the same command continues it."""
+
+
+def save_checkpoint(
+    path: Path, designed: DesignedBlueprint, done: int, feedback: str, built: BuiltArtifacts | None
+) -> None:
+    """What a later run needs to continue: the blueprint, attempts used, and a starter that
+    passed its checks (so it is never paid for twice)."""
+    starter = None
+    if built is not None and built.starter_ok:
+        starter = {
+            "starter": built.starter,
+            "key": built.key,
+            "checks": [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in built.checks],
+        }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "blueprint": designed.blueprint.model_dump(mode="json"),
+                "grounded_in": designed.grounded_in,
+                "model": designed.model,
+                "cost_usd": designed.cost_usd,
+                "attempts_done": done,
+                "feedback": feedback,
+                "starter": starter,
+            }
+        )
+    )
+
+
+def clear_checkpoint(path: Path) -> None:
+    path.unlink(missing_ok=True)
+
+
+def load_checkpoint(
+    path: Path,
+) -> tuple[DesignedBlueprint, int, str, BuiltArtifacts | None] | None:
+    if not path.is_file():
+        return None
+    raw = json.loads(path.read_text())
+    designed = DesignedBlueprint(
+        ProjectBlueprint.model_validate(raw["blueprint"]),
+        list(raw["grounded_in"]), 1, str(raw["model"]), float(raw["cost_usd"]),
+    )  # fmt: skip
+    built = None
+    if raw.get("starter"):
+        saved = raw["starter"]
+        built = BuiltArtifacts(
+            starter=saved["starter"], reference={}, key=saved["key"], metrics={}, summary="",
+            checks=[Check(c["name"], c["ok"], c["detail"]) for c in saved["checks"]],
+        )  # fmt: skip
+    return designed, int(raw["attempts_done"]), str(raw["feedback"]), built
 
 
 @dataclass
@@ -74,22 +135,49 @@ async def run_pipeline(
     seed: int = SHARED_SEED,
     budget_usd: float = 1.0,
     progress: Callable[[str], None] = lambda _: None,
+    checkpoint: Path | None = None,
 ) -> PipelineResult:
-    progress(f"Designing the blueprint for {findings.role_name} ({tier} tier) ...")
-    designed = await design_blueprint(gateway, slug, findings, tier=tier, budget_usd=budget_usd)
-    progress(
-        f"Blueprint ready: {len(designed.blueprint.tickets)} tickets. Building the project ..."
-    )
+    saved = load_checkpoint(checkpoint) if checkpoint is not None else None
+    if saved is not None:
+        designed, done, feedback, previous = saved
+        progress(
+            f"Continuing a saved run: blueprint kept, {done} attempt(s) used"
+            + (", starter kept." if previous is not None else ".")
+        )
+    else:
+        progress(f"Designing the blueprint for {findings.role_name} ({tier} tier) ...")
+        try:
+            designed = await design_blueprint(
+                gateway, slug, findings, tier=tier, budget_usd=budget_usd
+            )
+        except FreeQuotaExhaustedError as exc:
+            raise PipelinePausedError(
+                "The free models ran out before the blueprint was designed. Nothing was saved, "
+                "nothing was lost: run the same command after the quota resets."
+            ) from exc
+        done, feedback, previous = 0, "", None
+        if checkpoint is not None:
+            save_checkpoint(checkpoint, designed, 0, "", None)
+        progress(
+            f"Blueprint ready: {len(designed.blueprint.tickets)} tickets. Building the project ..."
+        )
     result: PipelineResult | None = None
-    feedback = ""
     cost = designed.cost_usd
     history: list[list[Check]] = []
-    for attempt in range(1, attempts + 1):
-        reuse = result.built if result is not None and result.built.starter_ok else None
-        built = await build(
-            gateway, runner, designed.blueprint,
-            seed=seed, tier=tier, feedback=feedback, budget_usd=budget_usd, reuse=reuse,
-        )  # fmt: skip
+    for attempt in range(done + 1, attempts + 1):
+        reuse = previous if previous is not None and previous.starter_ok else None
+        try:
+            built = await build(
+                gateway, runner, designed.blueprint,
+                seed=seed, tier=tier, feedback=feedback, budget_usd=budget_usd, reuse=reuse,
+            )  # fmt: skip
+        except FreeQuotaExhaustedError as exc:
+            if checkpoint is not None:
+                save_checkpoint(checkpoint, designed, attempt - 1, feedback, previous)
+            raise PipelinePausedError(
+                f"The free models ran out during attempt {attempt}. Progress is saved: run the "
+                "same command after the quota resets and it continues from here."
+            ) from exc
         cost += built.cost_usd
         history.append(list(built.checks))
         result = PipelineResult(designed, built, attempt, history, cost)
@@ -98,7 +186,14 @@ async def run_pipeline(
         if result.approved:
             break
         feedback = failures_text(built)
-    assert result is not None
+        if built.starter_ok:
+            previous = built
+        if checkpoint is not None:
+            save_checkpoint(checkpoint, designed, attempt, feedback, previous)
+    if checkpoint is not None:
+        clear_checkpoint(checkpoint)  # finished, approved or not: the next run starts fresh
+    if result is None:
+        raise PipelinePausedError("No attempts were left in the saved run.")
     if result.approved:
         progress("Writing the scripted week ...")
         try:

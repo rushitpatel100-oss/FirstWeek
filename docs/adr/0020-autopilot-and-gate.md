@@ -41,3 +41,17 @@ Free quotas ran out mid-build. Three changes:
 - A retry whose starter passed its checks keeps it and redoes only the reference solution
   (`plan-reference.v2` takes the failures as feedback).
 A typical attempt drops from about 19 calls to about 7, and a reference-only retry to 2.
+
+## Addendum (2026-11-03): never lose work to the free quota
+- **Pre-flight**: before any call, the autopilot counts today's successful calls per free model in
+  `llm_calls` since the last Pacific midnight (`firstweek_core.llm.quota`) and refuses to start
+  unless what is left covers the worst case (`WORST_CASE_CALLS` = 36; two fresh Gemini models give
+  40). `make autopilot-check role=...` shows the numbers without calling a model; `--force`
+  starts anyway. Calls made outside this app are not seen, so the count is a floor.
+- **Pause and resume**: when every free model is spent the gateway raises
+  `FreeQuotaExhaustedError`; the pipeline saves a checkpoint (`var/autopilot/.checkpoints/<slug>.json`:
+  blueprint, attempts used, feedback, a starter that passed) and exits with code 2. The same
+  command later continues from there. A finished run deletes the checkpoint.
+- **Groq's per-minute cap**: Groq counts prompt plus `max_tokens` against 8,000 tokens a minute,
+  so an 8,000-token reply limit could never fit. Each Groq call now asks for only the room that
+  fits, and a prompt that cannot fit skips Groq instead of failing.

@@ -53,3 +53,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-03: a file reply cut off by thinking is retried at twice the limit (up to 16000); judge-tier calls ask for low reasoning effort.
 - 2026-11-03: hand-written Agentic AI Engineer project and week (ADR 0026); seed-demo picks the project by role slug.
 - 2026-11-03: autopilot writes four files per call, sends outlines and data previews instead of whole files, and a retry keeps a starter that passed (ADR 0020 addendum).
+- 2026-11-03: autopilot pre-flight quota check (make autopilot-check), pause-and-resume checkpoint when free quota runs out, Groq calls sized to its 8K tokens-per-minute cap.

@@ -11,6 +11,7 @@ from test_blueprint import FINDINGS, claim, good_draft, skill
 
 from firstweek_core.config import Settings
 from firstweek_core.contracts import RoleRealityReport
+from firstweek_simulation import artifacts as art
 from firstweek_simulation import blueprint as bp
 from firstweek_simulation import pipeline as pl
 from firstweek_simulation.artifacts import BuiltArtifacts, Check
@@ -182,3 +183,77 @@ async def test_a_failed_week_leaves_the_project_approved(scripted: list[dict[str
     result, messages = await run([built(True, {"accuracy": 0.9})], scripted)
     assert result.approved and result.week is None
     assert any("No week script" in m for m in messages)
+
+
+async def test_running_out_of_quota_saves_progress_and_the_next_run_continues(
+    scripted: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from firstweek_core.llm import FreeQuotaExhaustedError
+
+    checkpoint = tmp_path / "checkpoint.json"
+    good_starter = built(False, detail="reference failed")
+    good_starter.checks = [Check(name, True) for name in art.STARTER_CHECKS] + good_starter.checks
+
+    async def quota_gone(*_: Any, **__: Any) -> BuiltArtifacts:
+        raise FreeQuotaExhaustedError("all spent")
+
+    # Attempt 1 keeps a good starter but fails; attempt 2 runs out of quota.
+    scripted[0]["replies"].append(good_starter)
+    calls = 0
+    real_build = pl.build  # type: ignore[attr-defined]
+
+    async def first_then_gone(*a: Any, **kw: Any) -> BuiltArtifacts:
+        nonlocal calls
+        calls += 1
+        return await (real_build(*a, **kw) if calls == 1 else quota_gone())
+
+    monkeypatch.setattr(pl, "build", first_then_gone)
+    with pytest.raises(pl.PipelinePausedError, match="attempt 2"):
+        await pl.run_pipeline(
+            None,  # type: ignore[arg-type]
+            LocalRunner(),
+            "genai-engineer",
+            FINDINGS,
+            checkpoint=checkpoint,
+        )
+    saved = json.loads(checkpoint.read_text())
+    assert saved["attempts_done"] == 1 and saved["starter"]["starter"] == good_starter.starter
+
+    # The next run designs nothing, reuses the starter and continues at attempt 2.
+    monkeypatch.setattr(pl, "build", real_build)
+    scripted[0]["replies"].append(built(True, {"accuracy": 0.9}))
+    designs_before = sum(1 for c in scripted if "design_tier" in c)
+    messages: list[str] = []
+    result = await pl.run_pipeline(
+        None, LocalRunner(), "genai-engineer", FINDINGS,  # type: ignore[arg-type]
+        checkpoint=checkpoint, progress=messages.append,
+    )  # fmt: skip
+    assert result.approved and result.attempts == 2
+    assert sum(1 for c in scripted if "design_tier" in c) == designs_before
+    assert scripted[-1]["reuse"].starter == good_starter.starter
+    assert scripted[-1]["feedback"] and "Continuing a saved run" in messages[0]
+    assert not checkpoint.exists()
+
+
+async def test_running_out_while_designing_pauses_with_nothing_to_redo(
+    scripted: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from firstweek_core.llm import FreeQuotaExhaustedError
+
+    async def quota_gone(*_: Any, **__: Any) -> Any:
+        raise FreeQuotaExhaustedError("all spent")
+
+    monkeypatch.setattr(pl, "design_blueprint", quota_gone)
+    with pytest.raises(pl.PipelinePausedError, match="before the blueprint"):
+        await pl.run_pipeline(
+            None, LocalRunner(), "genai-engineer", FINDINGS,  # type: ignore[arg-type]
+            checkpoint=tmp_path / "c.json",
+        )  # fmt: skip
+
+
+def test_the_worst_case_run_fits_one_fresh_day_of_the_two_gemini_models() -> None:
+    from firstweek_core.llm import quota
+
+    settings = Settings(_env_file=None)
+    fresh = quota.remaining(settings, {})
+    assert pl.WORST_CASE_CALLS <= sum(fresh.values()) == 40
