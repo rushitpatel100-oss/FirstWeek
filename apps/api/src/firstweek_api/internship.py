@@ -53,6 +53,16 @@ class VerdictResponse(BaseModel):
     tests: TestRun
 
 
+def _result(tests: TestRun) -> JobResult:
+    return JobResult(
+        exit_code=tests.exit_code,
+        stdout=tests.output,
+        stderr="",
+        timed_out=tests.timed_out,
+        duration_s=0,
+    )
+
+
 def _script(project: ws.Project) -> Internship:
     found = work.load_internship(Path(wsapi.current_settings().artifacts_dir), project.blueprint_id)
     if found is None:
@@ -99,7 +109,14 @@ async def chat(slug: str, body: ChatRequest, request: Request) -> ChatReply:
     except ws.WorkspaceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
-        raise wsapi.model_failure(exc) from exc
+        failure = wsapi.model_failure(exc)
+        if failure.status_code != 503:
+            raise failure from exc
+        # Out of free quota: a stock reply beats an error. It says so.
+        text, model = (
+            work.offline_reply([(t.who, t.text) for t in body.history]),
+            work.OFFLINE_MODEL,
+        )
     finally:
         g.flush()
     return ChatReply(reply=text, model=model)
@@ -120,20 +137,18 @@ async def verdict(slug: str, body: VerdictRequest, request: Request) -> VerdictR
             g,
             found,
             body.files,
-            JobResult(
-                exit_code=tests.exit_code,
-                stdout=tests.output,
-                stderr="",
-                timed_out=tests.timed_out,
-                duration_s=0,
-            ),
+            _result(tests),
             body.chat,
             tier=wsapi.current_settings().simulation_tier,
         )
     except ws.WorkspaceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
-        raise wsapi.model_failure(exc) from exc
+        failure = wsapi.model_failure(exc)
+        if failure.status_code != 503:
+            raise failure from exc
+        written = work.offline_verdict(found, body.files, _result(tests), body.chat)
+        model = work.OFFLINE_MODEL
     finally:
         g.flush()
     return VerdictResponse(verdict=written, model=model, tests=tests)

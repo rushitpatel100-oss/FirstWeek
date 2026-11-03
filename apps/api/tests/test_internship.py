@@ -181,13 +181,25 @@ def _use(monkeypatch: pytest.MonkeyPatch, completion: Prompts) -> None:
 
 
 @pytest.mark.db
-def test_a_failing_model_gives_a_clear_status_not_a_bare_500(
+def test_out_of_quota_gives_a_stock_reply_and_an_automatic_review(
     team: tuple[FakeRunner, Replies], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _use(monkeypatch, Broken(None))
-    assert client.post("/roles/genai-engineer/internship/chat", json=CHAT).status_code == 503
+    chat = client.post("/roles/genai-engineer/internship/chat", json=CHAT)
+    assert chat.status_code == 200
+    assert chat.json()["model"] == "offline" and "out of free quota" in chat.json()["reply"]
     verdict = client.post("/roles/genai-engineer/internship/verdict", json={"files": {}})
-    assert verdict.status_code == 503 and "free quota" in verdict.json()["detail"]
+    assert verdict.status_code == 200 and verdict.json()["model"] == "offline"
+    body = verdict.json()["verdict"]
+    assert body["summary"].startswith("Automatic review")
+    assert {k["skill_id"] for k in body["skills"]} == {"python"}
+    assert SECRET not in str(body)
+
+
+@pytest.mark.db
+def test_an_answer_that_never_validates_is_still_a_502(
+    team: tuple[FakeRunner, Replies], monkeypatch: pytest.MonkeyPatch
+) -> None:
     _use(monkeypatch, Broken("not json at all"))
     again = client.post("/roles/genai-engineer/internship/verdict", json={"files": {}})
     assert again.status_code == 502

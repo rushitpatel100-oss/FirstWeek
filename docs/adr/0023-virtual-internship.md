@@ -42,3 +42,10 @@ meeting), and the ticket is one of them.
 ## Addendum 2026-11-02: autopilot writes the week
 
 After the gate approves a project, autopilot makes one more call (`design-week.v1`, up to 3 tries) that writes the colleagues and the week from the public blueprint only. Code rejects a script unless every ticket is assigned exactly once, on or before its due day, by a colleague who exists; no message mentions code or an unknown ticket; events fall on at least four days; and day 4 or 5 asks for a plain-words explanation. A week that never passes leaves the project approved and playable as a plain workspace. `internship.json` is written after `save_artifacts` (which clears the folder first); `make autopilot` also writes `week.json` to its output folder.
+
+## Addendum: when the free quota runs out
+Chat and the end-of-week review no longer fail with 503 when every free model is spent. The chat
+returns a stock reply that says it is stock; the review is computed from the evidence alone (test
+result, whether a new test was added, whether the intern wrote to anyone) and is labelled
+"Automatic review". The response `model` is `offline`. A 502 (an answer that never validated) is
+unchanged.
