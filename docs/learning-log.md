@@ -51,3 +51,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-02: deployment kit (ADR 0024): ensure-demo, API start script, visitor address forwarded with a shared key, docs/deploy.md.
 - 2026-11-03: autopilot no longer fails on an empty __init__.py, and a planned notebook is refused before any file is written; planner prompt is now plan-starter.v3.
 - 2026-11-03: a file reply cut off by thinking is retried at twice the limit (up to 16000); judge-tier calls ask for low reasoning effort.
+- 2026-11-03: hand-written Agentic AI Engineer project and week (ADR 0026); seed-demo picks the project by role slug.
