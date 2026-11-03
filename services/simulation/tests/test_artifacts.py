@@ -457,11 +457,11 @@ async def test_a_retry_keeps_a_good_starter_and_redoes_only_the_solution() -> No
     assert first.starter_ok and not first.ok
     gateway = FakeGateway(starter_draft(), reference_draft())
     again = await art.build_artifacts(
-        gateway,
+        gateway,  # type: ignore[arg-type]
         LocalRunner(),
         blueprint(),
         feedback="the reference failed",
-        reuse=first,  # type: ignore[arg-type]
+        reuse=first,
     )
     assert again.ok, [c for c in again.checks if not c.ok]
     assert [c["purpose"] for c in gateway.structured_calls] == ["plan-reference"]
