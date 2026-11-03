@@ -3,6 +3,7 @@
 from firstweek_core.llm.budget import Budget, BudgetExceededError, BudgetRegistry
 from firstweek_core.llm.gateway import (
     CallRecord,
+    FreeQuotaExhaustedError,
     LLMGateway,
     LLMResult,
     StructuredOutputError,
@@ -15,6 +16,7 @@ __all__ = [
     "BudgetExceededError",
     "BudgetRegistry",
     "CallRecord",
+    "FreeQuotaExhaustedError",
     "LLMGateway",
     "LLMResult",
     "StructuredOutputError",

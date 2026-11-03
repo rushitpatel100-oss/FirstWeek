@@ -88,6 +88,26 @@ def is_daily_quota(exc: BaseException) -> bool:
     return "PerDay" in text or "per day" in text.lower()
 
 
+class FreeQuotaExhaustedError(Exception):
+    """Every free model is out of its daily quota. Waiting minutes will not help; tomorrow will."""
+
+
+# Providers that count the requested reply room against a per-minute token cap (Groq's free
+# tier: 8,000 tokens a minute, prompt plus max_tokens). A call is sized to fit, or skipped.
+PER_MINUTE_TOKENS = {"groq": 8_000}
+MIN_REPLY_TOKENS = 1_024
+
+
+def fit_reply_room(model: str, messages: list[Message], max_tokens: int) -> int | None:
+    """max_tokens for this model, reduced to fit a per-minute cap; None if it cannot fit."""
+    cap = PER_MINUTE_TOKENS.get(model.split("/")[0])
+    if cap is None:
+        return max_tokens
+    prompt = sum(len(str(m.get("content", ""))) for m in messages) // 4
+    room = cap - prompt - 300  # margin for the provider's own counting
+    return min(max_tokens, room) if room >= MIN_REPLY_TOKENS else None
+
+
 class StructuredOutputError(Exception):
     """The model never produced output that validates against the requested schema."""
 
@@ -197,20 +217,40 @@ class LLMGateway:
         models = [str(kwargs["model"]), *self.settings.judge_fallbacks()]
         pause = FREE_TIER_PAUSE_S
         spent: set[str] = set()  # models whose daily quota is gone; not worth asking again
+        unfit = {  # models whose per-minute cap this prompt can never fit
+            m for m in models
+            if fit_reply_room(m, kwargs["messages"], int(kwargs["max_tokens"])) is None
+        }  # fmt: skip
+        if len(unfit) == len(models):
+            raise ValueError("The prompt is too large for every free model.")
         for attempt in range(FREE_TIER_ROUNDS):
             error: Exception | None = None
-            for candidate in (m for m in models if m not in spent):
+            for candidate in (m for m in models if m not in spent | unfit):
+                room = fit_reply_room(candidate, kwargs["messages"], int(kwargs["max_tokens"]))
+                assert room is not None
                 try:
-                    return await self.completion_fn(**{**kwargs, "model": candidate}), candidate
+                    reply = await self.completion_fn(
+                        **{**kwargs, "model": candidate, "max_tokens": room}
+                    )
+                    return reply, candidate
                 except Exception as exc:
-                    # A retired model (404) is skipped like a busy one; the next may work.
-                    if not (is_transient(exc) or type(exc).__name__ == "NotFoundError"):
+                    # A retired model (404) or a request over a size cap (413) is skipped like a
+                    # busy one; the next model may work.
+                    too_large = "Request too large" in str(exc) or (
+                        getattr(exc, "status_code", None) == 413
+                    )
+                    if not (
+                        is_transient(exc) or too_large or type(exc).__name__ == "NotFoundError"
+                    ):
                         raise
                     error = exc
                     if is_daily_quota(exc):
                         spent.add(candidate)
-            if len(spent) == len(models) and error is not None:
-                raise error  # every free model is out for the day: fail now, not in 140s
+            if spent and len(spent | unfit) == len(models) and error is not None:
+                # every free model is out for the day: fail now, not in 140s
+                raise FreeQuotaExhaustedError(
+                    f"Every free model is out of quota today: {error}"
+                ) from error
             if attempt == FREE_TIER_ROUNDS - 1 and error is not None:
                 raise error
             await self.sleep_fn(pause)
