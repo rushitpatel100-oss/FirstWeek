@@ -30,7 +30,7 @@ from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import BlueprintError, load_prompt
 
-PLAN_STARTER_VERSION = "plan-starter.v2"
+PLAN_STARTER_VERSION = "plan-starter.v3"
 WRITE_FILE_VERSION = "write-file.v1"
 PLAN_REFERENCE_VERSION = "plan-reference.v1"
 WRITE_REFERENCE_VERSION = "write-reference-file.v1"
@@ -196,6 +196,9 @@ async def write_files(
         if result.finish_reason == "length":
             raise FileWriteError(f"{item.path}: the reply was cut off at {FILE_MAX_TOKENS} tokens")
         if not result.content.strip():
+            if PurePosixPath(item.path).name == "__init__.py":
+                written[item.path] = ""  # an empty package marker is a valid file
+                continue
             raise FileWriteError(f"{item.path}: the reply was empty")
         written[item.path] = clean_file(result.content)
     return written
@@ -260,6 +263,11 @@ async def build_artifacts(
     spend.cost_usd += float(planned.cost_usd)
     spend.model = planned.model
     every = [*plan.starter_files, *plan.key_files]
+    if bad := [i.path for i in every if PurePosixPath(i.path).suffix not in ALLOWED_SUFFIXES]:
+        built.checks.append(
+            Check("starter files are well formed", False, f"{bad}: file type not allowed.")
+        )
+        return finish()
 
     def render_starter(item: PlannedFile, written: dict[str, str]) -> dict[str, str]:
         return {

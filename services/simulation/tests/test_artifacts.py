@@ -391,3 +391,32 @@ async def test_the_latest_draft_comes_back_with_its_key_and_saving_records_measu
     _, after = art.latest_draft(ROLE)
     assert after.answer_key.expected_metrics == {"sum_matches": 1.0}  # replaces the model's guess
     assert after.answer_key.reference_solution_uri.startswith("file://")
+
+
+async def test_an_empty_package_marker_is_a_valid_file() -> None:
+    draft = starter_draft(
+        starter_files=[
+            f("src/__init__.py", ""),
+            f("src/calc.py", BUGGY),
+            f("tests/test_calc.py", TEST),
+            f("README.md"),
+        ]
+    )
+    gateway = FakeGateway(draft, reference_draft())
+    built = await build(gateway)
+    assert "starter files are written" not in failed(built)
+    assert built.starter["src/__init__.py"] == ""
+
+
+async def test_a_planned_notebook_is_refused_before_any_file_is_written() -> None:
+    draft = starter_draft(
+        starter_files=[
+            f("src/calc.py", BUGGY),
+            f("tests/test_calc.py", TEST),
+            f("notebooks/evaluation.ipynb", "{}"),
+        ]
+    )
+    gateway = FakeGateway(draft, reference_draft())
+    built = await build(gateway)
+    assert failed(built) == ["starter files are well formed"]
+    assert gateway.complete_calls == []
