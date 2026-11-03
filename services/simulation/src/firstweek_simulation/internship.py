@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from firstweek_core.contracts import Colleague, Internship, SupervisorVerdict
+from firstweek_core.contracts import Colleague, Internship, SkillEvidence, SupervisorVerdict
 from firstweek_core.llm import LLMGateway
 from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import JobResult
@@ -161,3 +161,69 @@ async def verdict(
     if result.parsed is None:
         raise WorkspaceError("The review could not be written. Please try again.")
     return result.parsed, result.model
+
+
+OFFLINE_MODEL = "offline"
+OFFLINE_NOTE = "(The AI team is out of free quota right now, so this is a stock reply.)"
+_OFFLINE_LINES = [
+    "Thanks for the message. Can you tell me what you have tried so far and what you think is "
+    "happening? I would rather hear a half-finished idea than nothing.",
+    "Good question. Run the tests, read the first failure and tell me what it expects against "
+    "what it gets. That usually points somewhere.",
+    "I would keep the change small and say how sure you are. What would you check next?",
+    "Understood. Write down what you know, what you do not know yet, and what you will do "
+    "about it. That is most of the job.",
+]
+
+
+def offline_reply(history: list[tuple[str, str]]) -> str:
+    """A stock answer for when no free model has quota left. Says so, and points nowhere."""
+    turn = sum(1 for who, _ in history if who == "you")
+    return f"{_OFFLINE_LINES[turn % len(_OFFLINE_LINES)]}\n\n{OFFLINE_NOTE}"
+
+
+def offline_verdict(
+    project: Project, edits: dict[str, str], tests: JobResult | None, chat_messages: list[str]
+) -> SupervisorVerdict:
+    """A review computed from the evidence alone (test result, a new test, chat), no model."""
+    passed = tests is not None and tests.exit_code == 0 and not tests.timed_out
+    added_test = any(
+        p.startswith("tests/") and p.endswith(".py") and p not in project.files and t.strip()
+        for p, t in edits.items()
+    )
+    talked = bool(chat_messages)
+    skills = []
+    for c in project.blueprint["rubric"]:
+        skill = c["skill_id"]
+        if skill == "testing":
+            score = 4 if passed and added_test else 3 if added_test else 2 if passed else 1
+            why = (
+                "A new test of your own was added under tests/."
+                if added_test
+                else "No test of your own was added under tests/."
+            )
+        else:
+            score = 4 if passed else 2
+            why = (
+                "The final test run passes."
+                if passed
+                else "The final test run still fails, so part of the problem remains."
+            )
+        skills.append(SkillEvidence(skill_id=skill, score=score, evidence=why))
+    state = "the given tests pass" if passed else "the given tests still fail"
+    return SupervisorVerdict(
+        summary=f"Automatic review (the AI supervisor is out of free quota): {state}.",
+        skills=skills,
+        went_well=[
+            "The given tests pass" if passed else "You ran the tests",
+            "You asked colleagues for context" if talked else "You kept your changes small",
+        ],
+        to_work_on=[
+            "Explain the findings in plain words"
+            if added_test
+            else "Add a test that fails on the old code",
+            "Say how sure you are" if talked else "Talk to colleagues sooner",
+        ],
+        next_step="Write three plain sentences for your manager: what was wrong, what you "
+        "changed, and how sure you are.",
+    )
