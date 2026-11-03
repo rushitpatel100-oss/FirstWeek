@@ -256,4 +256,4 @@ def test_the_worst_case_run_fits_one_fresh_day_of_the_two_gemini_models() -> Non
 
     settings = Settings(_env_file=None)
     fresh = quota.remaining(settings, {})
-    assert pl.WORST_CASE_CALLS <= sum(fresh.values()) == 40
+    assert pl.WORST_CASE_CALLS <= sum(fresh.values()) == 40  # Gemini alone covers it

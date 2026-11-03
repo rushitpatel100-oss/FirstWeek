@@ -111,11 +111,16 @@ def _quota_preflight(settings: Settings, resuming: bool) -> bool:
     from firstweek_simulation.pipeline import WORST_CASE_CALLS
 
     models = quota.free_models(settings)
-    left = quota.remaining(settings, quota.used_today(models))
+    calls, tokens = quota.used_today(models)
+    left = quota.remaining(settings, calls, tokens)
     total = sum(left.values())
     print("Free calls left today (counted from this app's own records):")
     for model, count in left.items():
-        print(f"  {model}: {count} of {quota.daily_limit(model)}")
+        cap = quota.FREE_DAILY_TOKENS.get(model.split("/")[0])
+        extra = (
+            f" (its {cap:,} tokens a day: {tokens.get(model, 0):,} used)" if cap is not None else ""
+        )
+        print(f"  {model}: {count} calls{extra}")
     reset = quota.next_reset().astimezone()
     print(f"A run needs at most {WORST_CASE_CALLS} calls (usually about 10).")
     if resuming:
