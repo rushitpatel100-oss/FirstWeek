@@ -257,6 +257,9 @@ class LLMGateway:
             # default temperature). Drop what a model does not support instead of failing.
             "drop_params": True,
         }
+        if chosen == "judge":
+            # Free reasoning models spend max_tokens on thinking before the file starts.
+            kwargs["reasoning_effort"] = "low"
         if temperature is not None:
             kwargs["temperature"] = temperature
         if response_format is not None:

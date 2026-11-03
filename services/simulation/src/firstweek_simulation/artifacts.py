@@ -36,6 +36,7 @@ PLAN_REFERENCE_VERSION = "plan-reference.v1"
 WRITE_REFERENCE_VERSION = "write-reference-file.v1"
 PLAN_MAX_TOKENS = 12000
 FILE_MAX_TOKENS = 8000
+FILE_MAX_TOKENS_CEILING = 16000
 ALLOWED_SUFFIXES = {
     ".py", ".md", ".txt", ".json", ".jsonl", ".csv", ".log",
     ".toml", ".cfg", ".ini", ".yaml", ".yml",
@@ -178,23 +179,28 @@ async def write_files(
     system, user = load_prompt(version)
     written: dict[str, str] = {}
     for item in planned:
-        result = await gateway.complete(
-            purpose=purpose,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user.format(**render(item, written))},
-            ],
-            tier=tier,
-            max_tokens=FILE_MAX_TOKENS,
-            temperature=0.3,
-            budget_scope="build-artifacts",
-            budget_usd=budget_usd,
-            prompt_version=version,
-        )
-        spend.cost_usd += float(result.cost_usd)
-        spend.model = result.model
+        limit = FILE_MAX_TOKENS
+        while True:
+            result = await gateway.complete(
+                purpose=purpose,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user.format(**render(item, written))},
+                ],
+                tier=tier,
+                max_tokens=limit,
+                temperature=0.3,
+                budget_scope="build-artifacts",
+                budget_usd=budget_usd,
+                prompt_version=version,
+            )
+            spend.cost_usd += float(result.cost_usd)
+            spend.model = result.model
+            if result.finish_reason != "length" or limit >= FILE_MAX_TOKENS_CEILING:
+                break
+            limit = min(limit * 2, FILE_MAX_TOKENS_CEILING)  # thinking may have used the room
         if result.finish_reason == "length":
-            raise FileWriteError(f"{item.path}: the reply was cut off at {FILE_MAX_TOKENS} tokens")
+            raise FileWriteError(f"{item.path}: the reply was cut off at {limit} tokens")
         if not result.content.strip():
             if PurePosixPath(item.path).name == "__init__.py":
                 written[item.path] = ""  # an empty package marker is a valid file
