@@ -85,9 +85,10 @@ async def run_pipeline(
     cost = designed.cost_usd
     history: list[list[Check]] = []
     for attempt in range(1, attempts + 1):
+        reuse = result.built if result is not None and result.built.starter_ok else None
         built = await build(
             gateway, runner, designed.blueprint,
-            seed=seed, tier=tier, feedback=feedback, budget_usd=budget_usd,
+            seed=seed, tier=tier, feedback=feedback, budget_usd=budget_usd, reuse=reuse,
         )  # fmt: skip
         cost += built.cost_usd
         history.append(list(built.checks))

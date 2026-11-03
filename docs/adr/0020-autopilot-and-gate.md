@@ -30,3 +30,14 @@ Third real run: the pipeline got through design and one full build attempt, then
 ## Addendum 2026-11-02: Groq as a second free source
 
 With `GROQ_API_KEY` set, `groq/openai/gpt-oss-120b` joins the end of the free chain (Gemini, the Gemini fallback, then Groq), so one provider's daily cap no longer stops chat, reviews or autopilot. Groq's free limits (about 1,000 requests, 200K tokens a day and 8K tokens a minute on that model) are tight for long reviews; billing on the Gemini key is the lasting fix. `Settings.has_judge_key` replaces the Gemini-only key checks.
+
+## Addendum (2026-11-03): fewer calls, fewer tokens
+Free quotas ran out mid-build. Three changes:
+- Files are written up to four per call (`write-files.v1`, `write-reference-files.v1`, each file
+  after a `=== path ===` line). A cut-off batch is split in half; a file left out is asked for alone.
+- Writers see outlines of earlier code files (signatures, docstrings, constants) and the first
+  12 lines of data files, not everything written so far. The reference planner and writers see the
+  starter's data the same way (it can be 200 KB per file).
+- A retry whose starter passed its checks keeps it and redoes only the reference solution
+  (`plan-reference.v2` takes the failures as feedback).
+A typical attempt drops from about 19 calls to about 7, and a reference-only retry to 2.

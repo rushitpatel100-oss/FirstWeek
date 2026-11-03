@@ -134,6 +134,7 @@ class FakeGateway:
         self.structured_calls: list[dict[str, Any]] = []
         self.complete_calls: list[dict[str, Any]] = []
         self.cut_off: set[str] = set()
+        self.omit: set[str] = set()
         starter_all = [*starter.starter_files, *starter.key_files]
         self.content = {
             "write-starter-file": {x.path: x.content for x in starter_all},
@@ -162,13 +163,17 @@ class FakeGateway:
 
     async def complete(self, **kwargs: Any) -> SimpleNamespace:
         self.complete_calls.append(kwargs)
-        path = re.search(r"Write this file: (\S+)", kwargs["messages"][1]["content"])
-        assert path is not None
-        name = path.group(1)
-        text = self.content[kwargs["purpose"]][name]
+        asked = kwargs["messages"][1]["content"].split("Write these files:\n", 1)[1]
+        names = re.findall(r"^- (\S+): ", asked, flags=re.M)
+        assert names
+        reply = "\n".join(
+            f"=== {n} ===\n{self.content[kwargs['purpose']][n]}"
+            for n in names
+            if n not in self.omit
+        )
         return SimpleNamespace(
-            content=text, cost_usd=Decimal("0.01"), model="fake",
-            finish_reason="length" if name in self.cut_off else "stop",
+            content=reply, cost_usd=Decimal("0.01"), model="fake",
+            finish_reason="length" if self.cut_off & set(names) else "stop",
         )  # fmt: skip
 
 
@@ -200,7 +205,8 @@ async def test_a_sound_project_passes_every_check_and_the_numbers_are_measured()
     assert built.metrics == {"sum_matches": 1.0}
     assert built.starter["data/nums.json"] == "[1, 2, 3]" and "key/truth.json" in built.key
     assert built.reference["src/calc.py"] == FIXED and built.starter["src/calc.py"] == BUGGY
-    assert built.cost_usd == pytest.approx(0.10) and built.summary.startswith("Fixes every")
+    # two plans (0.02 each) and three write calls (0.01 each): two starter batches, one reference
+    assert built.cost_usd == pytest.approx(0.07) and built.summary.startswith("Fixes every")
     # The person's tree never contains the hidden side, and the key script never runs on it.
     assert not any(art.is_key_path(p) for p in built.starter)
     starter_run = runner.jobs[1]
@@ -208,7 +214,7 @@ async def test_a_sound_project_passes_every_check_and_the_numbers_are_measured()
     assert starter_run.network is False
 
 
-async def test_the_planner_gets_the_issues_and_each_file_is_its_own_call() -> None:
+async def test_files_are_written_a_few_per_call_with_compact_context() -> None:
     gateway = FakeGateway(starter_draft(), reference_draft())
     await build(gateway)
     plan, ref_plan_call = (c["messages"][1]["content"] for c in gateway.structured_calls)
@@ -216,13 +222,35 @@ async def test_the_planner_gets_the_issues_and_each_file_is_its_own_call() -> No
     assert "Index never drops superseded documents." in ref_plan_call
     assert "=== src/calc.py ===" in ref_plan_call and BUGGY in ref_plan_call
     starter_calls = [c for c in gateway.complete_calls if c["purpose"] == "write-starter-file"]
-    assert len(starter_calls) == 5  # three starter files and two key files, one call each
+    assert len(starter_calls) == 2  # five files, at most four per call
     assert all(c["max_tokens"] == art.FILE_MAX_TOKENS for c in gateway.complete_calls)
     first, last = (c["messages"][1]["content"] for c in (starter_calls[0], starter_calls[-1]))
     assert "(none yet)" in first and "=== src/calc.py ===" in last
     reference_calls = [c for c in gateway.complete_calls if c["purpose"] == "write-reference-file"]
     assert len(reference_calls) == 1
     assert "def total(xs):\n    return sum(xs[:-1])" in reference_calls[0]["messages"][1]["content"]
+
+
+async def test_a_file_left_out_of_a_reply_is_asked_for_on_its_own() -> None:
+    gateway = FakeGateway(starter_draft(), reference_draft())
+    gateway.omit = {"src/calc.py"}
+    built = await build(gateway)
+    assert "src/calc.py" in built.checks[0].detail and "empty" in built.checks[0].detail
+    singles = [c for c in gateway.complete_calls if "- src/calc.py:" in c["messages"][1]["content"]]
+    assert len(singles) == 2  # once in its batch, once alone
+
+
+def test_data_is_previewed_and_long_code_is_outlined() -> None:
+    data = "\n".join(f'{{"id": {i}}}' for i in range(500))
+    assert "(500 lines in all)" in art.preview("data/x.jsonl", data)
+    assert len(art.preview("data/x.jsonl", data)) < 400
+    code = 'import json\n\n\ndef f(x):\n    """Does f."""\n' + "    x += 1\n" * 60
+    shown = art.outline("src/f.py", code)
+    assert "def f(x):" in shown and '"""Does f."""' in shown and "x += 1" not in shown
+    assert art.outline("src/short.py", "x = 1\n") == "x = 1\n"
+    assert art.split_files("=== a.py ===\nx = 1\n=== b/__init__.py ===\n") == {
+        "a.py": "x = 1", "b/__init__.py": "",
+    }  # fmt: skip
 
 
 async def test_a_file_that_is_cut_off_is_reported_by_name_and_nothing_runs() -> None:
@@ -420,3 +448,23 @@ async def test_a_planned_notebook_is_refused_before_any_file_is_written() -> Non
     built = await build(gateway)
     assert failed(built) == ["starter files are well formed"]
     assert gateway.complete_calls == []
+
+
+async def test_a_retry_keeps_a_good_starter_and_redoes_only_the_solution() -> None:
+    first = await build(
+        FakeGateway(starter_draft(), reference_draft(files=[f("src/calc.py", BUGGY)]))
+    )
+    assert first.starter_ok and not first.ok
+    gateway = FakeGateway(starter_draft(), reference_draft())
+    again = await art.build_artifacts(
+        gateway,
+        LocalRunner(),
+        blueprint(),
+        feedback="the reference failed",
+        reuse=first,  # type: ignore[arg-type]
+    )
+    assert again.ok, [c for c in again.checks if not c.ok]
+    assert [c["purpose"] for c in gateway.structured_calls] == ["plan-reference"]
+    assert "the reference failed" in gateway.structured_calls[0]["messages"][1]["content"]
+    assert all(c["purpose"] == "write-reference-file" for c in gateway.complete_calls)
+    assert again.starter == first.starter
