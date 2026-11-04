@@ -7,6 +7,7 @@ retries, tracing, and a record of every call.
 
 import asyncio
 import json
+import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -56,11 +57,28 @@ FREE_TIER_TIMEOUT_S = 120.0  # one call; LiteLLM waits 600s by default, which lo
 FREE_TIER_PAUSE_S = 20.0  # first pause between passes; doubles each time
 
 
+class _DropSamplingNotice(logging.Filter):
+    """Gemini 3 models make LiteLLM warn on every call that temperature is planned for removal.
+    We do not send it to those models; the notice only buries real output."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "`temperature`, `top_p`, and `top_k` continue to function" not in record.getMessage()
+
+
+logging.getLogger("LiteLLM").addFilter(_DropSamplingNotice())
+
+# LiteLLM sometimes wraps a Gemini 429 in a BadRequestError, so the type says nothing; the text
+# still carries the provider's own status.
+RATE_LIMIT_TEXT = ("RESOURCE_EXHAUSTED", "429 Too Many Requests", '"code": 429')
+
+
 def is_transient(exc: BaseException) -> bool:
     """A provider hiccup worth waiting out: overloaded, rate limited, unreachable."""
+    text = str(exc)
     return (
         type(exc).__name__ in TRANSIENT_ERRORS
         or getattr(exc, "status_code", None) in TRANSIENT_STATUS
+        or any(marker in text for marker in RATE_LIMIT_TEXT)
     )
 
 
@@ -68,6 +86,42 @@ def is_daily_quota(exc: BaseException) -> bool:
     """The free tier's per-day request cap: waiting minutes will not help, only tomorrow."""
     text = str(exc)
     return "PerDay" in text or "per day" in text.lower()
+
+
+def probe_status(exc: BaseException) -> str:
+    """What a failed one-token probe says about a free model's quota."""
+    text = str(exc).replace(" ", "")
+    if '"limit":0' in text or "limit:0," in text or "limit:0\n" in text:
+        return "no free tier"
+    if is_daily_quota(exc):
+        return "spent for today"
+    if type(exc).__name__ == "NotFoundError" or getattr(exc, "status_code", None) == 404:
+        return "not found"
+    if "PerMinute" in str(exc) or "per minute" in str(exc).lower():
+        return "busy this minute"
+    if is_transient(exc):
+        return "refused (429 or overloaded)"
+    return f"error: {str(exc)[:120]}"
+
+
+class FreeQuotaExhaustedError(Exception):
+    """Every free model is out of its daily quota. Waiting minutes will not help; tomorrow will."""
+
+
+# Providers that count the requested reply room against a per-minute token cap (Groq's free
+# tier: 8,000 tokens a minute, prompt plus max_tokens). A call is sized to fit, or skipped.
+PER_MINUTE_TOKENS = {"groq": 8_000}
+MIN_REPLY_TOKENS = 1_024
+
+
+def fit_reply_room(model: str, messages: list[Message], max_tokens: int) -> int | None:
+    """max_tokens for this model, reduced to fit a per-minute cap; None if it cannot fit."""
+    cap = PER_MINUTE_TOKENS.get(model.split("/")[0])
+    if cap is None:
+        return max_tokens
+    prompt = sum(len(str(m.get("content", ""))) for m in messages) // 4
+    room = cap - prompt - 300  # margin for the provider's own counting
+    return min(max_tokens, room) if room >= MIN_REPLY_TOKENS else None
 
 
 class StructuredOutputError(Exception):
@@ -134,6 +188,8 @@ class LLMGateway:
         if self.completion_fn is None:
             import litellm
 
+            litellm.suppress_debug_info = True  # no 'Give Feedback / Get Help' after every error
+
             self.completion_fn = litellm.acompletion
         if self.tracer is None:
             self.tracer = default_tracer(self.settings.tracing_enabled)
@@ -174,23 +230,43 @@ class LLMGateway:
             return await self.completion_fn(**kwargs), str(kwargs["model"])
         # We do the retrying here, so LiteLLM's own quick retries and long default timeout go.
         kwargs = {**kwargs, "timeout": FREE_TIER_TIMEOUT_S, "num_retries": 0}
-        models = [str(kwargs["model"]), *self.settings.model_judge_fallbacks]
+        models = [str(kwargs["model"]), *self.settings.judge_fallbacks()]
         pause = FREE_TIER_PAUSE_S
         spent: set[str] = set()  # models whose daily quota is gone; not worth asking again
+        unfit = {  # models whose per-minute cap this prompt can never fit
+            m for m in models
+            if fit_reply_room(m, kwargs["messages"], int(kwargs["max_tokens"])) is None
+        }  # fmt: skip
+        if len(unfit) == len(models):
+            raise ValueError("The prompt is too large for every free model.")
         for attempt in range(FREE_TIER_ROUNDS):
             error: Exception | None = None
-            for candidate in (m for m in models if m not in spent):
+            for candidate in (m for m in models if m not in spent | unfit):
+                room = fit_reply_room(candidate, kwargs["messages"], int(kwargs["max_tokens"]))
+                assert room is not None
                 try:
-                    return await self.completion_fn(**{**kwargs, "model": candidate}), candidate
+                    reply = await self.completion_fn(
+                        **{**kwargs, "model": candidate, "max_tokens": room}
+                    )
+                    return reply, candidate
                 except Exception as exc:
-                    # A retired model (404) is skipped like a busy one; the next may work.
-                    if not (is_transient(exc) or type(exc).__name__ == "NotFoundError"):
+                    # A retired model (404) or a request over a size cap (413) is skipped like a
+                    # busy one; the next model may work.
+                    too_large = "Request too large" in str(exc) or (
+                        getattr(exc, "status_code", None) == 413
+                    )
+                    if not (
+                        is_transient(exc) or too_large or type(exc).__name__ == "NotFoundError"
+                    ):
                         raise
                     error = exc
                     if is_daily_quota(exc):
                         spent.add(candidate)
-            if len(spent) == len(models) and error is not None:
-                raise error  # every free model is out for the day: fail now, not in 140s
+            if spent and len(spent | unfit) == len(models) and error is not None:
+                # every free model is out for the day: fail now, not in 140s
+                raise FreeQuotaExhaustedError(
+                    f"Every free model is out of quota today: {error}"
+                ) from error
             if attempt == FREE_TIER_ROUNDS - 1 and error is not None:
                 raise error
             await self.sleep_fn(pause)
@@ -198,6 +274,26 @@ class LLMGateway:
         raise AssertionError("unreachable")
 
     # ------------------------------------------------------------ public API
+
+    async def probe(self, model: str) -> str:
+        """Asks one model for a tiny reply, with no fallback: 'ok', or why it refused (see
+        `probe_status`). Costs one request of that model's quota; it is recorded like any call."""
+        assert self.completion_fn is not None
+        started = time.perf_counter()
+        ok, error = True, None
+        try:
+            await self.completion_fn(
+                model=model, messages=[{"role": "user", "content": "Reply with OK."}],
+                max_tokens=16, timeout=30.0, num_retries=0, drop_params=True,
+            )  # fmt: skip
+            status = "ok"
+        except Exception as exc:
+            ok, error, status = False, str(exc)[:1000], probe_status(exc)
+        self._record(
+            "quota-probe", "judge", model, "quota-probe", None, 0, 0, Decimal(0),
+            int((time.perf_counter() - started) * 1000), ok, error, None,
+        )  # fmt: skip
+        return status
 
     def budget(self, scope: str, limit_usd: Decimal | None = None) -> Budget:
         """The budget for a scope, created (or its limit changed) on request."""
@@ -237,6 +333,9 @@ class LLMGateway:
             # default temperature). Drop what a model does not support instead of failing.
             "drop_params": True,
         }
+        if chosen == "judge":
+            # Free reasoning models spend max_tokens on thinking before the file starts.
+            kwargs["reasoning_effort"] = "low"
         if temperature is not None:
             kwargs["temperature"] = temperature
         if response_format is not None:

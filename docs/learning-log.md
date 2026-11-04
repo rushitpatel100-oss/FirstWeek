@@ -43,3 +43,21 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-02: practice workspace API (project, run tests, Tech Lead review); the review runs the tests itself so the reviewer reads real output.
 - 2026-11-02: hand-written demo project (make seed-demo) so the workspace works without waiting for model quota; it passes the same gate as model output.
 - 2026-11-02: a dead Docker daemon now shows as a 503 'code runner not available' instead of a failing test.
+- 2026-11-02: make api: the practice project needs the API on the host (the compose API container cannot reach Docker or var/artifacts).
+- 2026-11-02: virtual internship slice (ADR 0023): scripted week, in-character colleagues who never see the answer key, end-of-week supervisor review; the report moves backstage.
+- 2026-11-02: Groq as a second free model source (ADR 0020 addendum); model failures now return 502/503 with a log line.
+- 2026-11-02: autopilot writes a scripted week for each approved project (ADR 0023 addendum); a rejected week leaves the project approved.
+- 2026-11-02: a Gemini 429 that LiteLLM wraps as BadRequestError now counts as a rate limit, so the free chain falls through to Groq; the repeated Gemini temperature notice is filtered.
+- 2026-11-02: Groq model priced at zero (it was priced as top-tier and tripped the $1 budget); a test checks the whole free chain is priced.
+- 2026-11-02: deployment kit (ADR 0024): ensure-demo, API start script, visitor address forwarded with a shared key, docs/deploy.md.
+- 2026-11-03: autopilot no longer fails on an empty __init__.py, and a planned notebook is refused before any file is written; planner prompt is now plan-starter.v3.
+- 2026-11-03: a file reply cut off by thinking is retried at twice the limit (up to 16000); judge-tier calls ask for low reasoning effort.
+- 2026-11-03: hand-written Agentic AI Engineer project and week (ADR 0026); seed-demo picks the project by role slug.
+- 2026-11-03: autopilot writes four files per call, sends outlines and data previews instead of whole files, and a retry keeps a starter that passed (ADR 0020 addendum).
+- 2026-11-03: autopilot pre-flight quota check (make autopilot-check), pause-and-resume checkpoint when free quota runs out, Groq calls sized to its 8K tokens-per-minute cap.
+- 2026-11-03: out of free quota, colleagues send a stock reply and the supervisor review is computed from the evidence (model 'offline'), instead of an error.
+- 2026-11-03: the autopilot check now asks each free model directly (one tiny request each); our own call counts said 30 Gemini calls left while Google refused both models.
+- 2026-11-04: blueprint design repairs skill/rubric mismatches in code (no model call) and gets a third model try.
+- 2026-11-04: the working free Gemini model (3.6-flash) is tried first; 3.8-flash, which refused every call for us, is only a fallback.
+- 2026-11-04: first real autopilot build failed on plan slips; the plan is now checked and repaired before any file is written (plan-starter.v4).
+- 2026-11-04: 45-second walkthrough video of the static demo (docs/img/firstweek-demo.mp4), recorded with Playwright and ffmpeg.

@@ -5,18 +5,21 @@ sandbox; a review runs the tests itself so the reviewer reads real results, not 
 browser. Both endpoints are rate limited per client (a review also spends model money, so it has
 a daily ceiling in all)."""
 
+import hmac
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from firstweek_api.skill_gap import Limiter
-from firstweek_core.config import get_settings
-from firstweek_core.llm import LLMGateway
+from firstweek_core.config import Settings, get_settings
+from firstweek_core.llm import LLMGateway, StructuredOutputError
 from firstweek_core.llm.recorder import record_to_db
 from firstweek_core.sandbox import JobResult, SandboxRunner, get_runner
 from firstweek_simulation import workspace as ws
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/roles", tags=["workspace"])
 
 MAX_EDIT_FILES = 40
@@ -57,6 +60,20 @@ def gateway() -> LLMGateway:
     return LLMGateway(settings=get_settings(), recorder=record_to_db)
 
 
+def model_failure(exc: Exception) -> HTTPException:
+    """A model call failed (out of free quota, overloaded, or an answer that never validated).
+    The reason goes to the API log; the learner gets a clear status instead of a bare 500."""
+    log.exception("model call failed", exc_info=exc)
+    if isinstance(exc, StructuredOutputError):
+        return HTTPException(502, "The model's answer could not be used. Please try again.")
+    return HTTPException(503, "The model is busy or out of free quota. Please try again later.")
+
+
+def current_settings() -> Settings:
+    """The settings every workspace-style endpoint reads (tests replace `get_settings`)."""
+    return get_settings()
+
+
 def _project(slug: str) -> ws.Project:
     found = ws.approved_project(slug, Path(get_settings().artifacts_dir))
     if found is None:
@@ -65,6 +82,13 @@ def _project(slug: str) -> ws.Project:
 
 
 def _who(request: Request) -> str:
+    """The client a rate limit counts. Behind the web app every request comes from the web
+    server, so it forwards the visitor's address; that is believed only with the shared key."""
+    key = current_settings().internal_api_key
+    forwarded = request.headers.get("x-forwarded-for", "")
+    sent = request.headers.get("x-internal-key", "")
+    if key is not None and forwarded and hmac.compare_digest(sent, key.get_secret_value()):
+        return forwarded.split(",")[0].strip()[:64] or "unknown"
     return request.client.host if request.client else "unknown"
 
 
@@ -106,12 +130,12 @@ async def review(slug: str, body: ReviewRequest, request: Request) -> ReviewResp
     """Run the tests, then ask the Tech Lead to review the work against one ticket."""
     found = _project(slug)
     settings = get_settings()
-    key = (
-        settings.gemini_api_key
+    has_key = (
+        settings.has_judge_key
         if settings.simulation_tier == "judge"
-        else settings.anthropic_api_key
+        else settings.anthropic_api_key is not None
     )
-    if key is None:
+    if not has_key:
         raise HTTPException(status_code=503, detail="The review is not available right now.")
     if not review_limit.allow(_who(request)) or not review_day_limit.allow("all"):
         raise HTTPException(status_code=429, detail="Too many reviews just now. Try again later.")
@@ -134,6 +158,8 @@ async def review(slug: str, body: ReviewRequest, request: Request) -> ReviewResp
         )
     except ws.WorkspaceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise model_failure(exc) from exc
     finally:
         g.flush()
     return ReviewResponse(review=text, model=model, tests=tests)

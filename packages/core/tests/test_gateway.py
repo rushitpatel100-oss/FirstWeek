@@ -7,17 +7,19 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from firstweek_core.config import Settings
 from firstweek_core.llm import (
     BudgetExceededError,
     BudgetRegistry,
     CallRecord,
+    FreeQuotaExhaustedError,
     LLMGateway,
     StructuredOutputError,
     Tier,
 )
+from firstweek_core.llm.gateway import fit_reply_room, is_daily_quota
 
 
 def _response(
@@ -503,9 +505,164 @@ async def test_a_spent_daily_quota_is_not_retried_and_fails_at_once_when_all_are
     sleeps: list[float] = []
     gateway = _free_gateway(Flaky(set()), sleeps)
     gateway.completion_fn = llm
-    with pytest.raises(DailyQuotaError):
+    with pytest.raises(FreeQuotaExhaustedError) as raised:
         await gateway.complete(
             purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
         )
+    assert isinstance(raised.value.__cause__, DailyQuotaError)
     assert seen == [settings.model_judge, *settings.model_judge_fallbacks]  # each asked once
     assert sleeps == []
+
+
+def test_groq_joins_the_free_chain_only_when_its_key_is_set() -> None:
+    without = Settings(_env_file=None, gemini_api_key=SecretStr("g"))
+    assert without.judge_fallbacks() == without.model_judge_fallbacks
+    with_groq = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    assert with_groq.judge_fallbacks() == [*with_groq.model_judge_fallbacks, with_groq.model_groq]
+    assert with_groq.has_judge_key and not Settings(_env_file=None).has_judge_key
+
+
+def test_groq_daily_limits_are_recognised_as_spent_for_the_day() -> None:
+    assert is_daily_quota(Exception("Rate limit reached ... on tokens per day (TPD): Limit 200000"))
+    assert not is_daily_quota(Exception("Rate limit reached ... on tokens per minute (TPM)"))
+
+
+class DisguisedQuotaError(Exception):
+    pass
+
+
+DisguisedQuotaError.__name__ = "BadRequestError"
+
+
+async def test_a_gemini_429_wrapped_as_a_bad_request_still_falls_back_to_the_next_model() -> None:
+    settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        if kwargs["model"].startswith("gemini/"):
+            raise DisguisedQuotaError(
+                'GeminiException BadRequestError - {"error": {"code": 429, "status": '
+                '"RESOURCE_EXHAUSTED", "message": "Generate content requests per day limit '
+                'exceeded on Free Tier"}}'
+            )
+        return _response("from groq")
+
+    sleeps: list[float] = []
+    gateway = _free_gateway(Flaky(set()), sleeps)
+    gateway.settings = settings
+    gateway.completion_fn = llm
+    result = await gateway.complete(
+        purpose="x", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
+    assert result.model == settings.model_groq and result.content == "from groq"
+    assert seen == [settings.model_judge, *settings.model_judge_fallbacks, settings.model_groq]
+    assert sleeps == []  # a daily quota is not worth waiting for
+
+
+def test_every_model_in_the_free_chain_has_a_price_so_budgets_stay_honest() -> None:
+    from firstweek_core.llm.pricing import cost_usd, is_known
+
+    settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    chain = [settings.model_judge, *settings.judge_fallbacks()]
+    assert all(is_known(model) for model in chain)  # an unknown model is priced as top-tier
+    assert all(cost_usd(model, 100_000, 10_000) == 0 for model in chain)
+
+
+def test_a_groq_call_is_sized_to_fit_its_tokens_per_minute_cap() -> None:
+    small = [{"role": "user", "content": "x" * 8_000}]  # about 2,000 tokens
+    assert fit_reply_room("groq/openai/gpt-oss-120b", small, 8_000) == 8_000 - 2_000 - 300
+    assert fit_reply_room("gemini/gemini-3.8-flash", small, 8_000) == 8_000
+    huge = [{"role": "user", "content": "x" * 30_000}]  # about 7,500 tokens: no room to reply
+    assert fit_reply_room("groq/openai/gpt-oss-120b", huge, 8_000) is None
+
+
+async def test_a_prompt_too_large_for_groq_skips_it_instead_of_failing() -> None:
+    seen: list[tuple[str, int]] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append((kwargs["model"], kwargs["max_tokens"]))
+        if kwargs["model"].startswith("gemini"):
+            raise DailyQuotaError(
+                "limit exceeded GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"), finish_reason="stop")],
+            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1),
+        )
+
+    gateway = _free_gateway(Flaky(set()), [])
+    gateway.settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    gateway.completion_fn = llm
+    result = await gateway.complete(
+        purpose="x", messages=[{"role": "user", "content": "x" * 8_000}], tier="judge",
+        max_tokens=8_000,
+    )  # fmt: skip
+    assert result.content == "ok"
+    assert seen[-1] == ("groq/openai/gpt-oss-120b", 8_000 - 2_000 - 300)
+
+
+def test_the_free_quota_left_is_counted_per_model_from_the_last_pacific_midnight() -> None:
+    from datetime import UTC, datetime
+
+    from firstweek_core.llm import quota
+
+    # 09:00 in London on 3 November is 01:00 Pacific: the day began at 08:00 UTC.
+    assert quota.window_start(datetime(2026, 11, 3, 9, tzinfo=UTC)) == datetime(
+        2026, 11, 3, 8, tzinfo=UTC
+    )
+    # 07:00 UTC is still the previous Pacific day.
+    assert quota.window_start(datetime(2026, 11, 3, 7, tzinfo=UTC)).day == 2
+    settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    left = quota.remaining(settings, {settings.model_judge: 18})
+    assert left[settings.model_judge] == 2
+    assert left[settings.model_judge_fallbacks[0]] == 20
+    assert left[settings.model_groq] == 20  # 200,000 tokens a day at 10,000 a call
+    spent = quota.remaining(settings, {settings.model_groq: 33}, {settings.model_groq: 170_000})
+    assert spent[settings.model_groq] == 3  # its tokens run out long before its requests
+
+
+async def test_when_gemini_is_spent_and_the_prompt_is_too_big_for_groq_the_run_pauses() -> None:
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        raise DailyQuotaError("limit exceeded GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+
+    sleeps: list[float] = []
+    gateway = _free_gateway(Flaky(set()), sleeps)
+    gateway.settings = Settings(_env_file=None, groq_api_key=SecretStr("k"))
+    gateway.completion_fn = llm
+    with pytest.raises(FreeQuotaExhaustedError):
+        await gateway.complete(
+            purpose="x", messages=[{"role": "user", "content": "x" * 40_000}], tier="judge"
+        )
+    assert sleeps == []  # no pointless waiting
+
+
+def test_a_probe_failure_says_why_the_model_refused() -> None:
+    from firstweek_core.llm.gateway import probe_status
+
+    assert probe_status(
+        DailyQuotaError('quota_id: "GenerateRequestsPerDayPerProjectPerModel"')
+    ) == ("spent for today")
+    assert probe_status(DailyQuotaError('"quotaValue": "0", "limit": 0')) == "no free tier"
+    assert probe_status(DailyQuotaError("GenerateRequestsPerMinutePerProjectPerModel")) == (
+        "busy this minute"
+    )
+    assert probe_status(DailyQuotaError("You exceeded your current quota")) == (
+        "refused (429 or overloaded)"
+    )
+
+
+async def test_a_probe_asks_one_model_once_with_no_fallback() -> None:
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        raise DailyQuotaError("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+
+    records: list[Any] = []
+    gateway = _free_gateway(Flaky(set()), [])
+    gateway.completion_fn = llm
+    gateway.recorder = records.append
+    assert await gateway.probe("gemini/gemini-3.8-flash") == "spent for today"
+    assert seen == ["gemini/gemini-3.8-flash"]
+    assert records[0].purpose == "quota-probe" and records[0].success is False

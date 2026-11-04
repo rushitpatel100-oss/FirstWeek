@@ -10,14 +10,19 @@ learner finds and fixes them, then writes a regression test."""
 import json
 import random
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import select
 
-from firstweek_core.contracts import AnswerKey, Criterion, ProjectBlueprint, Ticket
+from firstweek_core.contracts import AnswerKey, Criterion, Internship, ProjectBlueprint, Ticket
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype
 from firstweek_core.db.session import session_scope
+from firstweek_simulation import demo_agentic, demo_software
 from firstweek_simulation.blueprint import BlueprintError
+from firstweek_simulation.demo_internship import internship
+from firstweek_simulation.internship import write_internship
 
 ROWS = 120
 CLAUSES = 40
@@ -250,24 +255,60 @@ PLANTED = [
 ]
 
 
-def blueprint(role_name: str, folder: Path) -> ProjectBlueprint:
+def genai_metrics() -> dict[str, float]:
     rows = eval_rows()
+    return {
+        "citation_accuracy": round(truth(rows), 3),
+        "dashboard_claims": round(starter_reading(rows), 3),
+    }
+
+
+@dataclass(frozen=True)
+class Pack:
+    """Everything that makes up one hand-written project."""
+
+    scenario: str
+    context: str
+    files: Callable[[], tuple[dict[str, str], dict[str, str]]]
+    tickets: Callable[[], list[Ticket]]
+    rubric: Callable[[], list[Criterion]]
+    planted: list[str]
+    metrics: Callable[[], dict[str, float]]
+    internship: Callable[[], Internship]
+
+
+GENAI = Pack(SCENARIO, CONTEXT, files, tickets, rubric, PLANTED, genai_metrics, internship)
+AGENTIC = Pack(
+    demo_agentic.SCENARIO, demo_agentic.CONTEXT, demo_agentic.files, demo_agentic.tickets,
+    demo_agentic.rubric, demo_agentic.PLANTED, demo_agentic.metrics, demo_agentic.internship,
+)  # fmt: skip
+SOFTWARE = Pack(
+    demo_software.SCENARIO, demo_software.CONTEXT, demo_software.files, demo_software.tickets,
+    demo_software.rubric, demo_software.PLANTED, demo_software.metrics, demo_software.internship,
+)  # fmt: skip
+PACKS = {"agentic-ai-engineer": AGENTIC, "ai-software-engineer": SOFTWARE}
+
+
+def pack_for(slug: str) -> Pack:
+    """The project for a role; roles without their own get the GenAI one."""
+    return PACKS.get(slug, GENAI)
+
+
+def blueprint(role_name: str, folder: Path, pack: Pack = GENAI) -> ProjectBlueprint:
     return ProjectBlueprint(
-        archetype=role_name, scenario=SCENARIO, company_context=CONTEXT,
-        tickets=tickets(), rubric=rubric(),
+        archetype=role_name, scenario=pack.scenario, company_context=pack.context,
+        tickets=pack.tickets(), rubric=pack.rubric(),
         answer_key=AnswerKey(
             reference_solution_uri=(folder / "reference").resolve().as_uri(),
-            planted_issues=PLANTED,
-            expected_metrics={
-                "citation_accuracy": round(truth(rows), 3),
-                "dashboard_claims": round(starter_reading(rows), 3),
-            },
+            planted_issues=pack.planted,
+            expected_metrics=pack.metrics(),
         ),
     )  # fmt: skip
 
 
 def seed_demo(slug: str, root: Path) -> uuid.UUID:
     """Stores the project as an approved blueprint for the role and writes its files."""
+    pack = pack_for(slug)
     with session_scope() as session:
         found = session.execute(
             select(ArchetypeVersion.id, RoleArchetype.name)
@@ -280,16 +321,50 @@ def seed_demo(slug: str, root: Path) -> uuid.UUID:
             raise BlueprintError(f'No report data for "{slug}". Run `make report` first.')
         version_id, role_name = found
         new_id = uuid.uuid4()
-        project = blueprint(role_name, root / str(new_id))
+        project = blueprint(role_name, root / str(new_id), pack)
         session.add(Blueprint(
             id=new_id, archetype_version_id=version_id, scenario=project.scenario,
             blueprint=project.public_view(), answer_key=project.answer_key.model_dump(),
             validated=True, status="approved",
         ))  # fmt: skip
-    starter, reference = files()
+    _write_files(root / str(new_id), pack)
+    write_internship(root, new_id, pack.internship())
+    return new_id
+
+
+def _write_files(folder: Path, pack: Pack = GENAI) -> None:
+    starter, reference = pack.files()
     for name, content in (("starter", starter), ("reference", reference)):
         for path, text in content.items():
-            target = root / str(new_id) / name / path
+            target = folder / name / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text)
-    return new_id
+
+
+def ensure_demo(slug: str, root: Path) -> tuple[uuid.UUID, str]:
+    """Idempotent seeding for a deployed API: run on every start, change nothing that is fine.
+
+    Returns (blueprint id, what happened): "kept", "files restored" (the database has the demo
+    but this container's disk lost its files) or "seeded"."""
+    pack = pack_for(slug)
+    with session_scope() as session:
+        found = session.execute(
+            select(Blueprint.id)
+            .join(ArchetypeVersion, Blueprint.archetype_version_id == ArchetypeVersion.id)
+            .join(RoleArchetype, ArchetypeVersion.archetype_id == RoleArchetype.id)
+            .where(
+                RoleArchetype.slug == slug,
+                Blueprint.status == "approved",
+                Blueprint.scenario == pack.scenario,
+            )
+            .order_by(Blueprint.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+    if found is None:
+        return seed_demo(slug, root), "seeded"
+    folder = root / str(found)
+    if (folder / "starter").is_dir() and (folder / "internship.json").is_file():
+        return found, "kept"
+    _write_files(folder, pack)
+    write_internship(root, found, pack.internship())
+    return found, "files restored"

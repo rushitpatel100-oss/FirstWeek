@@ -265,10 +265,42 @@ async def test_one_repair_attempt_gets_the_problems_and_a_second_failure_is_repo
     assert "pain point numbers" in gateway.calls[1]["messages"][1]["content"]
     with pytest.raises(bp.BlueprintError, match="pain point numbers"):
         await bp.design_blueprint(
-            FakeGateway(good_draft(grounded_in=[7]), good_draft(grounded_in=[7])),  # type: ignore[arg-type]
+            FakeGateway(*[good_draft(grounded_in=[7])] * 3),  # type: ignore[arg-type]
             ROLE,
             FINDINGS,
         )
+
+
+def test_auto_repair_fixes_skill_mismatches_without_a_model_call() -> None:
+    draft = good_draft(
+        tickets=[
+            ticket("Fix stale citations", "code", 1, ["python", "rag", "tracing"]),
+            ticket("Write the rollout design note", "design_doc", 3, ["evals"]),
+            ticket("Reply to the partner", "message", 5, ["python"]),
+        ],
+        rubric=[criterion("python", 3), criterion("rag", 2), criterion("evals", 1)],
+    )
+    assert any("missing from the rubric" in p for p in issues(draft))
+    fixed = bp.auto_repair(draft)
+    assert issues(fixed) == [] and fixed.tickets[0].skills == ["python", "rag"]
+    unused = good_draft(rubric=[*good_draft().rubric, criterion("tracing")])
+    assert any("no ticket assesses" in p for p in issues(unused))
+    assert issues(bp.auto_repair(unused)) == []
+    only = good_draft(tickets=[ticket("Only one job", "code", 1, ["tracing"])] * 3)
+    assert bp.auto_repair(only).tickets[0].skills == ["tracing"]  # never left with none
+
+
+async def test_a_skill_mismatch_is_repaired_by_code_and_costs_one_call() -> None:
+    bad = good_draft(
+        tickets=[
+            ticket("Fix stale citations", "code", 1, ["python", "rag", "tracing"]),
+            ticket("Write the rollout design note", "design_doc", 3, ["evals"]),
+            ticket("Reply to the partner", "message", 5, ["python"]),
+        ]
+    )
+    gateway = FakeGateway(bad)
+    designed = await bp.design_blueprint(gateway, ROLE, FINDINGS)  # type: ignore[arg-type]
+    assert designed.attempts == 1 and len(gateway.calls) == 1
 
 
 def test_the_text_for_a_reviewer_shows_the_answer_key() -> None:

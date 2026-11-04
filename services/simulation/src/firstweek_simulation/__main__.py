@@ -7,7 +7,7 @@ import argparse
 import asyncio
 import sys
 
-from firstweek_core.config import get_settings
+from firstweek_core.config import Settings, get_settings
 from firstweek_research.__main__ import database_unreachable
 from firstweek_research.roles import load_roles, resolve_role
 from firstweek_simulation.blueprint import (
@@ -93,15 +93,51 @@ def _artifacts(slug: str, budget: float, seed: int) -> None:
 
 def _need_key(tier: str) -> None:
     settings = get_settings()
-    if tier == "judge" and settings.gemini_api_key is None:
+    if tier == "judge" and not settings.has_judge_key:
         print(
-            "Set GEMINI_API_KEY (free: https://aistudio.google.com/apikey) in .env or the "
-            "environment, or use SIMULATION_TIER=mid with ANTHROPIC_API_KEY."
+            "Set GEMINI_API_KEY (free: https://aistudio.google.com/apikey) or GROQ_API_KEY "
+            "(free: https://console.groq.com) in .env or the environment, or use "
+            "SIMULATION_TIER=mid with ANTHROPIC_API_KEY."
         )
         sys.exit(1)
     if tier != "judge" and settings.anthropic_api_key is None:
         print("Set ANTHROPIC_API_KEY in .env first.")
         sys.exit(1)
+
+
+def _quota_preflight(settings: Settings, resuming: bool) -> bool:
+    """Asks each free model directly (one tiny request each), then counts what is left on the
+    ones that answered. Our own records alone were wrong: Google counts requests we never saw."""
+    from firstweek_core.llm import LLMGateway, quota
+    from firstweek_core.llm.recorder import record_to_db
+    from firstweek_simulation.pipeline import WORST_CASE_CALLS
+
+    models = quota.free_models(settings)
+    gateway = LLMGateway(settings=settings, recorder=record_to_db)
+    status = {m: asyncio.run(gateway.probe(m)) for m in models}
+    calls, tokens = quota.used_today(models)
+    counted = quota.remaining(settings, calls, tokens)
+    left = {m: counted[m] if status[m] == "ok" else 0 for m in models}
+    total = sum(left.values())
+    print("Free models right now (asked directly, one tiny request each):")
+    for model in models:
+        cap = quota.FREE_DAILY_TOKENS.get(model.split("/")[0])
+        extra = f", {tokens.get(model, 0):,} of {cap:,} tokens used" if cap is not None else ""
+        note = f"about {left[model]} calls left{extra}" if status[model] == "ok" else "0 calls"
+        print(f"  {model}: {status[model]} ({note})")
+    reset = quota.next_reset().astimezone()
+    print(f"A run needs at most {WORST_CASE_CALLS} calls (usually about 10).")
+    if resuming:
+        print("A saved run will continue: the blueprint (and any good starter) is reused.")
+    if total >= WORST_CASE_CALLS:
+        print(f"Enough for the worst case ({total} left). Safe to start.")
+        return True
+    print(
+        f"Not enough for the worst case ({total} left). Gemini resets at "
+        f"{reset:%H:%M on %d %b}. Run the check again then, or add --force to start anyway "
+        "(progress is saved if it runs out)."
+    )
+    return False
 
 
 def _autopilot(args: argparse.Namespace) -> None:
@@ -110,6 +146,7 @@ def _autopilot(args: argparse.Namespace) -> None:
     from firstweek_core.llm import LLMGateway
     from firstweek_core.sandbox import get_runner
     from firstweek_simulation.pipeline import (
+        PipelinePausedError,
         findings_from_file,
         report_text,
         run_pipeline,
@@ -130,14 +167,25 @@ def _autopilot(args: argparse.Namespace) -> None:
         slug = _slug(args.role)
         findings = load_findings(slug)
         gateway = LLMGateway(settings=settings, recorder=record_to_db)
+    checkpoint = Path(f"var/autopilot/.checkpoints/{slug}.json")
+    if tier == "judge" and not from_file:
+        fits = _quota_preflight(settings, checkpoint.is_file())
+        if args.check:
+            sys.exit(0 if fits else 3)
+        if not fits and not args.force:
+            sys.exit(3)
     try:
         result = asyncio.run(
             run_pipeline(
                 gateway, get_runner(settings), slug, findings,
                 tier=tier, attempts=args.attempts, seed=args.seed,
                 budget_usd=args.budget, progress=lambda m: print(m, flush=True),
+                checkpoint=checkpoint,
             )
         )  # fmt: skip
+    except PipelinePausedError as exc:
+        print(f"\nPaused: {exc}")
+        sys.exit(2)
     except BlueprintError as exc:
         print(exc)
         sys.exit(1)
@@ -165,6 +213,19 @@ def _seed_demo(slug: str) -> None:
         sys.exit(1)
     print(f"Stored the hand-written demo project as approved blueprint {new_id}.")
     print(f"Open it at http://localhost:3000/roles/{slug}/practice (make web, make up).")
+
+
+def _ensure_demo(slug: str) -> None:
+    from pathlib import Path
+
+    from firstweek_simulation.demo_project import ensure_demo
+
+    try:
+        found, what = ensure_demo(slug, Path(get_settings().artifacts_dir))
+    except BlueprintError as exc:
+        print(exc)
+        sys.exit(1)
+    print(f"Demo project {found} for {slug}: {what}.")
 
 
 def _export_report(slug: str, out: str) -> None:
@@ -209,8 +270,16 @@ def _main() -> None:
     pilot.add_argument("--attempts", type=int, default=3)
     pilot.add_argument("--seed", type=int, default=1)
     pilot.add_argument("--budget", type=float, default=1.0)
+    pilot.add_argument(
+        "--check", action="store_true", help="Only show the free quota left and stop (no calls)"
+    )
+    pilot.add_argument(
+        "--force", action="store_true", help="Start even if the worst case may not fit today"
+    )
     d = sub.add_parser("seed-demo", help="Store the hand-written practice project (no model call)")
     d.add_argument("--role", required=True)
+    e = sub.add_parser("ensure-demo", help="Seed the demo project unless it is already there")
+    e.add_argument("--role", required=True)
     exp = sub.add_parser("export-report", help="Write a stored report to a JSON file")
     exp.add_argument("--role", required=True)
     exp.add_argument("--out", required=True)
@@ -227,6 +296,9 @@ def _main() -> None:
         return
     if args.command == "export-report":
         _export_report(_slug(args.role), args.out)
+        return
+    if args.command == "ensure-demo":
+        _ensure_demo(_slug(args.role))
         return
     if args.command == "seed-demo":
         _seed_demo(_slug(args.role))

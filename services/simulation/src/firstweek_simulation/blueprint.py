@@ -172,6 +172,24 @@ def problems_with(
     return problems
 
 
+def auto_repair(draft: BlueprintDraft) -> BlueprintDraft:
+    """Fixes by code what needs no judgement, so a repair attempt is not spent on it.
+
+    A ticket that assesses a skill the rubric lacks stops claiming it (when it keeps at least
+    one skill), and a rubric skill no ticket assesses is dropped (when three or more remain);
+    the weights are scaled afterwards anyway."""
+    rubric_ids = {c.skill_id for c in draft.rubric}
+    tickets = []
+    for t in draft.tickets:
+        kept = [s for s in t.skills if s in rubric_ids]
+        tickets.append(t.model_copy(update={"skills": kept}) if kept and kept != t.skills else t)
+    assessed = {s for t in tickets for s in t.skills}
+    rubric = [c for c in draft.rubric if c.skill_id in assessed]
+    if len(rubric) < 3:
+        rubric = draft.rubric
+    return draft.model_copy(update={"tickets": tickets, "rubric": rubric})
+
+
 def scale_weights(weights: list[float]) -> list[float]:
     """Relative weights scaled to sum to 1, none under MIN_WEIGHT, rounded to two places."""
     total = sum(weights)
@@ -249,7 +267,7 @@ async def design_blueprint(
     skills = "\n".join(f"- {s.skill_id} | {s.label} | {s.share:.0%}" for s in findings.skills)
     problems: list[str] = []
     cost, model = 0.0, ""
-    for attempt in (1, 2):
+    for attempt in (1, 2, 3):
         result = await gateway.structured(
             purpose="design-blueprint",
             messages=[
@@ -277,17 +295,22 @@ async def design_blueprint(
         assert result.parsed is not None
         cost += float(result.cost_usd)
         model = result.model
-        problems = problems_with(result.parsed, findings, allowed, library)
+        draft = result.parsed
+        problems = problems_with(draft, findings, allowed, library)
+        if problems:
+            repaired = auto_repair(draft)
+            if not (again := problems_with(repaired, findings, allowed, library)):
+                draft, problems = repaired, again
         if not problems:
             return DesignedBlueprint(
-                blueprint=build_blueprint(result.parsed, findings),
-                grounded_in=[findings.pain_points[i - 1] for i in result.parsed.grounded_in],
+                blueprint=build_blueprint(draft, findings),
+                grounded_in=[findings.pain_points[i - 1] for i in draft.grounded_in],
                 attempts=attempt,
                 model=model,
                 cost_usd=cost,
             )
     raise BlueprintError(
-        "The design stayed invalid after a repair attempt:\n- " + "\n- ".join(problems)
+        "The design stayed invalid after two repair attempts:\n- " + "\n- ".join(problems)
     )
 
 

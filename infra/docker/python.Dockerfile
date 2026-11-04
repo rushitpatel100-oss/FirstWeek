@@ -26,5 +26,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY packages packages
 COPY apps/api apps/api
 COPY services services
+COPY infra/docker/api-start.sh /app/api-start.sh
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package "${PACKAGE}"

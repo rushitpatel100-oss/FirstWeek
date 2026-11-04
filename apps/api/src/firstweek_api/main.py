@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Response
 from sqlalchemy import text
 from temporalio.client import Client
 
+from firstweek_api.internship import router as internship_router
 from firstweek_api.reports import router as reports_router
 from firstweek_api.skill_gap import router as skill_gap_router
 from firstweek_api.workspace import router as workspace_router
@@ -22,6 +23,7 @@ app = FastAPI(title="FirstWeek API", version=__version__)
 app.include_router(reports_router)
 app.include_router(skill_gap_router)
 app.include_router(workspace_router)
+app.include_router(internship_router)
 
 CHECK_TIMEOUT_S = 3.0
 

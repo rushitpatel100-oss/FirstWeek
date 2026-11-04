@@ -96,3 +96,27 @@ export type Project = {
 export type TestRun = { exit_code: number; output: string; timed_out: boolean; passed: boolean };
 
 export type Review = { review: string; model: string; tests: TestRun };
+
+export type Colleague = { key: string; name: string; role: string };
+
+export type InternshipEvent = {
+  day: number;
+  kind: "message" | "ticket" | "meeting";
+  sender: string;
+  text: string;
+  ticket: string | null;
+};
+
+export type Internship = { colleagues: Colleague[]; events: InternshipEvent[] };
+
+export type Turn = { who: "you" | "them"; text: string };
+
+export type Verdict = {
+  summary: string;
+  skills: { skill_id: string; score: number; evidence: string }[];
+  went_well: string[];
+  to_work_on: string[];
+  next_step: string;
+};
+
+export type WeekReview = { verdict: Verdict; model: string; tests: TestRun };

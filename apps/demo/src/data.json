@@ -1,0 +1,200 @@
+{
+  "blueprint": {
+    "archetype": "GenAI Engineer",
+    "scenario": "Northwind Claims, a mid-sized insurer, runs an AI assistant that answers customers' policy questions and cites the policy clause behind each answer. The weekly dashboard says the assistant cites the right clause about 90% of the time, but the support team keeps finding answers that point at the wrong clause. Your first week is about finding out which one is telling the truth.",
+    "company_context": "Northwind has about 60 staff and a three-person AI team. The assistant is used by the support team and, soon, by customers directly, so a wrong citation can mean a wrong decision on a claim.",
+    "tickets": [
+      {
+        "key": "NW-101",
+        "title": "The dashboard says 90% citation accuracy. Is it true?",
+        "description": "Support keeps finding wrong citations, yet the dashboard reports about 90%. Work out how the number is computed, find why it is too high and fix the metric so it matches a hand count on the whole evaluation set.",
+        "acceptance_criteria": [
+          "A clause that is only the start of the right one (C-2 for C-23) is not a match",
+          "The dashboard number equals a hand count on data/eval_set.json"
+        ],
+        "task_type": "code",
+        "due_day": 1,
+        "skills": [
+          "llm-evaluation",
+          "python"
+        ]
+      },
+      {
+        "key": "NW-102",
+        "title": "Answers with no citation must count against us",
+        "description": "When the assistant cites nothing, that is a failure to ground the answer, but the evaluation loader quietly drops those rows. Make them count as wrong.",
+        "acceptance_criteria": [
+          "Rows with no citation stay in the evaluation and count as wrong",
+          "The given test for uncited answers passes"
+        ],
+        "task_type": "code",
+        "due_day": 2,
+        "skills": [
+          "llm-evaluation",
+          "hallucination-mitigation"
+        ]
+      },
+      {
+        "key": "NW-103",
+        "title": "Make sure this cannot quietly come back",
+        "description": "Add a regression test of your own in a new file under tests/ that fails on the original code and passes on your fix, and keep your changes small enough for someone else to review quickly.",
+        "acceptance_criteria": [
+          "A new test fails on the original code and passes on the fix",
+          "Existing tests still pass"
+        ],
+        "task_type": "code",
+        "due_day": 3,
+        "skills": [
+          "testing",
+          "python"
+        ]
+      }
+    ],
+    "rubric": [
+      {
+        "skill_id": "llm-evaluation",
+        "weight": 0.35,
+        "anchors": {
+          "1": "Trusts the dashboard number without checking.",
+          "2": "Partly there, with gaps.",
+          "3": "Finds one of the two causes and explains it.",
+          "4": "Solid, with one small gap.",
+          "5": "Finds both causes, explains each and checks the number by hand."
+        },
+        "checks": [
+          "tests/test_metrics.py passes",
+          "dashboard equals the hand count"
+        ]
+      },
+      {
+        "skill_id": "python",
+        "weight": 0.2,
+        "anchors": {
+          "1": "Edits that break other code.",
+          "2": "Partly there, with gaps.",
+          "3": "Correct but clumsy fixes.",
+          "4": "Solid, with one small gap.",
+          "5": "Small, clear, correct changes."
+        },
+        "checks": [
+          "no test regressions"
+        ]
+      },
+      {
+        "skill_id": "hallucination-mitigation",
+        "weight": 0.2,
+        "anchors": {
+          "1": "Treats uncited answers as fine.",
+          "2": "Partly there, with gaps.",
+          "3": "Counts them, with no reasoning.",
+          "4": "Solid, with one small gap.",
+          "5": "Explains why an uncited answer is an ungrounded one."
+        },
+        "checks": [
+          "uncited rows counted as wrong"
+        ]
+      },
+      {
+        "skill_id": "testing",
+        "weight": 0.25,
+        "anchors": {
+          "1": "No new test.",
+          "2": "Partly there, with gaps.",
+          "3": "A test that passes before and after the fix.",
+          "4": "Solid, with one small gap.",
+          "5": "A focused test that fails on the old code and passes on the fix."
+        },
+        "checks": [
+          "new test fails on the starter",
+          "new test passes on the reference"
+        ]
+      }
+    ]
+  },
+  "files": {
+    "README.md": "# Claims assistant: evaluation\n\n`data/eval_set.json` holds one row per test question: the clause the answer should rest on\n(`expected_clause`) and the clause the assistant actually cited (`cited_clause`, empty when it\ncited nothing). `python -m src.report` prints the numbers on the weekly dashboard.\n\nRun the tests with `python -m pytest`.\n",
+    "src/__init__.py": "",
+    "src/report.py": "from src.evalset import load_rows\nfrom src.metrics import citation_accuracy\n\n\ndef summary(path=\"data/eval_set.json\"):\n    \"\"\"The numbers the weekly dashboard shows.\"\"\"\n    rows = load_rows(path)\n    return {\"rows\": len(rows), \"citation_accuracy\": round(citation_accuracy(rows), 3)}\n\n\nif __name__ == \"__main__\":\n    print(summary())\n",
+    "tests/test_metrics.py": "import json\n\nfrom src.evalset import load_rows\nfrom src.metrics import citation_accuracy\nfrom src.report import summary\n\n\ndef row(expected, cited):\n    return {\"id\": 1, \"expected_clause\": expected, \"cited_clause\": cited}\n\n\ndef test_an_empty_set_scores_zero():\n    assert citation_accuracy([]) == 0.0\n\n\ndef test_a_clause_that_is_only_the_start_of_the_right_one_is_not_a_match():\n    assert citation_accuracy([row(\"C-23\", \"C-2\")]) == 0.0\n\n\ndef test_an_answer_with_no_citation_counts_as_wrong(tmp_path):\n    path = tmp_path / \"set.json\"\n    path.write_text(json.dumps([row(\"C-5\", \"C-5\"), row(\"C-6\", \"\")]))\n    assert citation_accuracy(load_rows(path)) == 0.5\n\n\ndef test_the_dashboard_matches_a_hand_count_on_the_real_set():\n    rows = json.load(open(\"data/eval_set.json\"))\n    right = sum(1 for r in rows if r[\"cited_clause\"] == r[\"expected_clause\"])\n    assert summary()[\"rows\"] == len(rows)\n    assert summary()[\"citation_accuracy\"] == round(right / len(rows), 3)\n",
+    "data/eval_set.json": "[\n{\n\"id\": 1,\n\"expected_clause\": \"C-20\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 2,\n\"expected_clause\": \"C-22\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 3,\n\"expected_clause\": \"C-12\",\n\"cited_clause\": \"C-14\"\n},\n{\n\"id\": 4,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 5,\n\"expected_clause\": \"C-39\",\n\"cited_clause\": \"C-39\"\n},\n{\n\"id\": 6,\n\"expected_clause\": \"C-11\",\n\"cited_clause\": \"C-11\"\n},\n{\n\"id\": 7,\n\"expected_clause\": \"C-23\",\n\"cited_clause\": \"C-23\"\n},\n{\n\"id\": 8,\n\"expected_clause\": \"C-12\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 9,\n\"expected_clause\": \"C-11\",\n\"cited_clause\": \"C-14\"\n},\n{\n\"id\": 10,\n\"expected_clause\": \"C-40\",\n\"cited_clause\": \"C-40\"\n},\n{\n\"id\": 11,\n\"expected_clause\": \"C-30\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 12,\n\"expected_clause\": \"C-11\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 13,\n\"expected_clause\": \"C-22\",\n\"cited_clause\": \"C-22\"\n},\n{\n\"id\": 14,\n\"expected_clause\": \"C-17\",\n\"cited_clause\": \"C-17\"\n},\n{\n\"id\": 15,\n\"expected_clause\": \"C-37\",\n\"cited_clause\": \"C-37\"\n},\n{\n\"id\": 16,\n\"expected_clause\": \"C-23\",\n\"cited_clause\": \"C-23\"\n},\n{\n\"id\": 17,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 18,\n\"expected_clause\": \"C-27\",\n\"cited_clause\": \"C-15\"\n},\n{\n\"id\": 19,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 20,\n\"expected_clause\": \"C-30\",\n\"cited_clause\": \"C-30\"\n},\n{\n\"id\": 21,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"C-13\"\n},\n{\n\"id\": 22,\n\"expected_clause\": \"C-12\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 23,\n\"expected_clause\": \"C-29\",\n\"cited_clause\": \"C-29\"\n},\n{\n\"id\": 24,\n\"expected_clause\": \"C-31\",\n\"cited_clause\": \"C-31\"\n},\n{\n\"id\": 25,\n\"expected_clause\": \"C-34\",\n\"cited_clause\": \"C-34\"\n},\n{\n\"id\": 26,\n\"expected_clause\": \"C-28\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 27,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-21\"\n},\n{\n\"id\": 28,\n\"expected_clause\": \"C-35\",\n\"cited_clause\": \"C-35\"\n},\n{\n\"id\": 29,\n\"expected_clause\": \"C-34\",\n\"cited_clause\": \"C-34\"\n},\n{\n\"id\": 30,\n\"expected_clause\": \"C-28\",\n\"cited_clause\": \"C-28\"\n},\n{\n\"id\": 31,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"C-34\"\n},\n{\n\"id\": 32,\n\"expected_clause\": \"C-24\",\n\"cited_clause\": \"C-24\"\n},\n{\n\"id\": 33,\n\"expected_clause\": \"C-12\",\n\"cited_clause\": \"C-12\"\n},\n{\n\"id\": 34,\n\"expected_clause\": \"C-23\",\n\"cited_clause\": \"C-23\"\n},\n{\n\"id\": 35,\n\"expected_clause\": \"C-20\",\n\"cited_clause\": \"C-20\"\n},\n{\n\"id\": 36,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"C-25\"\n},\n{\n\"id\": 37,\n\"expected_clause\": \"C-40\",\n\"cited_clause\": \"C-4\"\n},\n{\n\"id\": 38,\n\"expected_clause\": \"C-34\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 39,\n\"expected_clause\": \"C-35\",\n\"cited_clause\": \"C-20\"\n},\n{\n\"id\": 40,\n\"expected_clause\": \"C-20\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 41,\n\"expected_clause\": \"C-29\",\n\"cited_clause\": \"C-29\"\n},\n{\n\"id\": 42,\n\"expected_clause\": \"C-35\",\n\"cited_clause\": \"C-35\"\n},\n{\n\"id\": 43,\n\"expected_clause\": \"C-36\",\n\"cited_clause\": \"C-36\"\n},\n{\n\"id\": 44,\n\"expected_clause\": \"C-18\",\n\"cited_clause\": \"C-18\"\n},\n{\n\"id\": 45,\n\"expected_clause\": \"C-31\",\n\"cited_clause\": \"C-31\"\n},\n{\n\"id\": 46,\n\"expected_clause\": \"C-33\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 47,\n\"expected_clause\": \"C-30\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 48,\n\"expected_clause\": \"C-31\",\n\"cited_clause\": \"C-19\"\n},\n{\n\"id\": 49,\n\"expected_clause\": \"C-32\",\n\"cited_clause\": \"C-32\"\n},\n{\n\"id\": 50,\n\"expected_clause\": \"C-31\",\n\"cited_clause\": \"C-31\"\n},\n{\n\"id\": 51,\n\"expected_clause\": \"C-40\",\n\"cited_clause\": \"C-40\"\n},\n{\n\"id\": 52,\n\"expected_clause\": \"C-15\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 53,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"C-25\"\n},\n{\n\"id\": 54,\n\"expected_clause\": \"C-34\",\n\"cited_clause\": \"C-34\"\n},\n{\n\"id\": 55,\n\"expected_clause\": \"C-33\",\n\"cited_clause\": \"C-33\"\n},\n{\n\"id\": 56,\n\"expected_clause\": \"C-22\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 57,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"C-25\"\n},\n{\n\"id\": 58,\n\"expected_clause\": \"C-24\",\n\"cited_clause\": \"C-24\"\n},\n{\n\"id\": 59,\n\"expected_clause\": \"C-18\",\n\"cited_clause\": \"C-37\"\n},\n{\n\"id\": 60,\n\"expected_clause\": \"C-23\",\n\"cited_clause\": \"C-18\"\n},\n{\n\"id\": 61,\n\"expected_clause\": \"C-32\",\n\"cited_clause\": \"C-32\"\n},\n{\n\"id\": 62,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 63,\n\"expected_clause\": \"C-22\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 64,\n\"expected_clause\": \"C-14\",\n\"cited_clause\": \"C-14\"\n},\n{\n\"id\": 65,\n\"expected_clause\": \"C-14\",\n\"cited_clause\": \"C-14\"\n},\n{\n\"id\": 66,\n\"expected_clause\": \"C-17\",\n\"cited_clause\": \"C-17\"\n},\n{\n\"id\": 67,\n\"expected_clause\": \"C-36\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 68,\n\"expected_clause\": \"C-18\",\n\"cited_clause\": \"C-18\"\n},\n{\n\"id\": 69,\n\"expected_clause\": \"C-14\",\n\"cited_clause\": \"C-14\"\n},\n{\n\"id\": 70,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 71,\n\"expected_clause\": \"C-20\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 72,\n\"expected_clause\": \"C-32\",\n\"cited_clause\": \"C-29\"\n},\n{\n\"id\": 73,\n\"expected_clause\": \"C-30\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 74,\n\"expected_clause\": \"C-11\",\n\"cited_clause\": \"C-11\"\n},\n{\n\"id\": 75,\n\"expected_clause\": \"C-37\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 76,\n\"expected_clause\": \"C-37\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 77,\n\"expected_clause\": \"C-27\",\n\"cited_clause\": \"C-27\"\n},\n{\n\"id\": 78,\n\"expected_clause\": \"C-22\",\n\"cited_clause\": \"C-22\"\n},\n{\n\"id\": 79,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 80,\n\"expected_clause\": \"C-11\",\n\"cited_clause\": \"C-11\"\n},\n{\n\"id\": 81,\n\"expected_clause\": \"C-16\",\n\"cited_clause\": \"C-16\"\n},\n{\n\"id\": 82,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"C-13\"\n},\n{\n\"id\": 83,\n\"expected_clause\": \"C-11\",\n\"cited_clause\": \"C-11\"\n},\n{\n\"id\": 84,\n\"expected_clause\": \"C-28\",\n\"cited_clause\": \"C-28\"\n},\n{\n\"id\": 85,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 86,\n\"expected_clause\": \"C-29\",\n\"cited_clause\": \"C-29\"\n},\n{\n\"id\": 87,\n\"expected_clause\": \"C-37\",\n\"cited_clause\": \"C-37\"\n},\n{\n\"id\": 88,\n\"expected_clause\": \"C-22\",\n\"cited_clause\": \"C-22\"\n},\n{\n\"id\": 89,\n\"expected_clause\": \"C-18\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 90,\n\"expected_clause\": \"C-29\",\n\"cited_clause\": \"C-29\"\n},\n{\n\"id\": 91,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"C-13\"\n},\n{\n\"id\": 92,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 93,\n\"expected_clause\": \"C-24\",\n\"cited_clause\": \"C-24\"\n},\n{\n\"id\": 94,\n\"expected_clause\": \"C-19\",\n\"cited_clause\": \"C-19\"\n},\n{\n\"id\": 95,\n\"expected_clause\": \"C-13\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 96,\n\"expected_clause\": \"C-33\",\n\"cited_clause\": \"C-33\"\n},\n{\n\"id\": 97,\n\"expected_clause\": \"C-36\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 98,\n\"expected_clause\": \"C-26\",\n\"cited_clause\": \"C-26\"\n},\n{\n\"id\": 99,\n\"expected_clause\": \"C-40\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 100,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-21\"\n},\n{\n\"id\": 101,\n\"expected_clause\": \"C-27\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 102,\n\"expected_clause\": \"C-34\",\n\"cited_clause\": \"C-34\"\n},\n{\n\"id\": 103,\n\"expected_clause\": \"C-30\",\n\"cited_clause\": \"C-33\"\n},\n{\n\"id\": 104,\n\"expected_clause\": \"C-37\",\n\"cited_clause\": \"C-37\"\n},\n{\n\"id\": 105,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 106,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-2\"\n},\n{\n\"id\": 107,\n\"expected_clause\": \"C-27\",\n\"cited_clause\": \"C-27\"\n},\n{\n\"id\": 108,\n\"expected_clause\": \"C-26\",\n\"cited_clause\": \"C-26\"\n},\n{\n\"id\": 109,\n\"expected_clause\": \"C-17\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 110,\n\"expected_clause\": \"C-35\",\n\"cited_clause\": \"\"\n},\n{\n\"id\": 111,\n\"expected_clause\": \"C-37\",\n\"cited_clause\": \"C-37\"\n},\n{\n\"id\": 112,\n\"expected_clause\": \"C-17\",\n\"cited_clause\": \"C-34\"\n},\n{\n\"id\": 113,\n\"expected_clause\": \"C-35\",\n\"cited_clause\": \"C-35\"\n},\n{\n\"id\": 114,\n\"expected_clause\": \"C-26\",\n\"cited_clause\": \"C-26\"\n},\n{\n\"id\": 115,\n\"expected_clause\": \"C-33\",\n\"cited_clause\": \"C-33\"\n},\n{\n\"id\": 116,\n\"expected_clause\": \"C-10\",\n\"cited_clause\": \"C-1\"\n},\n{\n\"id\": 117,\n\"expected_clause\": \"C-25\",\n\"cited_clause\": \"C-25\"\n},\n{\n\"id\": 118,\n\"expected_clause\": \"C-32\",\n\"cited_clause\": \"C-3\"\n},\n{\n\"id\": 119,\n\"expected_clause\": \"C-21\",\n\"cited_clause\": \"C-21\"\n},\n{\n\"id\": 120,\n\"expected_clause\": \"C-39\",\n\"cited_clause\": \"C-3\"\n}\n]",
+    "src/evalset.py": "import json\nfrom pathlib import Path\n\n\ndef load_rows(path):\n    \"\"\"Rows of the evaluation set, ready for scoring.\"\"\"\n    rows = json.loads(Path(path).read_text())\n    return [row for row in rows if row[\"cited_clause\"]]\n",
+    "src/metrics.py": "def citation_accuracy(rows):\n    \"\"\"Share of answers whose cited clause is the clause the answer should rest on.\"\"\"\n    if not rows:\n        return 0.0\n    correct = sum(1 for row in rows if row[\"cited_clause\"] in row[\"expected_clause\"])\n    return correct / len(rows)\n"
+  },
+  "internship": {
+    "colleagues": [
+      {
+        "key": "maya",
+        "name": "Maya Okafor",
+        "role": "Engineering Manager"
+      },
+      {
+        "key": "dev",
+        "name": "Dev Rao",
+        "role": "Tech Lead"
+      },
+      {
+        "key": "sam",
+        "name": "Sam Whitfield",
+        "role": "Customer Support Lead"
+      }
+    ],
+    "events": [
+      {
+        "day": 1,
+        "kind": "message",
+        "sender": "maya",
+        "text": "Welcome to Northwind! Glad you are here. The one thing on my mind this week: the dashboard says our assistant cites the right policy clause about 90% of the time, but Sam's team does not believe it. Dev is your point of contact for the code. Say hi to both.",
+        "ticket": null
+      },
+      {
+        "day": 1,
+        "kind": "ticket",
+        "sender": "maya",
+        "text": "I put NW-101 on your board. Start there. Shout if anything is unclear.",
+        "ticket": "NW-101"
+      },
+      {
+        "day": 2,
+        "kind": "message",
+        "sender": "sam",
+        "text": "Hi, I am Sam from support. Yesterday three customers were told they were covered and the clause the assistant pointed at said nothing of the sort. And lots of answers come with no clause at all, but I never see those in the numbers. Could that be it?",
+        "ticket": null
+      },
+      {
+        "day": 2,
+        "kind": "ticket",
+        "sender": "maya",
+        "text": "Sam's point deserves its own ticket: NW-102 is yours.",
+        "ticket": "NW-102"
+      },
+      {
+        "day": 3,
+        "kind": "message",
+        "sender": "dev",
+        "text": "Nice progress. Before you finish NW-103: tests are how we make sure this does not quietly come back. Keep your change small enough that I can review it over coffee.",
+        "ticket": null
+      },
+      {
+        "day": 3,
+        "kind": "ticket",
+        "sender": "dev",
+        "text": "NW-103 is on your board.",
+        "ticket": "NW-103"
+      },
+      {
+        "day": 4,
+        "kind": "message",
+        "sender": "maya",
+        "text": "I present to leadership tomorrow. In a few plain sentences, can you write to me: can we trust the dashboard number, what was wrong, and how sure are you? Send it as a message in this chat.",
+        "ticket": null
+      },
+      {
+        "day": 5,
+        "kind": "meeting",
+        "sender": "maya",
+        "text": "Friday retro: what went well, what you would do differently, and what you still do not know. Then I will write up how the week went.",
+        "ticket": null
+      }
+    ]
+  }
+}
