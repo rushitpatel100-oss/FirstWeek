@@ -19,7 +19,7 @@ from sqlalchemy import select
 from firstweek_core.contracts import AnswerKey, Criterion, Internship, ProjectBlueprint, Ticket
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype
 from firstweek_core.db.session import session_scope
-from firstweek_simulation import demo_agentic
+from firstweek_simulation import demo_agentic, demo_software
 from firstweek_simulation.blueprint import BlueprintError
 from firstweek_simulation.demo_internship import internship
 from firstweek_simulation.internship import write_internship
@@ -282,7 +282,11 @@ AGENTIC = Pack(
     demo_agentic.SCENARIO, demo_agentic.CONTEXT, demo_agentic.files, demo_agentic.tickets,
     demo_agentic.rubric, demo_agentic.PLANTED, demo_agentic.metrics, demo_agentic.internship,
 )  # fmt: skip
-PACKS = {"agentic-ai-engineer": AGENTIC}
+SOFTWARE = Pack(
+    demo_software.SCENARIO, demo_software.CONTEXT, demo_software.files, demo_software.tickets,
+    demo_software.rubric, demo_software.PLANTED, demo_software.metrics, demo_software.internship,
+)  # fmt: skip
+PACKS = {"agentic-ai-engineer": AGENTIC, "ai-software-engineer": SOFTWARE}
 
 
 def pack_for(slug: str) -> Pack:

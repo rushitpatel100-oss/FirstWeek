@@ -135,6 +135,7 @@ class FakeGateway:
         self.complete_calls: list[dict[str, Any]] = []
         self.cut_off: set[str] = set()
         self.omit: set[str] = set()
+        self.first_plans: list[StarterPlan] = []  # served before the real plan
         starter_all = [*starter.starter_files, *starter.key_files]
         self.content = {
             "write-starter-file": {x.path: x.content for x in starter_all},
@@ -145,6 +146,10 @@ class FakeGateway:
 
     async def structured(self, **kwargs: Any) -> SimpleNamespace:
         self.structured_calls.append(kwargs)
+        if kwargs["purpose"] == "plan-starter" and self.first_plans:
+            return SimpleNamespace(
+                parsed=self.first_plans.pop(0), cost_usd=Decimal("0.02"), model="fake"
+            )
         if kwargs["purpose"] == "plan-starter":
 
             def planned(files: list[FileDraft]) -> list[PlannedFile]:
@@ -520,3 +525,68 @@ async def test_a_full_size_project_keeps_every_prompt_inside_groqs_per_minute_ca
     data = {"data/big.jsonl": ('{"id": 1, "text": "' + "x" * 300 + '"}\n') * 600}
     assert len(data["data/big.jsonl"]) > 190_000
     assert len(art.shown_preview(data)) // 4 < 1_500  # 200 KB of data costs about 1,000 tokens
+
+
+def starter_plan_of(draft: StarterDraft, **changes: Any) -> StarterPlan:
+    def planned(files: list[FileDraft]) -> list[PlannedFile]:
+        return [PlannedFile(path=x.path, purpose="Does what the plan says.") for x in files]
+
+    fields: dict[str, Any] = {
+        "design_notes": "Shared notes about names and signatures. " * 3,
+        "starter_files": planned(draft.starter_files),
+        "key_files": planned(draft.key_files),
+        "generated": draft.generated,
+    }
+    return StarterPlan(**{**fields, **changes})
+
+
+def test_a_plan_slip_that_needs_no_judgement_is_fixed_by_code() -> None:
+    draft = starter_draft()
+    plan = starter_plan_of(draft, generated=[*draft.generated, "metrics.json", "key/metrics.json"])
+    assert art.repair_plan(plan).generated == draft.generated
+    twice = starter_plan_of(draft, generated=[*draft.generated, "data/extra.json"])
+    twice.starter_files.append(PlannedFile(path="data/extra.json", purpose="A static copy."))
+    fixed = art.repair_plan(twice)
+    assert "data/extra.json" not in [f.path for f in fixed.starter_files]
+    assert (
+        art.plan_problems(
+            [f.path for f in fixed.starter_files],
+            [f.path for f in fixed.key_files],
+            fixed.generated,
+        )
+        == []
+    )
+
+
+async def test_a_plan_without_tests_is_planned_again_before_any_file_is_written() -> None:
+    draft = starter_draft()
+    no_tests = starter_plan_of(
+        draft,
+        starter_files=[
+            PlannedFile(path="src/calc.py", purpose="Does what the plan says."),
+            PlannedFile(path="evals/test_calc.py", purpose="Does what the plan says."),
+            PlannedFile(path="README.md", purpose="Does what the plan says."),
+        ],
+    )
+    gateway = FakeGateway(draft, reference_draft())
+    gateway.first_plans = [no_tests]
+    built = await build(gateway)
+    assert built.ok, [c for c in built.checks if not c.ok]
+    plans = [c for c in gateway.structured_calls if c["purpose"] == "plan-starter"]
+    assert len(plans) == 2
+    assert "tests/test_*.py" in plans[1]["messages"][1]["content"]
+    starter_writes = [c for c in gateway.complete_calls if c["purpose"] == "write-starter-file"]
+    assert all("evals/test_calc.py" not in c["messages"][1]["content"].split("Write these")[1]
+               for c in starter_writes)  # the bad plan cost no file writes  # fmt: skip
+
+
+async def test_a_plan_that_never_passes_the_checks_stops_before_writing_anything() -> None:
+    draft = starter_draft()
+    bad = starter_plan_of(draft, starter_files=[
+        PlannedFile(path=f"src/m{i}.py", purpose="Does what the plan says.") for i in range(3)
+    ])  # fmt: skip
+    gateway = FakeGateway(draft, reference_draft())
+    gateway.first_plans = [bad, bad, bad]
+    built = await build(gateway)
+    assert failed(built) == ["starter files are well formed"]
+    assert gateway.complete_calls == [] and len(gateway.structured_calls) == art.REPLANS
