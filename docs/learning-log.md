@@ -56,3 +56,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-03: autopilot pre-flight quota check (make autopilot-check), pause-and-resume checkpoint when free quota runs out, Groq calls sized to its 8K tokens-per-minute cap.
 - 2026-11-03: out of free quota, colleagues send a stock reply and the supervisor review is computed from the evidence (model 'offline'), instead of an error.
 - 2026-11-03: the autopilot check now asks each free model directly (one tiny request each); our own call counts said 30 Gemini calls left while Google refused both models.
+- 2026-11-04: blueprint design repairs skill/rubric mismatches in code (no model call) and gets a third model try.
