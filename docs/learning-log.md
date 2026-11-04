@@ -59,3 +59,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-04: blueprint design repairs skill/rubric mismatches in code (no model call) and gets a third model try.
 - 2026-11-04: the working free Gemini model (3.6-flash) is tried first; 3.8-flash, which refused every call for us, is only a fallback.
 - 2026-11-04: first real autopilot build failed on plan slips; the plan is now checked and repaired before any file is written (plan-starter.v4).
+- 2026-11-04: 45-second walkthrough video of the static demo (docs/img/firstweek-demo.mp4), recorded with Playwright and ffmpeg.

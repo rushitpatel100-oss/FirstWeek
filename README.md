@@ -6,6 +6,8 @@
 
 ## Try it (free demo)
 
+[45-second walkthrough video](docs/img/firstweek-demo.mp4) · [live demo](https://rushitpatel100-oss.github.io/FirstWeek/)
+
 The [demo page](apps/demo) is a static site: a week at a made-up insurer, with a team chat, tickets
 arriving day by day, and a real Python project you edit and test. The tests run for real in your
 browser (pytest through Pyodide). Colleague replies, the code review and the end-of-week verdict
