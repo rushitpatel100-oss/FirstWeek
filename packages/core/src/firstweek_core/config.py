@@ -32,10 +32,10 @@ class Settings(BaseSettings):
     model_frontier: str = "anthropic/claude-opus-5-5"
     model_mid: str = "anthropic/claude-sonnet-5-5"
     model_small: str = "anthropic/claude-haiku-5-5"
-    model_judge: str = "gemini/gemini-3.8-flash"  # free tier; not Claude, so it can judge it
+    model_judge: str = "gemini/gemini-3.6-flash"  # free tier; not Claude, so it can judge it
     # Tried in order when the free model is overloaded (503) or rate limited (429). Free only:
     # a paid tier never silently switches to another model.
-    model_judge_fallbacks: list[str] = ["gemini/gemini-3.6-flash"]
+    model_judge_fallbacks: list[str] = ["gemini/gemini-3.8-flash"]
     # Added last to the free chain when GROQ_API_KEY is set (8K tokens a minute: fine for chat,
     # tight for long reviews). A different provider, so one provider's daily cap does not stop us.
     model_groq: str = "groq/openai/gpt-oss-120b"
