@@ -49,12 +49,17 @@ def _bare_name(model: str) -> str:
     return model.rsplit("/", 1)[-1]
 
 
+FREE = Price(Decimal("0"), Decimal("0"))
+
+
 def price_for(model: str) -> Price:
+    if model.startswith("ollama/"):  # runs on this machine
+        return FREE
     return PRICES.get(_bare_name(model), FALLBACK_PRICE)
 
 
 def is_known(model: str) -> bool:
-    return _bare_name(model) in PRICES
+    return model.startswith("ollama/") or _bare_name(model) in PRICES
 
 
 def cost_usd(model: str, tokens_in: int, tokens_out: int) -> Decimal:

@@ -54,6 +54,7 @@ TRANSIENT_ERRORS = {
 TRANSIENT_STATUS = {429, 500, 502, 503, 504}
 FREE_TIER_ROUNDS = 4  # passes over the model list before giving up
 FREE_TIER_TIMEOUT_S = 120.0  # one call; LiteLLM waits 600s by default, which looks like a hang
+LOCAL_TIMEOUT_S = 900.0  # a model on this machine can take minutes for a long file
 FREE_TIER_PAUSE_S = 20.0  # first pause between passes; doubles each time
 
 
@@ -203,7 +204,7 @@ class LLMGateway:
             "frontier": self.settings.model_frontier,
             "mid": self.settings.model_mid,
             "small": self.settings.model_small,
-            "judge": self.settings.model_judge,
+            "judge": self.settings.model_local or self.settings.model_judge,
             "embedding": self.settings.model_embedding,
         }[tier]
 
@@ -246,8 +247,9 @@ class LLMGateway:
                 assert room is not None
                 try:
                     reply = await self.completion_fn(
-                        **{**kwargs, "model": candidate, "max_tokens": room}
-                    )
+                        **{**kwargs, **self._local_args(candidate), "model": candidate,
+                           "max_tokens": room}
+                    )  # fmt: skip
                     return reply, candidate
                 except Exception as exc:
                     # A retired model (404) or a request over a size cap (413) is skipped like a
@@ -275,6 +277,16 @@ class LLMGateway:
 
     # ------------------------------------------------------------ public API
 
+    def _local_args(self, model: str) -> dict[str, Any]:
+        """Where a model on this machine (Ollama) is, how long to wait for it, how much context."""
+        if not model.startswith("ollama/"):
+            return {}
+        return {
+            "api_base": self.settings.ollama_api_base,
+            "num_ctx": self.settings.ollama_num_ctx,
+            "timeout": LOCAL_TIMEOUT_S,
+        }
+
     async def probe(self, model: str) -> str:
         """Asks one model for a tiny reply, with no fallback: 'ok', or why it refused (see
         `probe_status`). Costs one request of that model's quota; it is recorded like any call."""
@@ -285,6 +297,7 @@ class LLMGateway:
             await self.completion_fn(
                 model=model, messages=[{"role": "user", "content": "Reply with OK."}],
                 max_tokens=16, timeout=30.0, num_retries=0, drop_params=True,
+                **self._local_args(model),
             )  # fmt: skip
             status = "ok"
         except Exception as exc:

@@ -123,7 +123,8 @@ def _quota_preflight(settings: Settings, resuming: bool) -> bool:
     for model in models:
         cap = quota.FREE_DAILY_TOKENS.get(model.split("/")[0])
         extra = f", {tokens.get(model, 0):,} of {cap:,} tokens used" if cap is not None else ""
-        note = f"about {left[model]} calls left{extra}" if status[model] == "ok" else "0 calls"
+        count = "no limit" if left[model] >= quota.UNLIMITED else f"about {left[model]} calls left"
+        note = f"{count}{extra}" if status[model] == "ok" else "0 calls"
         print(f"  {model}: {status[model]} ({note})")
     reset = quota.next_reset().astimezone()
     print(f"A run needs at most {WORST_CASE_CALLS} calls (usually about 10).")
