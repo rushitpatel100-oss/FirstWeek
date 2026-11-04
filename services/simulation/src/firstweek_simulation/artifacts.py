@@ -31,7 +31,8 @@ from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import BlueprintError, load_prompt
 
-PLAN_STARTER_VERSION = "plan-starter.v3"
+PLAN_STARTER_VERSION = "plan-starter.v4"
+REPLANS = 3  # tries at a plan that passes the checks, before any file is written
 WRITE_FILE_VERSION = "write-files.v1"
 PLAN_REFERENCE_VERSION = "plan-reference.v2"
 WRITE_REFERENCE_VERSION = "write-reference-files.v1"
@@ -91,12 +92,10 @@ def is_key_path(path: str) -> bool:
     return PurePosixPath(path).parts[0] == KEY_DIR
 
 
-def starter_problems(draft: StarterDraft) -> list[str]:
-    """What is wrong with the files before anything runs."""
+def plan_problems(starter: list[str], key: list[str], generated: list[str]) -> list[str]:
+    """What is wrong with a set of paths. Checked on the plan, before any file is written."""
     problems: list[str] = []
-    starter = [f.path for f in draft.starter_files]
-    key = [f.path for f in draft.key_files]
-    every = [*starter, *key, *draft.generated]
+    every = [*starter, *key, *generated]
     for path in every:
         if PurePosixPath(path).suffix not in ALLOWED_SUFFIXES:
             problems.append(f"{path}: file type not allowed.")
@@ -112,13 +111,40 @@ def starter_problems(draft: StarterDraft) -> list[str]:
         if needed not in key:
             problems.append(f"key_files must include {needed}.")
     if not any(p.startswith("tests/") and p.endswith(".py") for p in starter):
-        problems.append("The starter needs target tests under tests/.")
-    clash = sorted(set(draft.generated) & set(starter + key))
+        problems.append(
+            "The starter needs target tests as files named tests/test_*.py in the tests/ folder "
+            "at the repository root, whatever path the tickets mention."
+        )
+    clash = sorted(set(generated) & set(starter + key))
     if clash:
         problems.append(f"Generated files are also written as files: {clash}.")
-    if not any(not is_key_path(p) for p in draft.generated):
+    if not any(not is_key_path(p) for p in generated):
         problems.append("make_data.py must write at least one file the person receives.")
     return problems
+
+
+def starter_problems(draft: StarterDraft) -> list[str]:
+    """What is wrong with the files before anything runs."""
+    return plan_problems(
+        [f.path for f in draft.starter_files], [f.path for f in draft.key_files], draft.generated
+    )
+
+
+def repair_plan(plan: StarterPlan) -> StarterPlan:
+    """Fixes by code the plan slips that need no judgement.
+
+    `metrics.json` is what key/metrics.py writes, not what make_data.py writes, so it is not a
+    generated file. A path both written as a file and generated is generated, so it is not also
+    written."""
+    generated = [g for g in plan.generated if g not in ("metrics.json", f"{KEY_DIR}/metrics.json")]
+    taken = set(generated)
+    return plan.model_copy(
+        update={
+            "generated": generated or plan.generated,
+            "starter_files": [f for f in plan.starter_files if f.path not in taken],
+            "key_files": [f for f in plan.key_files if f.path not in taken],
+        }
+    )
 
 
 def reference_problems(draft: ReferencePlan, starter: dict[str, str]) -> list[str]:
@@ -336,42 +362,51 @@ async def build_artifacts(
 
     async def make_starter() -> bool:
         system, user = load_prompt(PLAN_STARTER_VERSION)
-        planned = await gateway.structured(
-            purpose="plan-starter",
-            messages=[
-                {"role": "system", "content": system},
-                {
-                    "role": "user",
-                    "content": user.format(
-                        role_name=blueprint.archetype,
-                        scenario=blueprint.scenario,
-                        company=blueprint.company_context,
-                        tickets=tickets,
-                        rubric=rubric,
-                        issues=issues,
-                        seed=seed,
-                        feedback=feedback or "(none: this is the first attempt)",
-                    ),
-                },
-            ],
-            response_model=StarterPlan,
-            tier=tier,
-            max_tokens=PLAN_MAX_TOKENS,
-            temperature=0.4,
-            budget_scope="build-artifacts",
-            budget_usd=budget_usd,
-            prompt_version=PLAN_STARTER_VERSION,
-        )
-        assert planned.parsed is not None
-        plan = planned.parsed
-        spend.cost_usd += float(planned.cost_usd)
-        spend.model = planned.model
-        every = [*plan.starter_files, *plan.key_files]
-        if bad := [i.path for i in every if PurePosixPath(i.path).suffix not in ALLOWED_SUFFIXES]:
-            built.checks.append(
-                Check("starter files are well formed", False, f"{bad}: file type not allowed.")
+        notes = feedback
+        for _ in range(REPLANS):
+            planned = await gateway.structured(
+                purpose="plan-starter",
+                messages=[
+                    {"role": "system", "content": system},
+                    {
+                        "role": "user",
+                        "content": user.format(
+                            role_name=blueprint.archetype,
+                            scenario=blueprint.scenario,
+                            company=blueprint.company_context,
+                            tickets=tickets,
+                            rubric=rubric,
+                            issues=issues,
+                            seed=seed,
+                            feedback=notes or "(none: this is the first attempt)",
+                        ),
+                    },
+                ],
+                response_model=StarterPlan,
+                tier=tier,
+                max_tokens=PLAN_MAX_TOKENS,
+                temperature=0.4,
+                budget_scope="build-artifacts",
+                budget_usd=budget_usd,
+                prompt_version=PLAN_STARTER_VERSION,
             )
+            assert planned.parsed is not None
+            spend.cost_usd += float(planned.cost_usd)
+            spend.model = planned.model
+            plan = repair_plan(planned.parsed)
+            found = plan_problems(
+                [f.path for f in plan.starter_files],
+                [f.path for f in plan.key_files],
+                plan.generated,
+            )
+            if not found:
+                break
+            # A bad plan costs one cheap call to redo, not the files written from it.
+            notes = (feedback + "\n" if feedback else "") + "\n".join(f"- {p}" for p in found)
+        else:
+            built.checks.append(Check("starter files are well formed", False, " ".join(found)))
             return False
+        every = [*plan.starter_files, *plan.key_files]
 
         def render_starter(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
             return {
