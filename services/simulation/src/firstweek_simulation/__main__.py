@@ -106,21 +106,25 @@ def _need_key(tier: str) -> None:
 
 
 def _quota_preflight(settings: Settings, resuming: bool) -> bool:
-    """Prints the free calls left today and whether a whole run fits. Makes no model call."""
-    from firstweek_core.llm import quota
+    """Asks each free model directly (one tiny request each), then counts what is left on the
+    ones that answered. Our own records alone were wrong: Google counts requests we never saw."""
+    from firstweek_core.llm import LLMGateway, quota
+    from firstweek_core.llm.recorder import record_to_db
     from firstweek_simulation.pipeline import WORST_CASE_CALLS
 
     models = quota.free_models(settings)
+    gateway = LLMGateway(settings=settings, recorder=record_to_db)
+    status = {m: asyncio.run(gateway.probe(m)) for m in models}
     calls, tokens = quota.used_today(models)
-    left = quota.remaining(settings, calls, tokens)
+    counted = quota.remaining(settings, calls, tokens)
+    left = {m: counted[m] if status[m] == "ok" else 0 for m in models}
     total = sum(left.values())
-    print("Free calls left today (counted from this app's own records):")
-    for model, count in left.items():
+    print("Free models right now (asked directly, one tiny request each):")
+    for model in models:
         cap = quota.FREE_DAILY_TOKENS.get(model.split("/")[0])
-        extra = (
-            f" (its {cap:,} tokens a day: {tokens.get(model, 0):,} used)" if cap is not None else ""
-        )
-        print(f"  {model}: {count} calls{extra}")
+        extra = f", {tokens.get(model, 0):,} of {cap:,} tokens used" if cap is not None else ""
+        note = f"about {left[model]} calls left{extra}" if status[model] == "ok" else "0 calls"
+        print(f"  {model}: {status[model]} ({note})")
     reset = quota.next_reset().astimezone()
     print(f"A run needs at most {WORST_CASE_CALLS} calls (usually about 10).")
     if resuming:
@@ -129,9 +133,9 @@ def _quota_preflight(settings: Settings, resuming: bool) -> bool:
         print(f"Enough for the worst case ({total} left). Safe to start.")
         return True
     print(
-        f"Not enough for the worst case ({total} left). The quota resets at "
-        f"{reset:%H:%M on %d %b}. Run then, or add --force to start anyway (progress is saved "
-        "if it runs out)."
+        f"Not enough for the worst case ({total} left). Gemini resets at "
+        f"{reset:%H:%M on %d %b}. Run the check again then, or add --force to start anyway "
+        "(progress is saved if it runs out)."
     )
     return False
 
