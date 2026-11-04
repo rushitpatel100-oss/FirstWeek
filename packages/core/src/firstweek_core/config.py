@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     # Added last to the free chain when GROQ_API_KEY is set (8K tokens a minute: fine for chat,
     # tight for long reviews). A different provider, so one provider's daily cap does not stop us.
     model_groq: str = "groq/openai/gpt-oss-120b"
+    # A free model on this machine through Ollama, e.g. "ollama/qwen2.5-coder:7b". When set it
+    # is tried first for the judge tier: no daily limit, no key, no cost. The free hosted models
+    # stay behind it as fallbacks.
+    model_local: str = ""
+    ollama_api_base: str = "http://localhost:11434"
+    ollama_num_ctx: int = 12288  # Ollama's own default (a few thousand) silently cuts long prompts
     # "local/<name>" runs a free open-source model on this machine (ADR 0012); any other
     # value is a LiteLLM embedding model string such as "openai/text-embedding-3-small".
     model_embedding: str = "local/BAAI/bge-small-en-v1.5"
@@ -96,12 +102,18 @@ class Settings(BaseSettings):
     @property
     def has_judge_key(self) -> bool:
         """Whether any free provider is set up for the judge tier."""
-        return self.gemini_api_key is not None or self.groq_api_key is not None
+        return (
+            self.gemini_api_key is not None
+            or self.groq_api_key is not None
+            or bool(self.model_local)
+        )
 
     def judge_fallbacks(self) -> list[str]:
         """Free models tried after the judge model, in order. Groq joins when its key is set."""
         extra = [self.model_groq] if self.groq_api_key is not None else []
+        first = [self.model_judge] if self.model_local else []
         return [
+            *first,
             *self.model_judge_fallbacks,
             *(m for m in extra if m not in self.model_judge_fallbacks),
         ]

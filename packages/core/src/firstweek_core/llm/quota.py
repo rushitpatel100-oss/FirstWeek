@@ -33,10 +33,15 @@ def next_reset(now: datetime | None = None) -> datetime:
 
 
 def free_models(settings: Settings) -> list[str]:
-    return [settings.model_judge, *settings.judge_fallbacks()]
+    return [settings.model_local or settings.model_judge, *settings.judge_fallbacks()]
+
+
+UNLIMITED = 1_000_000  # a model on this machine has no daily limit
 
 
 def daily_limit(model: str) -> int:
+    if model.startswith("ollama/"):
+        return UNLIMITED
     return FREE_DAILY_REQUESTS.get(model.split("/")[0], 0)
 
 

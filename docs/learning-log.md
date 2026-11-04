@@ -60,3 +60,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-04: the working free Gemini model (3.6-flash) is tried first; 3.8-flash, which refused every call for us, is only a fallback.
 - 2026-11-04: first real autopilot build failed on plan slips; the plan is now checked and repaired before any file is written (plan-starter.v4).
 - 2026-11-04: 45-second walkthrough video of the static demo (docs/img/firstweek-demo.mp4), recorded with Playwright and ffmpeg.
+- 2026-11-04: optional local Ollama model (MODEL_LOCAL) first in the free chain: unlimited autopilot runs on the author's RTX 3060.

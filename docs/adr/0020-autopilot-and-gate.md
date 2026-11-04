@@ -67,3 +67,7 @@ A typical attempt drops from about 19 calls to about 7, and a reference-only ret
   (`metrics.json` is not generated; a generated path is not also written), and a plan that still
   fails is made again with the problems as feedback (up to `REPLANS` = 3, one call each) before any
   file is written. `plan-starter.v4` states the tests/ and one-owner-per-path rules.
+
+## Addendum 2026-11-04: a local model with no limit
+
+Free hosted tiers cap requests and tokens a day, so the autopilot cannot run whenever the author wants. `MODEL_LOCAL=ollama/<model>` puts a model on this machine (Ollama) first in the judge chain: no daily limit, no key, no cost (priced at zero, reported as "no limit" by the pre-flight). The hosted free models stay behind it as fallbacks. Gateway passes `api_base`, a 12K `num_ctx` (Ollama's default silently cuts long prompts) and a 15-minute timeout for local models. Trade-off: a 7B model on a 6 GB graphics card makes more plan mistakes than the hosted ones; the plan repair and retries absorb some. Generate, review, commit.
