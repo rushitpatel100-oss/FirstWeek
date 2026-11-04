@@ -60,3 +60,10 @@ A typical attempt drops from about 19 calls to about 7, and a reference-only ret
   probes each free model with a one-token request (`LLMGateway.probe`, no fallback, recorded as
   `quota-probe`), says why one refused (spent for today, no free tier, busy this minute, not
   found), and counts only models that answered. It costs one request per model.
+- **Check the plan before writing files** (first real build, 2026-11-04): all three attempts failed
+  on slips visible in the plan itself (tests planned under `evals/`, `metrics.json` listed as
+  generated, a path both written and generated), after six calls of file writing each. The path
+  checks now run on the plan (`plan_problems`), `repair_plan` fixes by code what needs no judgement
+  (`metrics.json` is not generated; a generated path is not also written), and a plan that still
+  fails is made again with the problems as feedback (up to `REPLANS` = 3, one call each) before any
+  file is written. `plan-starter.v4` states the tests/ and one-owner-per-path rules.
