@@ -73,3 +73,18 @@ A typical attempt drops from about 19 calls to about 7, and a reference-only ret
 Free hosted tiers cap requests and tokens a day, so the autopilot cannot run whenever the author wants. `MODEL_LOCAL=ollama/<model>` puts a model on this machine (Ollama) first in the judge chain: no daily limit, no key, no cost (priced at zero, reported as "no limit" by the pre-flight). The hosted free models stay behind it as fallbacks. Gateway passes `api_base`, a 12K `num_ctx` (Ollama's default silently cuts long prompts) and a 15-minute timeout for local models. Trade-off: a 7B model on a 6 GB graphics card makes more plan mistakes than the hosted ones; the plan repair and retries absorb some. Generate, review, commit.
 
 Follow-up the same day: a 7B model could not produce a valid project design (invalid task types, rubric gaps). `MODEL_LOCAL_PURPOSES` (default: the two file-writing calls) now decides which calls go to the local model first; the design and the plans stay on the hosted free models, a few requests a run.
+
+## Addendum 2026-11-06: repair where it fails, not a whole new attempt
+
+With a local model doing the writing, every failure still threw away the attempt and spent hosted planning calls on a new one: a stray `---` in `make_data.py`, a generator that forgot one of its files, a test with a miscalculated expected value. Now each check is repaired where it fails, then run again:
+
+- Code first, no model: fences and a trailing separator with an explanation are removed when that makes the file compile.
+- Every Python file must compile and every JSON file parse before anything runs; a file that does not is rewritten on its own, with the error.
+- The generator, the starter's tests, the reference's tests and the metrics script each get up to 4 fix-and-run rounds (`repair-files.v1`): the error output and the files it names go back to the writer, which returns whole files. Only named files may change, and a cut-off reply changes nothing.
+- A test may be corrected only if the corrected test still fails on the starter (otherwise it no longer finds the planted issue) and still asserts something.
+- With a local model the rounds are free; with hosted models only, each check gets 1 round so the daily quota lasts.
+- A model on this machine writes one file per call (no request limit, and a small model keeps its window on one file); the reference writer sees the files it changes in full and the rest as outlines. A local reply is sized so prompt and reply fit `ollama_num_ctx`.
+- The local model is also the last fallback for the calls that try hosted models first (design, plans), so a run never stops for quota.
+- A plan that never parses, or an attempt that crashes, is a failed try with its error recorded, not a lost run.
+
+Tested end to end with a real local model (Qwen2.5-Coder 3B, the smaller sibling of the 7B the author runs) on the design from the author's last run.

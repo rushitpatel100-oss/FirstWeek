@@ -136,6 +136,7 @@ class FakeGateway:
         self.cut_off: set[str] = set()
         self.omit: set[str] = set()
         self.first_plans: list[StarterPlan] = []  # served before the real plan
+        self.repairs: list[str] = []  # replies to repair calls, in order; then no change
         starter_all = [*starter.starter_files, *starter.key_files]
         self.content = {
             "write-starter-file": {x.path: x.content for x in starter_all},
@@ -168,7 +169,14 @@ class FakeGateway:
 
     async def complete(self, **kwargs: Any) -> SimpleNamespace:
         self.complete_calls.append(kwargs)
-        asked = kwargs["messages"][1]["content"].split("Write these files:\n", 1)[1]
+        if kwargs["purpose"] == "repair-file":
+            reply = self.repairs.pop(0) if self.repairs else ""
+            return SimpleNamespace(
+                content=reply, cost_usd=Decimal("0.01"), model="fake", finish_reason="stop"
+            )
+        asked = re.split(
+            r"Write (?:these files|this file \(and no other\)):\n", kwargs["messages"][1]["content"]
+        )[1]
         names = re.findall(r"^- (\S+): ", asked, flags=re.M)
         assert names
         reply = "\n".join(
@@ -294,14 +302,271 @@ async def test_a_starter_that_already_passes_has_nothing_planted() -> None:
 async def test_a_starter_that_does_not_run_is_reported_with_the_error() -> None:
     broken = starter_draft(
         starter_files=[
+            f("src/calc.py", "import no_such_module\n\n" + BUGGY),
+            f("tests/test_calc.py", TEST),
+            f("README.md"),
+        ]
+    )
+    gateway = FakeGateway(broken, reference_draft())
+    built = await build(gateway)
+    assert "the starter runs and fails its target tests" in failed(built)
+    assert any("does not run" in c.detail for c in built.checks)
+    repairs = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    assert len(repairs) == art.HOSTED_REPAIRS  # hosted only: one round, so the quota lasts
+    assert "no_such_module" in repairs[0]["messages"][1]["content"]
+    assert "=== src/calc.py ===\nimport no_such_module" in repairs[0]["messages"][1]["content"]
+
+
+async def test_a_file_that_is_not_valid_python_is_named_before_anything_runs() -> None:
+    broken = starter_draft(
+        starter_files=[
             f("src/calc.py", "def total(:\n"),
             f("tests/test_calc.py", TEST),
             f("README.md"),
         ]
     )
-    built = await build(FakeGateway(broken, reference_draft()))
-    assert "the starter runs and fails its target tests" in failed(built)
-    assert any("does not run" in c.detail for c in built.checks)
+    runner = LocalRunner()
+    built = await build(FakeGateway(broken, reference_draft()), runner)
+    assert failed(built) == ["starter files are well formed"]
+    assert "src/calc.py: not valid Python" in built.checks[0].detail
+    assert runner.jobs == []
+
+
+async def test_a_broken_file_is_repaired_by_name_and_the_build_goes_on() -> None:
+    broken = starter_draft(
+        starter_files=[
+            f("src/calc.py", "def total(:\n"),
+            f("tests/test_calc.py", TEST),
+            f("README.md"),
+        ]
+    )
+    gateway = FakeGateway(broken, reference_draft())
+    gateway.repairs = [f"=== src/calc.py ===\n{BUGGY}"]
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.starter["src/calc.py"] == BUGGY
+    (repair,) = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    assert "src/calc.py: not valid Python (line 1" in repair["messages"][1]["content"]
+
+
+async def test_debris_around_python_is_removed_by_code_without_a_call() -> None:
+    messy = "```python\n" + BUGGY + "```\n\n---\nThis function adds up the numbers.\n"
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[f("src/calc.py", messy), f("tests/test_calc.py", TEST), f("README.md")]
+        ),
+        reference_draft(),
+    )
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.starter["src/calc.py"] == BUGGY
+    assert not [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+
+
+async def test_a_generator_that_misses_a_file_is_repaired_with_the_exact_paths() -> None:
+    half = MAKE_DATA.replace("json.dump([a.seed, 2, 3], open('data/nums.json', 'w'))\n", "")
+    gateway = FakeGateway(
+        starter_draft(key_files=[f("key/make_data.py", half), f("key/metrics.py", METRICS)]),
+        reference_draft(),
+    )
+    gateway.repairs = [f"=== key/make_data.py ===\n{MAKE_DATA}"]
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    (repair,) = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    prompt = repair["messages"][1]["content"]
+    assert "missing ['data/nums.json']" in prompt
+    assert "write exactly these files: data/nums.json, key/truth.json" in prompt
+
+
+async def test_a_test_with_a_wrong_expected_value_is_corrected_and_still_fails_the_starter() -> (
+    None
+):
+    wrong = TEST.replace("== 6", "== 7")
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[f("src/calc.py", BUGGY), f("tests/test_calc.py", wrong), f("README.md")]
+        ),
+        reference_draft(),
+    )
+    gateway.repairs = [f"=== tests/test_calc.py ===\n{TEST}"]
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.starter["tests/test_calc.py"] == TEST == built.reference["tests/test_calc.py"]
+
+
+async def test_a_test_weakened_until_the_starter_passes_is_refused() -> None:
+    wrong = TEST.replace("== 6", "== 7")
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[f("src/calc.py", BUGGY), f("tests/test_calc.py", wrong), f("README.md")]
+        ),
+        reference_draft(),
+    )
+    gateway.repairs = ["=== tests/test_calc.py ===\ndef test_total():\n    assert True\n"]
+    built = await build(gateway)
+    assert failed(built) == ["the reference solution passes every test"]
+    assert built.starter["tests/test_calc.py"] == wrong
+
+
+async def test_a_metrics_script_that_fails_is_repaired() -> None:
+    gateway = FakeGateway(
+        starter_draft(
+            key_files=[
+                f("key/make_data.py", MAKE_DATA),
+                f("key/metrics.py", "raise SystemExit(1)\n"),
+            ]
+        ),
+        reference_draft(),
+    )
+    gateway.repairs = [f"=== key/metrics.py ===\n{METRICS}"]
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.metrics == {"sum_matches": 1.0} and built.key["key/metrics.py"] == METRICS
+
+
+async def test_a_local_writer_writes_one_file_per_call_and_may_leave_out_the_header() -> None:
+    class Local(FakeGateway):
+        def model_for(self, tier: str, purpose: str = "") -> str:
+            return "ollama/qwen2.5-coder:7b"
+
+        async def complete(self, **kwargs: Any) -> SimpleNamespace:
+            reply = await super().complete(**kwargs)
+            reply.content = reply.content.split("===\n", 1)[-1]  # the header line left out
+            return reply
+
+    gateway = Local(starter_draft(), reference_draft())
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    starter_calls = [c for c in gateway.complete_calls if c["purpose"] == "write-starter-file"]
+    assert len(starter_calls) == 5 and built.starter["src/calc.py"] == BUGGY
+    writes = [c for c in gateway.complete_calls if c["purpose"].startswith("write-")]
+    assert all(c["stop"] == art.ONE_FILE_STOP for c in writes)
+    assert all(c["max_tokens"] == art.LOCAL_FILE_MAX_TOKENS for c in writes)
+    assert {c["prompt_version"] for c in writes} == {
+        art.WRITE_ONE_FILE_VERSION, art.WRITE_ONE_REFERENCE_VERSION,
+    }  # fmt: skip
+
+
+async def test_a_local_reply_that_wrote_some_other_file_is_asked_again() -> None:
+    class WrongFirst(FakeGateway):
+        def model_for(self, tier: str, purpose: str = "") -> str:
+            return "ollama/qwen2.5-coder:7b"
+
+        async def complete(self, **kwargs: Any) -> SimpleNamespace:
+            reply = await super().complete(**kwargs)
+            asked = kwargs["messages"][1]["content"].rsplit("(and no other):\n", 1)[-1]
+            if asked.startswith("- src/calc.py:") and not getattr(self, "fooled", False):
+                self.fooled = True
+                reply.content = "=== README.md ===\n# Something else\n"
+            return reply
+
+    gateway = WrongFirst(starter_draft(), reference_draft())
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    targets = [c["messages"][1]["content"].rsplit("(and no other):\n", 1)[-1] for c in
+               gateway.complete_calls]  # fmt: skip
+    asks = [t for t in targets if t.startswith("- src/calc.py")]
+    assert len(asks) == 3  # the wrong file, then again; the reference writes it once more
+
+
+async def test_a_local_model_gets_more_repair_rounds_than_a_hosted_one() -> None:
+    class Local(FakeGateway):
+        def model_for(self, tier: str, purpose: str = "") -> str:
+            return "ollama/qwen2.5-coder:7b"
+
+    broken = starter_draft(
+        starter_files=[
+            f("src/calc.py", "import no_such_module\n\n" + BUGGY),
+            f("tests/test_calc.py", TEST),
+            f("README.md"),
+        ]
+    )
+    gateway = Local(broken, reference_draft())
+    gateway.repairs = [""] * (art.REPAIRS - 1) + [f"=== src/calc.py ===\n{BUGGY}"]
+    built = await build(gateway)
+    assert built.ok, failed(built)  # fixed on the last free round
+    assert len([c for c in gateway.complete_calls if c["purpose"] == "repair-file"]) == 4
+
+
+async def test_a_cut_off_repair_changes_nothing() -> None:
+    class Cut:
+        async def complete(self, **kwargs: Any) -> SimpleNamespace:
+            return SimpleNamespace(
+                content="=== a.py ===\nx = (", cost_usd=0, model="m", finish_reason="length"
+            )
+
+    changed = await art.repair_files(
+        Cut(), art.Spend(), tier="judge", budget_usd=1, scenario="s", goal="g", problem="p",  # type: ignore[arg-type]
+        files={"a.py": "x = 1\n"}, editable=["a.py"],
+    )  # fmt: skip
+    assert changed == {}
+
+
+def test_words_that_give_a_planted_issue_away_are_removed_from_what_the_person_gets() -> None:
+    code = (
+        "import re\n\n\n"
+        "def check(a, b):\n"
+        '    """Checks a against b.\n\n    The planted flaw: a substring check.\n    """\n'
+        "    # FLAW (planted): substring, so 5% matches 15%\n"
+        "    return a in b  # deliberately naive\n\n\n"
+        "def flawless():\n    return 'no flaws here'\n"
+    )
+    cleaned = art.without_hints("src/check.py", code)
+    assert "planted" not in cleaned.lower() and "deliberately" not in cleaned
+    assert "    return a in b\n" in cleaned and '"""Checks a against b.' in cleaned
+    assert "def flawless():\n    return 'no flaws here'" in cleaned  # code and data stay
+    assert art.syntax_error(cleaned) == ""
+    readme = (
+        "# Tool\n\nRun it.\n\n## Known flaws\n\nThe check is naive.\n\n## Tests\n\nRun pytest.\n"
+    )
+    assert (
+        art.without_hints("README.md", readme) == "# Tool\n\nRun it.\n\n## Tests\n\nRun pytest.\n"
+    )
+    assert art.without_hints("data/x.json", '{"flaw": 1}') == '{"flaw": 1}'
+
+
+async def test_a_flaw_named_in_a_comment_never_reaches_the_person() -> None:
+    hinted = (
+        "def total(xs):\n    # FLAW: drops the last number on purpose\n    return sum(xs[:-1])\n"
+    )
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[f("src/calc.py", hinted), f("tests/test_calc.py", TEST), f("README.md")]
+        ),
+        reference_draft(),
+    )
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.starter["src/calc.py"] == BUGGY
+
+
+def test_the_modules_a_test_imports_are_found_as_paths() -> None:
+    files = ["src/calc.py", "src/io.py", "src/__init__.py", "app.py", "tests/test_x.py"]
+    text = "import os\nfrom src.calc import total\nfrom src import io, missing\nimport app\n"
+    assert art.imported(text, files) == ["src/calc.py", "src/io.py", "src/__init__.py", "app.py"]
+
+
+def test_model_debris_is_tidied_and_problems_are_found_by_name() -> None:
+    explained = "import json\n\ndef f():\n    return 1\n\nprint(f())\n\n---\nThis writes data.\n"
+    assert art.clean_file(explained, "key/make_data.py") == (
+        "import json\n\ndef f():\n    return 1\n\nprint(f())\n"
+    )
+    assert art.clean_file("Here it is:\n```python\nx = 1\n```\nDone.", "a.py") == "x = 1\n"
+    assert art.clean_file("x = 1\n# ---\ny = 2\n", "a.py") == "x = 1\n# ---\ny = 2\n"
+    assert art.clean_file("def (", "a.py") == "def (\n"  # nothing compiles: left for a repair
+    problems = art.file_problems(
+        {"a.py": "def (", "b.json": "{x", "c.jsonl": "{}\n{bad", "d.py": "x = 1", "e.md": "# ("}
+    )
+    assert sorted(problems) == ["a.py", "b.json", "c.jsonl"]
+    assert problems["c.jsonl"].startswith("line 2")
+    output = 'File "/work/key/make_data.py", line 3\n  File "/work/src/io.py", line 9\nsrc/io.py:9'
+    assert art.mentioned(output, ["key/make_data.py", "src/io.py", "io.py"]) == [
+        "src/io.py", "key/make_data.py",
+    ]  # fmt: skip
+    assert art.split_files("### === `a.py` ===\nx\n=== FILE: b.py ===\ny") == {
+        "a.py": "x",
+        "b.py": "y",
+    }
 
 
 async def test_a_generator_that_fails_stops_the_build_before_the_reference_is_requested() -> None:

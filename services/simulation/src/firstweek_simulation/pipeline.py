@@ -178,6 +178,11 @@ async def run_pipeline(
                 f"The free models ran out during attempt {attempt}. Progress is saved: run the "
                 "same command after the quota resets and it continues from here."
             ) from exc
+        except Exception as exc:  # an attempt that crashed is a failed attempt, not a lost run
+            built = BuiltArtifacts(
+                starter={}, reference={}, key={}, metrics={}, summary="",
+                checks=[Check("the build ran", False, f"{type(exc).__name__}: {str(exc)[:500]}")],
+            )  # fmt: skip
         cost += built.cost_usd
         history.append(list(built.checks))
         result = PipelineResult(designed, built, attempt, history, cost)

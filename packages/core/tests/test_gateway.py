@@ -756,3 +756,49 @@ async def test_the_project_design_stays_on_the_hosted_models() -> None:
     await gateway.complete(purpose="design-blueprint", messages=msgs, tier="judge")
     await gateway.complete(purpose="write-starter-file", messages=msgs, tier="judge")
     assert seen == [settings.model_judge, "ollama/qwen2.5-coder:7b"]
+
+
+async def test_the_local_model_is_the_last_resort_when_the_hosted_models_are_busy() -> None:
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        if not kwargs["model"].startswith("ollama/"):
+            raise DailyQuotaError("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+            usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1),
+        )
+
+    settings = Settings(_env_file=None, model_local="ollama/qwen2.5-coder:7b")
+    gateway = LLMGateway(
+        settings=settings, completion_fn=llm, tracer=FakeTracer(),
+        recorder=lambda _: None, budgets=BudgetRegistry(Decimal("1")),
+    )  # fmt: skip
+    msgs: list[Any] = [{"role": "user", "content": "hi"}]
+    result = await gateway.complete(purpose="plan-starter", messages=msgs, tier="judge")
+    assert result.model == "ollama/qwen2.5-coder:7b"
+    assert seen[0] == settings.model_judge and seen[-1] == "ollama/qwen2.5-coder:7b"
+
+
+async def test_a_local_reply_is_sized_to_fit_the_context_window_with_its_prompt() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+            usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1),
+        )
+
+    settings = Settings(_env_file=None, model_local="ollama/qwen2.5-coder:7b", ollama_num_ctx=8192)
+    gateway = LLMGateway(
+        settings=settings, completion_fn=llm, tracer=FakeTracer(),
+        recorder=lambda _: None, budgets=BudgetRegistry(Decimal("1")),
+    )  # fmt: skip
+    prompt: list[Any] = [{"role": "user", "content": "x" * 15_000}]  # about 5,000 tokens
+    await gateway.complete(
+        purpose="write-starter-file", messages=prompt, tier="judge", max_tokens=8000
+    )
+    assert seen[0]["model"].startswith("ollama/")
+    assert seen[0]["max_tokens"] == 8192 - 5000 - 256
