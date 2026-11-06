@@ -80,11 +80,11 @@ With a local model doing the writing, every failure still threw away the attempt
 
 - Code first, no model: fences and a trailing separator with an explanation are removed when that makes the file compile.
 - Every Python file must compile and every JSON file parse before anything runs; a file that does not is rewritten on its own, with the error.
-- The generator, the starter's tests, the reference's tests and the metrics script each get up to 4 fix-and-run rounds (`repair-files.v1`): the error output and the files it names go back to the writer, which returns whole files. Only named files may change, and a cut-off reply changes nothing.
+- The generator, the starter's tests, the reference's tests and the metrics script each get up to 4 fix-and-run rounds (`repair-files.v1`): the error output and the files it names (or the modules a failing test imports) go back to the writer, which returns whole files. Only those files may change; a cut-off reply, or one that does not compile, changes nothing.
+- Rounds escalate, because a small model asked the same way repeats the same broken answer: round 2 says the earlier fix failed and runs warmer; from round 3 the broken file is withheld and written fresh from the plan's notes, which every starter repair sees.
 - A test may be corrected only if the corrected test still fails on the starter (otherwise it no longer finds the planted issue) and still asserts something.
 - With a local model the rounds are free; with hosted models only, each check gets 1 round so the daily quota lasts.
-- A model on this machine writes one file per call (no request limit, and a small model keeps its window on one file); the reference writer sees the files it changes in full and the rest as outlines. A local reply is sized so prompt and reply fit `ollama_num_ctx`.
+- A model on this machine writes one file per call (`write-one-file.v1`, `write-one-reference-file.v1`): the exact header line is given, the reply stops at the next header, 4,000 tokens at most, and a reply that wrote some other file is asked again twice. Small models otherwise write the whole repository on every call, and take the placeholder `=== path ===` literally. The reference writer sees the files it changes in full and the rest as outlines. A local reply is sized so prompt and reply fit `ollama_num_ctx`.
+- What the person receives gives nothing away: comments, docstring lines and README sections that mention a planted, deliberate or intentional flaw are removed by code (small models write `# FLAW: ...` however they are asked).
 - The local model is also the last fallback for the calls that try hosted models first (design, plans), so a run never stops for quota.
 - A plan that never parses, or an attempt that crashes, is a failed try with its error recorded, not a lost run.
-
-Tested end to end with a real local model (Qwen2.5-Coder 3B, the smaller sibling of the 7B the author runs) on the design from the author's last run.

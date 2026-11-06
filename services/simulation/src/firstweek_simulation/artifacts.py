@@ -57,6 +57,9 @@ HOSTED_REPAIRS = 1  # with hosted free models only: one round, so the daily quot
 REPAIR_VERSION = "repair-files.v1"
 REPAIR_MAX_TOKENS = 6000
 REPAIR_FILES = 2  # files shown in full, and allowed to change, in one repair call
+REWRITE_FROM_ROUND = 3  # from this round the broken file is withheld: written fresh, not patched
+# A small model sometimes runs on into the prompt's own headings; stop it there.
+REPAIR_STOP = ["\nOther files in the repository", "\nWhat went wrong:", "\nFiles you may change"]
 FENCE = re.compile(r"^\s*```[\w+-]*\s*$")
 HINT = re.compile(r"\b(?:planted|flaws?|flawed|deliberate(?:ly)?|intentional(?:ly)?)\b", re.I)
 SEPARATOR = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,}|\*\*.*\*\*:?)\s*$")  # never Python
@@ -400,6 +403,7 @@ async def write_files(
     batch: int = BATCH_FILES,
     max_tokens: int = FILE_MAX_TOKENS,
     stop: list[str] | None = None,
+    temperature: float = 0.3,
 ) -> dict[str, str]:
     """A few files per model call, in order, each call seeing outlines of the files before it.
 
@@ -417,11 +421,16 @@ async def write_files(
                 purpose=purpose,
                 messages=[
                     {"role": "system", "content": system},
-                    {"role": "user", "content": user.format(**render(group, written))},
+                    {
+                        "role": "user",
+                        "content": user.format(
+                            **render(group, written), header=f"=== {group[0].path} ==="
+                        ),
+                    },
                 ],
                 tier=tier,
                 max_tokens=limit,
-                temperature=0.3,
+                temperature=temperature,
                 budget_scope="build-artifacts",
                 budget_usd=budget_usd,
                 prompt_version=version,
@@ -439,9 +448,7 @@ async def write_files(
             half = len(group) // 2
             queue[:0] = [group[:half], group[half:]]
             continue
-        files = split_files(result.content)
-        if not files and len(group) == 1 and result.content.strip():
-            files = {group[0].path: result.content}  # one file, written without its header line
+        files = one_file(split_files(result.content), result.content, group, planned)
         missing: list[PlannedFile] = []
         for item in group:
             text = files.get(item.path, "")
@@ -458,6 +465,25 @@ async def write_files(
                 raise FileWriteError(f"{path}: the reply was empty")
         queue[:0] = [[item] for item in missing]
     return written
+
+
+def one_file(
+    files: dict[str, str], reply: str, group: list[PlannedFile], planned: list[PlannedFile]
+) -> dict[str, str]:
+    """For a one-file request, the file under the names small models give it: no header at
+    all, or a placeholder header (`=== path ===`) with the real path on the next line."""
+    if len(group) != 1 or group[0].path in files:
+        return files
+    target = group[0].path
+    if not files:
+        return {target: reply} if reply.strip() else {}
+    known = {item.path for item in planned}
+    if len(files) == 1 and not set(files) & known:
+        lines = next(iter(files.values())).lstrip("\n").splitlines()
+        if lines and lines[0].strip().strip("`*") == target:
+            lines = lines[1:]
+        return {target: "\n".join(lines)}
+    return files
 
 
 def is_data(path: str) -> bool:
@@ -520,6 +546,29 @@ def output_dirs(generated: list[str]) -> dict[str, str]:
     return {f"{path.rsplit('/', 1)[0]}/.keep": "" for path in generated if "/" in path}
 
 
+def with_key_contracts(items: list[PlannedFile], generated: list[str]) -> list[PlannedFile]:
+    """The two key scripts with how they are run spelled out: the generator was the file small
+    models got wrong most often (no main block, wrong paths, folders not made)."""
+    rules = {
+        GENERATOR: (
+            " It runs as `python -m key.make_data --seed N` from the repository root and must "
+            f"write exactly these files, at these paths: {', '.join(generated)}. Structure: a "
+            "main() that parses --seed (int) with argparse, makes rng = random.Random(seed), "
+            "creates each folder it writes into (os.makedirs(..., exist_ok=True)) and writes every "
+            "file; the file ends with `if __name__ == '__main__': main()`."
+        ),
+        METRICS_SCRIPT: (
+            " It runs as `python -m key.metrics` from the repository root and writes metrics.json "
+            "there: one flat JSON object of numbers. Structure: a main() that computes and writes "
+            "it; the file ends with `if __name__ == '__main__': main()`."
+        ),
+    }
+    return [
+        i.model_copy(update={"purpose": i.purpose + rules[i.path]}) if i.path in rules else i
+        for i in items
+    ]
+
+
 def local_writing(local: bool) -> dict[str, Any]:
     """How files are asked for: one at a time, small and stopped at the next header for a model
     on this machine; a few per call for hosted models, whose requests are counted."""
@@ -545,11 +594,23 @@ async def repair_files(
     problem: str,
     files: dict[str, str],
     editable: list[str],
+    round_number: int = 1,
 ) -> dict[str, str]:
     """One model call that rewrites whichever of the first few `editable` files the problem
     needs. Returns only files it was allowed to change, cleaned; a cut-off reply changes
-    nothing, so a half-written file never replaces a whole one."""
+    nothing, so a half-written file never replaces a whole one.
+
+    From the second round on, the writer is told the earlier fix did not work and to rewrite
+    simply from scratch, at a higher temperature: asked the same way, a small model gives the
+    same broken answer again."""
     allowed = list(dict.fromkeys(editable))[:REPAIR_FILES]
+    rewrite = round_number >= REWRITE_FROM_ROUND
+    if round_number > 1:
+        problem = (
+            f"(Round {round_number}: an earlier fix did not solve this. Do not repeat it: "
+            "rewrite the file from scratch, simply and correctly, from the goal and the plan.)\n"
+            + problem
+        )
     if not allowed:
         return {}
     system, user = load_prompt(REPAIR_VERSION)
@@ -564,17 +625,26 @@ async def repair_files(
                     scenario=scenario,
                     goal=goal,
                     problem=tail(problem, 40),
-                    editable="\n\n".join(f"=== {p} ===\n{files.get(p, '')}" for p in allowed),
+                    editable="\n\n".join(
+                        f"=== {p} ===\n"
+                        + (
+                            "(the broken version is withheld: write this file again from scratch)"
+                            if rewrite
+                            else files.get(p, "")
+                        )
+                        for p in allowed
+                    ),
                     others=shown_outline(others),
                 ),
             },
         ],
         tier=tier,
         max_tokens=REPAIR_MAX_TOKENS,
-        temperature=0.2,
+        temperature=0.2 if round_number == 1 else 0.7,
         budget_scope="build-artifacts",
         budget_usd=budget_usd,
         prompt_version=REPAIR_VERSION,
+        stop=REPAIR_STOP + (ONE_FILE_STOP if len(allowed) == 1 else []),
     )
     spend.cost_usd += float(result.cost_usd)
     spend.model = result.model
@@ -583,7 +653,10 @@ async def repair_files(
     replies = split_files(result.content)
     if not replies and len(allowed) == 1 and result.content.strip():
         replies = {allowed[0]: result.content}  # one file, written without its header line
-    return {p: clean_file(t, p) for p, t in replies.items() if p in allowed and t.strip()}
+    cleaned = {p: clean_file(t, p) for p, t in replies.items() if p in allowed and t.strip()}
+    # A repair that does not even compile or parse never replaces what is there.
+    broken = file_problems(cleaned)
+    return {p: t for p, t in cleaned.items() if p not in broken}
 
 
 def imported(text: str, paths: Iterable[str]) -> list[str]:
@@ -641,29 +714,35 @@ async def build_artifacts(
     built = BuiltArtifacts(starter={}, reference={}, key={}, metrics={}, summary="")
     keep = f"Keep these planted issues exactly where the plan puts them, unmentioned:\n{issues}"
     repairs = REPAIRS if writer_is_local(gateway, tier, "repair-file") else HOSTED_REPAIRS
+    # A later attempt writes warmer: a deterministic local model would write the same files.
+    write_temperature = 0.6 if feedback else 0.3
 
     def finish() -> BuiltArtifacts:
         built.cost_usd, built.model = spend.cost_usd, spend.model
         return built
 
+    contract = {"notes": ""}  # the starter plan's shared contract, once there is one
+
     async def fix(
-        goal: str, problem: str, files: dict[str, str], editable: list[str]
+        goal: str, problem: str, files: dict[str, str], editable: list[str], round_number: int = 1
     ) -> dict[str, str]:
+        if contract["notes"]:
+            goal += f"\n\nThe plan's notes (the contract every file follows):\n{contract['notes']}"
         return await repair_files(
             gateway, spend, tier=tier, budget_usd=budget_usd, scenario=blueprint.scenario,
-            goal=goal, problem=problem, files=files, editable=editable,
+            goal=goal, problem=problem, files=files, editable=editable, round_number=round_number,
         )  # fmt: skip
 
     async def valid(files: dict[str, str], paths: Iterable[str], extra: str) -> list[str]:
         """Repairs, in place, each of `paths` that does not compile or parse. Returns the
         problems left."""
         for path in [p for p in paths if file_problems({p: files[p]})]:
-            for _ in range(repairs):
+            for number in range(1, repairs + 1):
                 why = file_problems({path: files[path]}).get(path)
                 if why is None:
                     break
                 goal = f"Make {path} a valid file of its type that does what it is for. {extra}"
-                changed = await fix(goal, f"{path}: {why}", files, [path])
+                changed = await fix(goal, f"{path}: {why}", files, [path], number)
                 files.update({p: t for p, t in changed.items() if p == path})
         return [f"{p}: {w}" for p, w in file_problems({p: files[p] for p in paths}).items()]
 
@@ -718,7 +797,8 @@ async def build_artifacts(
         else:
             built.checks.append(Check("starter files are well formed", False, " ".join(found)))
             return False
-        every = [*plan.starter_files, *plan.key_files]
+        every = [*plan.starter_files, *with_key_contracts(plan.key_files, plan.generated)]
+        contract["notes"] = plan.design_notes
 
         def render_starter(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
             return {
@@ -735,7 +815,7 @@ async def build_artifacts(
                 gateway, spend, purpose="write-starter-file", tier=tier,
                 version=WRITE_ONE_FILE_VERSION if local else WRITE_FILE_VERSION,
                 planned=every, render=render_starter, budget_usd=budget_usd,
-                **local_writing(local),
+                temperature=write_temperature, **local_writing(local),
             )  # fmt: skip
             for item in plan.starter_files:  # what the person receives gives nothing away
                 files[item.path] = without_hints(item.path, files[item.path])
@@ -789,6 +869,12 @@ async def build_artifacts(
                 else f"exit {made.exit_code}; missing {missing}; "
                 f"{tail(made.stdout + made.stderr, 25)}"
             )
+            if made.ok and missing:
+                made_problem += (
+                    "\nIt ran without an error but did not write those files: when run as "
+                    "`python -m key.make_data --seed N`, module-level code must parse --seed and "
+                    "call the code that writes every one of them, at exactly those paths."
+                )
             if made_problem:
                 if generator_rounds == repairs:
                     break
@@ -796,7 +882,11 @@ async def build_artifacts(
                 code = tree(starter, key)
                 sources = [p for p in code if p.endswith(".py") and not p.startswith("tests/")]
                 named = [p for p in mentioned(made_problem, sources) if p != GENERATOR]
-                apply(await fix(generator_goal, made_problem, code, [GENERATOR, *named]))
+                apply(
+                    await fix(
+                        generator_goal, made_problem, code, [GENERATOR, *named], generator_rounds
+                    )
+                )
                 continue
             with_data = tree(starter, {p: t for p, t in made.files.items() if not is_key_path(p)})
             before = await runner.run(
@@ -826,7 +916,9 @@ async def build_artifacts(
                     f"planted issues. Fix what the output shows. {keep}"
                 )
                 editable = mentioned(output, [p for p in starter if p.endswith(".py")]) or tests
-            apply(await fix(goal, f"{verdict}\n{tail(output, 40)}", with_data, editable))
+            apply(
+                await fix(goal, f"{verdict}\n{tail(output, 40)}", with_data, editable, test_rounds)
+            )
 
         built.checks.append(
             Check("the data generator runs and writes every file it lists", not made_problem,
@@ -905,7 +997,7 @@ async def build_artifacts(
             gateway, spend, purpose="write-reference-file", tier=tier,
             version=WRITE_ONE_REFERENCE_VERSION if local else WRITE_REFERENCE_VERSION,
             planned=ref_plan.changes, render=render_reference, budget_usd=budget_usd,
-            **local_writing(local),
+            temperature=write_temperature, **local_writing(local),
         )  # fmt: skip
     except FileWriteError as exc:
         built.checks.append(Check("reference files are written", False, str(exc)))
@@ -940,7 +1032,7 @@ async def build_artifacts(
             "example an expected value worked out wrongly), never to weaken what it checks, and "
             "never delete a test."
         )
-        fixed = await fix(goal, output, reference, [*sources[:1], *tests[:1], *sources[1:]])
+        fixed = await fix(goal, output, reference, [*sources[:1], *tests[:1], *sources[1:]], rounds)
         # A starter test the repair corrected; the reference's own new tests stay its own.
         new_tests = {
             p: without_hints(p, t)
@@ -993,7 +1085,9 @@ async def build_artifacts(
             f"exit {measured.exit_code}; metrics.json: {written_metrics[:400] or '(not written)'}"
             f"\n{tail(measured.stdout + measured.stderr, 30)}"
         )
-        changed_key = await fix(metrics_goal, problem, tree(reference, built.key), [METRICS_SCRIPT])
+        changed_key = await fix(
+            metrics_goal, problem, tree(reference, built.key), [METRICS_SCRIPT], rounds
+        )
         built.key.update({p: t for p, t in changed_key.items() if is_key_path(p)})
     built.checks.append(
         Check(

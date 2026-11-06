@@ -375,6 +375,7 @@ async def test_a_generator_that_misses_a_file_is_repaired_with_the_exact_paths()
     (repair,) = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
     prompt = repair["messages"][1]["content"]
     assert "missing ['data/nums.json']" in prompt
+    assert "ran without an error but did not write those files" in prompt
     assert "write exactly these files: data/nums.json, key/truth.json" in prompt
 
 
@@ -485,7 +486,56 @@ async def test_a_local_model_gets_more_repair_rounds_than_a_hosted_one() -> None
     gateway.repairs = [""] * (art.REPAIRS - 1) + [f"=== src/calc.py ===\n{BUGGY}"]
     built = await build(gateway)
     assert built.ok, failed(built)  # fixed on the last free round
-    assert len([c for c in gateway.complete_calls if c["purpose"] == "repair-file"]) == 4
+    repairs = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    assert len(repairs) == 4
+    # the first round patches; later rounds rewrite from scratch, warmer, with the contract
+    assert repairs[0]["temperature"] == 0.2 and repairs[1]["temperature"] == 0.7
+    assert "Round 2" not in repairs[0]["messages"][1]["content"]
+    assert "(Round 2: an earlier fix did not solve this" in repairs[1]["messages"][1]["content"]
+    assert "Shared notes about names and signatures." in repairs[0]["messages"][1]["content"]
+
+
+async def test_a_repair_that_does_not_compile_changes_nothing_and_late_rounds_rewrite() -> None:
+    seen: list[dict[str, Any]] = []
+
+    class Echo:
+        async def complete(self, **kwargs: Any) -> SimpleNamespace:
+            seen.append(kwargs)
+            return SimpleNamespace(
+                content="=== a.py ===\nx = 2\nOther files in the repository (outlines", cost_usd=0,
+                model="m", finish_reason="stop",
+            )  # fmt: skip
+
+    async def repair(round_number: int) -> dict[str, str]:
+        return await art.repair_files(
+            Echo(), art.Spend(), tier="judge", budget_usd=1, scenario="s", goal="g",  # type: ignore[arg-type]
+            problem="p", files={"a.py": "x = 1  # broken somehow\n"}, editable=["a.py"],
+            round_number=round_number,
+        )  # fmt: skip
+
+    assert await repair(1) == {}  # prose in a Python file: refused
+    assert "\nOther files in the repository" in seen[0]["stop"] and "\n=== " in seen[0]["stop"]
+    assert "x = 1  # broken somehow" in seen[0]["messages"][1]["content"]
+    await repair(art.REWRITE_FROM_ROUND)
+    assert "x = 1  # broken somehow" not in seen[1]["messages"][1]["content"]
+    assert "withheld" in seen[1]["messages"][1]["content"]
+
+
+async def test_the_key_scripts_are_asked_for_with_how_they_are_run() -> None:
+    gateway = FakeGateway(starter_draft(), reference_draft())
+    await build(gateway)
+    prompts = [c["messages"][1]["content"] for c in gateway.complete_calls]
+    asked = next(p for p in prompts if "- key/make_data.py:" in p)
+    assert "write exactly these files, at these paths: data/nums.json, key/truth.json" in asked
+    assert "if __name__ == '__main__': main()" in asked
+    assert "python -m key.metrics" in asked
+
+
+async def test_a_later_attempt_writes_warmer() -> None:
+    gateway = FakeGateway(starter_draft(), reference_draft())
+    await art.build_artifacts(gateway, LocalRunner(), blueprint(), feedback="- it failed")  # type: ignore[arg-type]
+    writes = [c for c in gateway.complete_calls if c["purpose"].startswith("write-")]
+    assert writes and all(c["temperature"] == 0.6 for c in writes)
 
 
 async def test_a_cut_off_repair_changes_nothing() -> None:
@@ -538,6 +588,16 @@ async def test_a_flaw_named_in_a_comment_never_reaches_the_person() -> None:
     built = await build(gateway)
     assert built.ok, failed(built)
     assert built.starter["src/calc.py"] == BUGGY
+
+
+def test_a_one_file_reply_is_found_under_the_names_small_models_give_it() -> None:
+    plan = [PlannedFile(path=p, purpose="Does what the plan says.") for p in ("README.md", "a.py")]
+    readme = plan[:1]
+    assert art.one_file({}, "# Title\n", readme, plan) == {"README.md": "# Title\n"}
+    placeholder = art.split_files("=== path ===\nREADME.md\n\n# Title")
+    assert art.one_file(placeholder, "", readme, plan) == {"README.md": "\n# Title"}
+    other = {"a.py": "x = 1"}  # a real other file is not taken for the one asked for
+    assert art.one_file(other, "", readme, plan) == other
 
 
 def test_the_modules_a_test_imports_are_found_as_paths() -> None:
