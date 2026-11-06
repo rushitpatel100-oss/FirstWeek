@@ -337,6 +337,12 @@ def plan_text(items: list[PlannedFile]) -> str:
     return "\n".join(f"- {i.path}: {i.purpose}" for i in items)
 
 
+def output_dirs(generated: list[str]) -> dict[str, str]:
+    """An empty placeholder in each folder the generator writes to, so the folder exists: models
+    often forget to create it, and the generator then fails on a missing `data/`."""
+    return {f"{path.rsplit('/', 1)[0]}/.keep": "" for path in generated if "/" in path}
+
+
 async def build_artifacts(
     gateway: LLMGateway,
     runner: SandboxRunner,
@@ -442,7 +448,7 @@ async def build_artifacts(
 
         made = await runner.run(
             SandboxJob(
-                files=tree(starter, key),
+                files={**output_dirs(draft.generated), **tree(starter, key)},
                 command=["python", "-m", "key.make_data", "--seed", str(seed)],
                 collect=draft.generated,
                 timeout_s=60,
