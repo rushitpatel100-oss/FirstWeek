@@ -590,3 +590,12 @@ async def test_a_plan_that_never_passes_the_checks_stops_before_writing_anything
     built = await build(gateway)
     assert failed(built) == ["starter files are well formed"]
     assert gateway.complete_calls == [] and len(gateway.structured_calls) == art.REPLANS
+
+
+def test_folders_for_generated_files_are_created_for_the_generator() -> None:
+    from firstweek_simulation.artifacts import output_dirs
+
+    assert output_dirs(["data/a.json", "logs/x.log", "metrics.json", "data/b.json"]) == {
+        "data/.keep": "",
+        "logs/.keep": "",
+    }
