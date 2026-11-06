@@ -71,3 +71,5 @@ A typical attempt drops from about 19 calls to about 7, and a reference-only ret
 ## Addendum 2026-11-04: a local model with no limit
 
 Free hosted tiers cap requests and tokens a day, so the autopilot cannot run whenever the author wants. `MODEL_LOCAL=ollama/<model>` puts a model on this machine (Ollama) first in the judge chain: no daily limit, no key, no cost (priced at zero, reported as "no limit" by the pre-flight). The hosted free models stay behind it as fallbacks. Gateway passes `api_base`, a 12K `num_ctx` (Ollama's default silently cuts long prompts) and a 15-minute timeout for local models. Trade-off: a 7B model on a 6 GB graphics card makes more plan mistakes than the hosted ones; the plan repair and retries absorb some. Generate, review, commit.
+
+Follow-up the same day: a 7B model could not produce a valid project design (invalid task types, rubric gaps). `MODEL_LOCAL_PURPOSES` (default: the two file-writing calls) now decides which calls go to the local model first; the design and the plans stay on the hosted free models, a few requests a run.
