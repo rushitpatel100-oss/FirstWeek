@@ -699,3 +699,16 @@ def test_a_local_model_has_no_daily_limit() -> None:
     settings = Settings(_env_file=None, model_local="ollama/qwen2.5-coder:7b")
     left = quota.remaining(settings, {}, {})
     assert left["ollama/qwen2.5-coder:7b"] == quota.UNLIMITED
+
+
+async def test_a_probe_of_a_local_model_sends_one_timeout() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs)
+        return SimpleNamespace()
+
+    gateway = _free_gateway(Flaky(set()), [])
+    gateway.completion_fn = llm
+    assert await gateway.probe("ollama/qwen2.5-coder:7b") == "ok"
+    assert seen[0]["api_base"] and seen[0]["timeout"] > 30

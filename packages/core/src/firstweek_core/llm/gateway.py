@@ -294,11 +294,11 @@ class LLMGateway:
         started = time.perf_counter()
         ok, error = True, None
         try:
-            await self.completion_fn(
-                model=model, messages=[{"role": "user", "content": "Reply with OK."}],
-                max_tokens=16, timeout=30.0, num_retries=0, drop_params=True,
+            await self.completion_fn(**{
+                "model": model, "messages": [{"role": "user", "content": "Reply with OK."}],
+                "max_tokens": 16, "timeout": 30.0, "num_retries": 0, "drop_params": True,
                 **self._local_args(model),
-            )  # fmt: skip
+            })  # fmt: skip
             status = "ok"
         except Exception as exc:
             ok, error, status = False, str(exc)[:1000], probe_status(exc)
