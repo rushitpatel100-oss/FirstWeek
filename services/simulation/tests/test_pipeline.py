@@ -14,7 +14,7 @@ from firstweek_core.contracts import RoleRealityReport
 from firstweek_simulation import artifacts as art
 from firstweek_simulation import blueprint as bp
 from firstweek_simulation import pipeline as pl
-from firstweek_simulation.artifacts import BuiltArtifacts, Check
+from firstweek_simulation.artifacts import STARTER_CHECKS, BuiltArtifacts, Check
 
 
 def built(ok: bool, metrics: dict[str, float] | None = None, detail: str = "") -> BuiltArtifacts:
@@ -100,6 +100,20 @@ async def test_an_attempt_that_crashes_is_a_failed_attempt_and_the_next_one_runs
     assert result.approved and result.attempts == 2
     assert "ValueError: The prompt is too large" in scripted[3]["feedback"]
     assert any("Attempt 1: failed" in m and "the build ran" in m for m in messages)
+
+
+async def test_a_good_starter_is_kept_once_then_the_next_attempt_starts_fresh(
+    scripted: list[dict[str, Any]],
+) -> None:
+    def starter_ok_but_failing() -> BuiltArtifacts:
+        b = built(False, detail="a test cannot pass")
+        b.checks = [Check(name, True) for name in STARTER_CHECKS] + b.checks
+        return b
+
+    result, _ = await run([starter_ok_but_failing() for _ in range(3)], scripted)
+    reuses = [c["reuse"] for c in scripted if "reuse" in c]
+    assert not result.approved and len(reuses) == 3
+    assert reuses[0] is None and reuses[1] is not None and reuses[2] is None
 
 
 async def test_three_failures_end_unapproved_and_report_every_attempt(

@@ -164,8 +164,14 @@ async def run_pipeline(
     result: PipelineResult | None = None
     cost = designed.cost_usd
     history: list[list[Check]] = []
+    reused_last = False
     for attempt in range(done + 1, attempts + 1):
-        reuse = previous if previous is not None and previous.starter_ok else None
+        # A good starter is kept once, to redo only the solution. If that fails too, the next
+        # attempt starts fresh: the starter's own tests may be what cannot be satisfied.
+        reuse = (
+            previous if previous is not None and previous.starter_ok and not reused_last else None
+        )
+        reused_last = reuse is not None
         try:
             built = await build(
                 gateway, runner, designed.blueprint,

@@ -448,6 +448,30 @@ async def test_a_local_writer_writes_one_file_per_call_and_may_leave_out_the_hea
     }  # fmt: skip
 
 
+async def test_a_local_file_that_runs_past_the_limit_is_asked_again_warmer() -> None:
+    class Loops(FakeGateway):
+        def model_for(self, tier: str, purpose: str = "") -> str:
+            return "ollama/qwen2.5-coder:7b"
+
+        async def complete(self, **kwargs: Any) -> SimpleNamespace:
+            reply = await super().complete(**kwargs)
+            target = kwargs["messages"][1]["content"].rsplit("(and no other):\n", 1)[-1]
+            if target.startswith("- src/calc.py") and kwargs["temperature"] < 0.5:
+                reply.finish_reason = "length"
+            return reply
+
+    gateway = Loops(starter_draft(), reference_draft())
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    asks = [
+        c for c in gateway.complete_calls
+        if c["purpose"] == "write-starter-file"
+        and c["messages"][1]["content"].rsplit("(and no other):\n", 1)[-1].startswith("- src/calc")
+    ]  # fmt: skip
+    assert [c["temperature"] for c in asks] == [0.3, 0.6]
+    assert all(c["max_tokens"] == art.LOCAL_FILE_MAX_TOKENS for c in asks)
+
+
 async def test_a_local_reply_that_wrote_some_other_file_is_asked_again() -> None:
     class WrongFirst(FakeGateway):
         def model_for(self, tier: str, purpose: str = "") -> str:
@@ -529,6 +553,26 @@ async def test_the_key_scripts_are_asked_for_with_how_they_are_run() -> None:
     assert "write exactly these files, at these paths: data/nums.json, key/truth.json" in asked
     assert "if __name__ == '__main__': main()" in asked
     assert "python -m key.metrics" in asked
+
+
+async def test_a_test_file_that_passes_on_the_starter_is_noted_for_the_reviewer() -> None:
+    passing = "def test_fine():\n    assert 1 + 1 == 2\n"
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[
+                f("src/calc.py", BUGGY), f("tests/test_calc.py", TEST),
+                f("tests/test_other.py", passing), f("README.md"),
+            ]
+        ),
+        reference_draft(),
+    )  # fmt: skip
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.notes == [
+        "tests/test_other.py passes on the starter: check that the planted issue it targets is "
+        "there."
+    ]
+    assert "## For the reviewer" in art.to_text(built, None)
 
 
 async def test_a_later_attempt_writes_warmer() -> None:

@@ -99,6 +99,7 @@ class BuiltArtifacts:
     checks: list[Check] = field(default_factory=list)
     cost_usd: float = 0.0
     model: str = ""
+    notes: list[str] = field(default_factory=list)  # for the reviewer; they do not gate
 
     @property
     def ok(self) -> bool:
@@ -408,7 +409,12 @@ async def write_files(
     """A few files per model call, in order, each call seeing outlines of the files before it.
 
     A cut-off reply is split in half and retried; a single file gets one retry at twice the
-    room; a file the reply left out is asked for on its own."""
+    room; a file the reply left out is asked for on its own.
+
+    One file at a time (`stop` set, a local model): a file under 150 lines that runs past the
+    limit is a model repeating itself, not a long file, and a reply that wrote some other file
+    missed the point. Either is asked again at the same limit, warmer, up to WRONG_FILE_RETRIES
+    times."""
     system, user = load_prompt(version)
     written: dict[str, str] = {}
     misses: dict[str, int] = {}
@@ -430,7 +436,7 @@ async def write_files(
                 ],
                 tier=tier,
                 max_tokens=limit,
-                temperature=temperature,
+                temperature=min(1.0, temperature + 0.3 * misses.get(group[0].path, 0)),
                 budget_scope="build-artifacts",
                 budget_usd=budget_usd,
                 prompt_version=version,
@@ -438,12 +444,19 @@ async def write_files(
             )
             spend.cost_usd += float(result.cost_usd)
             spend.model = result.model
-            if result.finish_reason != "length" or len(group) > 1:
+            if result.finish_reason != "length" or len(group) > 1 or stop is not None:
                 break
             ceiling = max(FILE_MAX_TOKENS_CEILING, max_tokens) if stop is None else 2 * max_tokens
             if limit >= ceiling:
                 raise FileWriteError(f"{group[0].path}: the reply was cut off at {limit} tokens")
             limit = min(limit * 2, ceiling)  # thinking may have used the room
+        if result.finish_reason == "length" and len(group) == 1:  # one file, a looping model
+            path = group[0].path
+            misses[path] = misses.get(path, 0) + 1
+            if misses[path] > WRONG_FILE_RETRIES:
+                raise FileWriteError(f"{path}: the reply was cut off at {limit} tokens")
+            queue.insert(0, group)
+            continue
         if result.finish_reason == "length":
             half = len(group) // 2
             queue[:0] = [group[:half], group[half:]]
@@ -672,6 +685,13 @@ def imported(text: str, paths: Iterable[str]) -> list[str]:
             candidates = [f"{module}/{n}.py" for n in names] + candidates
         out += [c for c in candidates if c in known and c not in out]
     return out
+
+
+def quiet_test_files(before: JobResult, tests: Iterable[str]) -> list[str]:
+    """Test files with no failing test on the starter: the planted issue they target may be
+    missing (a writer sometimes writes the fixed version)."""
+    failing = set(re.findall(r"^(?:FAILED|ERROR) (tests/[^:\s]+)", before.stdout, flags=re.M))
+    return [t for t in tests if t not in failing]
 
 
 def starter_verdict(before: JobResult) -> str:
@@ -932,6 +952,12 @@ async def build_artifacts(
         built.checks.append(
             Check("the starter runs and fails its target tests", not verdict, verdict)
         )
+        if not verdict:
+            tests = [p for p in starter if p.startswith("tests/test_") and p.endswith(".py")]
+            built.notes += [
+                f"{t} passes on the starter: check that the planted issue it targets is there."
+                for t in quiet_test_files(before, tests)
+            ]
         return True
 
     if reuse is not None and reuse.starter_ok:
@@ -1170,6 +1196,8 @@ def to_text(built: BuiltArtifacts, folder: Path | None) -> str:
     if built.metrics:
         lines += ["", "## Measured from the reference solution"]
         lines += [f"- {name}: {value:g}" for name, value in sorted(built.metrics.items())]
+    if built.notes:
+        lines += ["", "## For the reviewer", *[f"- {n}" for n in built.notes]]
     if built.summary:
         lines += ["", "## What the reference changes", built.summary]
     lines += ["", f"_Model: {built.model}. Cost: ${built.cost_usd:.2f}._"]
