@@ -246,10 +246,14 @@ class LLMGateway:
                 room = fit_reply_room(candidate, kwargs["messages"], int(kwargs["max_tokens"]))
                 assert room is not None
                 try:
-                    reply = await self.completion_fn(
-                        **{**kwargs, **self._local_args(candidate), "model": candidate,
-                           "max_tokens": room}
-                    )  # fmt: skip
+                    call = {
+                        **kwargs, **self._local_args(candidate), "model": candidate,
+                        "max_tokens": room,
+                    }  # fmt: skip
+                    if candidate.startswith("ollama/"):
+                        # LiteLLM turns this into Ollama's "think", which a plain model rejects.
+                        call.pop("reasoning_effort", None)
+                    reply = await self.completion_fn(**call)
                     return reply, candidate
                 except Exception as exc:
                     # A retired model (404) or a request over a size cap (413) is skipped like a

@@ -712,3 +712,22 @@ async def test_a_probe_of_a_local_model_sends_one_timeout() -> None:
     gateway.completion_fn = llm
     assert await gateway.probe("ollama/qwen2.5-coder:7b") == "ok"
     assert seen[0]["api_base"] and seen[0]["timeout"] > 30
+
+
+async def test_a_local_model_is_not_sent_a_reasoning_effort() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+            usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1),
+        )
+
+    settings = Settings(_env_file=None, model_local="ollama/qwen2.5-coder:7b")
+    gateway = LLMGateway(
+        settings=settings, completion_fn=llm, tracer=FakeTracer(),
+        recorder=lambda _: None, budgets=BudgetRegistry(Decimal("1")),
+    )  # fmt: skip
+    await gateway.complete(purpose="t", messages=[{"role": "user", "content": "hi"}], tier="judge")
+    assert "reasoning_effort" not in seen[0]
