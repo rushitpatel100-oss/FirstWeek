@@ -199,12 +199,16 @@ class LLMGateway:
 
     # ------------------------------------------------------------ routing
 
-    def model_for(self, tier: Tier) -> str:
+    def model_for(self, tier: Tier, purpose: str = "") -> str:
+        local = self.settings.model_local
+        purposes = self.settings.model_local_purposes
+        if tier == "judge" and local and (not purposes or purpose in purposes):
+            return local
         return {
             "frontier": self.settings.model_frontier,
             "mid": self.settings.model_mid,
             "small": self.settings.model_small,
-            "judge": self.settings.model_local or self.settings.model_judge,
+            "judge": self.settings.model_judge,
             "embedding": self.settings.model_embedding,
         }[tier]
 
@@ -231,7 +235,7 @@ class LLMGateway:
             return await self.completion_fn(**kwargs), str(kwargs["model"])
         # We do the retrying here, so LiteLLM's own quick retries and long default timeout go.
         kwargs = {**kwargs, "timeout": FREE_TIER_TIMEOUT_S, "num_retries": 0}
-        models = [str(kwargs["model"]), *self.settings.judge_fallbacks()]
+        models = list(dict.fromkeys([str(kwargs["model"]), *self.settings.judge_fallbacks()]))
         pause = FREE_TIER_PAUSE_S
         spent: set[str] = set()  # models whose daily quota is gone; not worth asking again
         unfit = {  # models whose per-minute cap this prompt can never fit
@@ -339,7 +343,7 @@ class LLMGateway:
         chosen = self._choose_tier(
             tier, budget, lambda model: cost_usd(model, est_in, max_tokens), allow_downgrade
         )
-        model = self.model_for(chosen)
+        model = self.model_for(chosen, purpose)
 
         kwargs: dict[str, Any] = {
             "model": model,

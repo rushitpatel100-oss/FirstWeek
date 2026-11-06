@@ -686,7 +686,9 @@ async def test_a_local_model_is_tried_first_with_its_address_and_no_cost() -> No
     )  # fmt: skip
     assert settings.has_judge_key
     assert settings.judge_fallbacks()[0] == settings.model_judge
-    await gateway.complete(purpose="t", messages=[{"role": "user", "content": "hi"}], tier="judge")
+    await gateway.complete(
+        purpose="write-starter-file", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
     assert seen[0]["model"] == "ollama/qwen2.5-coder:7b"
     assert seen[0]["api_base"] == settings.ollama_api_base
     assert seen[0]["num_ctx"] == settings.ollama_num_ctx
@@ -729,5 +731,28 @@ async def test_a_local_model_is_not_sent_a_reasoning_effort() -> None:
         settings=settings, completion_fn=llm, tracer=FakeTracer(),
         recorder=lambda _: None, budgets=BudgetRegistry(Decimal("1")),
     )  # fmt: skip
-    await gateway.complete(purpose="t", messages=[{"role": "user", "content": "hi"}], tier="judge")
+    await gateway.complete(
+        purpose="write-starter-file", messages=[{"role": "user", "content": "hi"}], tier="judge"
+    )
     assert "reasoning_effort" not in seen[0]
+
+
+async def test_the_project_design_stays_on_the_hosted_models() -> None:
+    seen: list[str] = []
+
+    async def llm(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs["model"])
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
+            usage=SimpleNamespace(prompt_tokens=3, completion_tokens=1),
+        )
+
+    settings = Settings(_env_file=None, model_local="ollama/qwen2.5-coder:7b")
+    gateway = LLMGateway(
+        settings=settings, completion_fn=llm, tracer=FakeTracer(),
+        recorder=lambda _: None, budgets=BudgetRegistry(Decimal("1")),
+    )  # fmt: skip
+    msgs: list[Any] = [{"role": "user", "content": "hi"}]
+    await gateway.complete(purpose="design-blueprint", messages=msgs, tier="judge")
+    await gateway.complete(purpose="write-starter-file", messages=msgs, tier="judge")
+    assert seen == [settings.model_judge, "ollama/qwen2.5-coder:7b"]
