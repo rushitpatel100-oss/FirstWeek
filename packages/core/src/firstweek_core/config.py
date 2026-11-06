@@ -44,8 +44,9 @@ class Settings(BaseSettings):
     # stay behind it as fallbacks.
     model_local: str = ""
     # Only these calls go to the local model first; everything else (the project design, which a
-    # small model gets wrong) stays on the hosted free models. Empty means every call.
-    model_local_purposes: list[str] = ["write-starter-file", "write-reference-file"]
+    # small model gets wrong) tries the hosted free models first and the local model last, so a
+    # run never stops for quota. Empty means every call goes to the local model first.
+    model_local_purposes: list[str] = ["write-starter-file", "write-reference-file", "repair-file"]
     ollama_api_base: str = "http://localhost:11434"
     ollama_num_ctx: int = 12288  # Ollama's own default (a few thousand) silently cuts long prompts
     # "local/<name>" runs a free open-source model on this machine (ADR 0012); any other

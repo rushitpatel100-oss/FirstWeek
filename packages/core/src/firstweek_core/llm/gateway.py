@@ -235,19 +235,23 @@ class LLMGateway:
             return await self.completion_fn(**kwargs), str(kwargs["model"])
         # We do the retrying here, so LiteLLM's own quick retries and long default timeout go.
         kwargs = {**kwargs, "timeout": FREE_TIER_TIMEOUT_S, "num_retries": 0}
-        models = list(dict.fromkeys([str(kwargs["model"]), *self.settings.judge_fallbacks()]))
+        # A model on this machine is the last resort for every call: it never runs out.
+        local = [self.settings.model_local] if self.settings.model_local else []
+        models = list(
+            dict.fromkeys([str(kwargs["model"]), *self.settings.judge_fallbacks(), *local])
+        )
         pause = FREE_TIER_PAUSE_S
         spent: set[str] = set()  # models whose daily quota is gone; not worth asking again
         unfit = {  # models whose per-minute cap this prompt can never fit
             m for m in models
-            if fit_reply_room(m, kwargs["messages"], int(kwargs["max_tokens"])) is None
+            if self._reply_room(m, kwargs["messages"], int(kwargs["max_tokens"])) is None
         }  # fmt: skip
         if len(unfit) == len(models):
             raise ValueError("The prompt is too large for every free model.")
         for attempt in range(FREE_TIER_ROUNDS):
             error: Exception | None = None
             for candidate in (m for m in models if m not in spent | unfit):
-                room = fit_reply_room(candidate, kwargs["messages"], int(kwargs["max_tokens"]))
+                room = self._reply_room(candidate, kwargs["messages"], int(kwargs["max_tokens"]))
                 assert room is not None
                 try:
                     call = {
@@ -284,6 +288,16 @@ class LLMGateway:
         raise AssertionError("unreachable")
 
     # ------------------------------------------------------------ public API
+
+    def _reply_room(self, model: str, messages: list[Message], max_tokens: int) -> int | None:
+        """max_tokens that fit: a local model's context window holds prompt and reply together
+        (Ollama silently drops the start of a prompt that does not fit); a hosted model may have
+        a per-minute cap. None if the prompt leaves too little room for a reply."""
+        if not model.startswith("ollama/"):
+            return fit_reply_room(model, messages, max_tokens)
+        prompt = sum(len(str(m.get("content", ""))) for m in messages) // 3  # code is dense
+        room = self.settings.ollama_num_ctx - prompt - 256
+        return min(max_tokens, room) if room >= MIN_REPLY_TOKENS else None
 
     def _local_args(self, model: str) -> dict[str, Any]:
         """Where a model on this machine (Ollama) is, how long to wait for it, how much context."""
@@ -334,6 +348,7 @@ class LLMGateway:
         prompt_version: str | None = None,
         allow_downgrade: bool = False,
         response_format: dict[str, Any] | None = None,
+        stop: list[str] | None = None,
     ) -> LLMResult[None]:
         """One model call, budget-checked, traced and recorded."""
         assert self.budgets is not None and self.tracer is not None and self.completion_fn
@@ -361,6 +376,8 @@ class LLMGateway:
             kwargs["temperature"] = temperature
         if response_format is not None:
             kwargs["response_format"] = response_format
+        if stop:
+            kwargs["stop"] = stop
 
         metadata = {"purpose": purpose, "tier": chosen, "budget_scope": budget_scope}
         if prompt_version:

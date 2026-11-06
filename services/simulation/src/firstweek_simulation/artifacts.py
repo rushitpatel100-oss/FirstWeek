@@ -5,13 +5,16 @@ number in the answer key's metrics comes from running the reference solution, ne
 model's guess. This module builds and measures; the validation gate (next step) decides what
 is acceptable and regenerates."""
 
+import io
 import json
 import re
 import shutil
+import tokenize
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -26,9 +29,9 @@ from firstweek_core.contracts import (
 )
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype
 from firstweek_core.db.session import session_scope
-from firstweek_core.llm import LLMGateway
+from firstweek_core.llm import LLMGateway, StructuredOutputError
 from firstweek_core.llm import Tier as ModelTier
-from firstweek_core.sandbox import SandboxJob, SandboxRunner
+from firstweek_core.sandbox import JobResult, SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import BlueprintError, load_prompt
 
 PLAN_STARTER_VERSION = "plan-starter.v4"
@@ -36,10 +39,30 @@ REPLANS = 3  # tries at a plan that passes the checks, before any file is writte
 WRITE_FILE_VERSION = "write-files.v1"
 PLAN_REFERENCE_VERSION = "plan-reference.v2"
 WRITE_REFERENCE_VERSION = "write-reference-files.v1"
+# A model on this machine writes one file per call, stopped at the next file's header line:
+# small models otherwise write out the whole repository on every call.
+WRITE_ONE_FILE_VERSION = "write-one-file.v1"
+WRITE_ONE_REFERENCE_VERSION = "write-one-reference-file.v1"
+LOCAL_FILE_MAX_TOKENS = 4000
+ONE_FILE_STOP = ["\n=== "]
+WRONG_FILE_RETRIES = 2  # a single-file reply that wrote some other file is asked again
 PLAN_MAX_TOKENS = 12000
 FILE_MAX_TOKENS = 8000
 FILE_MAX_TOKENS_CEILING = 16000
 BATCH_FILES = 4  # files per model call; a cut-off batch is split in half and retried
+LOCAL_BATCH_FILES = 1  # a model on this machine writes one file per call: calls are free, and a
+# small model keeps its context window and its attention on one file
+REPAIRS = 4  # fix-and-run-again rounds per check with a local model, where calls are free
+HOSTED_REPAIRS = 1  # with hosted free models only: one round, so the daily quota lasts
+REPAIR_VERSION = "repair-files.v1"
+REPAIR_MAX_TOKENS = 6000
+REPAIR_FILES = 2  # files shown in full, and allowed to change, in one repair call
+REWRITE_FROM_ROUND = 3  # from this round the broken file is withheld: written fresh, not patched
+# A small model sometimes runs on into the prompt's own headings; stop it there.
+REPAIR_STOP = ["\nOther files in the repository", "\nWhat went wrong:", "\nFiles you may change"]
+FENCE = re.compile(r"^\s*```[\w+-]*\s*$")
+HINT = re.compile(r"\b(?:planted|flaws?|flawed|deliberate(?:ly)?|intentional(?:ly)?)\b", re.I)
+SEPARATOR = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,}|\*\*.*\*\*:?)\s*$")  # never Python
 DATA_PREVIEW_LINES = 12  # data files appear in prompts as their first lines only
 OUTLINE_FULL_LINES = 40  # shorter code files appear whole in a writer's context
 STARTER_CHECKS = (
@@ -76,6 +99,7 @@ class BuiltArtifacts:
     checks: list[Check] = field(default_factory=list)
     cost_usd: float = 0.0
     model: str = ""
+    notes: list[str] = field(default_factory=list)  # for the reviewer; they do not gate
 
     @property
     def ok(self) -> bool:
@@ -188,13 +212,157 @@ class FileWriteError(Exception):
     """A file could not be written: the reply was cut off or empty."""
 
 
-def clean_file(text: str) -> str:
-    """The file as written, without a surrounding code fence."""
+def clean_file(text: str, path: str = "") -> str:
+    """The file as written, without a surrounding code fence, and for Python without the
+    debris a model leaves around the code (fences, a separator and an explanation)."""
     body = text.strip("\n")
     lines = body.splitlines()
     if len(lines) >= 2 and lines[0].startswith("```") and lines[-1].strip() == "```":
         body = "\n".join(lines[1:-1])
-    return body.rstrip() + "\n"
+    body = body.rstrip() + "\n"
+    if path.endswith(".py"):
+        return tidy_python(body)
+    if path.endswith((".json", ".jsonl", ".csv")):
+        return "\n".join(line for line in body.splitlines() if not FENCE.match(line)) + "\n"
+    return body
+
+
+def syntax_error(text: str, path: str = "<file>") -> str:
+    """'' if the text is valid Python, else the error. Compiling checks syntax and runs nothing."""
+    try:
+        compile(text, path, "exec", dont_inherit=True)
+    except SyntaxError as exc:
+        return f"line {exc.lineno}: {exc.msg}"
+    except ValueError as exc:  # null bytes
+        return str(exc)
+    return ""
+
+
+def tidy_python(text: str) -> str:
+    """Valid Python as it is; otherwise the first cleaned-up version that compiles: without
+    fence lines, then cut at the first fence or separator line after the code started (a model
+    often ends a file with `---` and an explanation). Unchanged if nothing compiles."""
+    if not syntax_error(text):
+        return text
+    lines = text.splitlines()
+    candidates = ["\n".join(line for line in lines if not FENCE.match(line))]
+    started = False
+    for i, line in enumerate(lines):
+        if FENCE.match(line) or SEPARATOR.match(line):
+            if started and i * 2 >= len(lines):  # an explanation after the code, not before it
+                candidates.append("\n".join(x for x in lines[:i] if not FENCE.match(x)))
+                break
+        elif line.strip():
+            started = True
+    fenced = re.search(r"^\s*```[\w+-]*\s*\n(.*?)^\s*```\s*$", text, flags=re.M | re.S)
+    if fenced:
+        candidates.append(fenced.group(1))
+    for candidate in candidates:
+        if candidate.strip() and not syntax_error(candidate):
+            return candidate.rstrip() + "\n"
+    return text
+
+
+def without_hints(path: str, text: str) -> str:
+    """The file without words that give a planted issue away: comments and docstring lines in
+    Python, lines and whole sections in Markdown. The person has to find the issue; models
+    often write `# FLAW: ...` or a README section on the flaws however they are asked."""
+    if not HINT.search(text):
+        return text
+    if path.endswith(".py"):
+        return _python_without_hints(text)
+    if path.endswith((".md", ".txt", ".rst")):
+        return _prose_without_hints(text)
+    return text
+
+
+def _python_without_hints(text: str) -> str:
+    if syntax_error(text):
+        return text
+    lines = text.splitlines(keepends=True)
+    drop: set[int] = set()
+    cut: dict[int, int] = {}
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(text).readline):
+            if not HINT.search(token.string):
+                continue
+            row, col = token.start
+            if token.type == tokenize.COMMENT:
+                if lines[row - 1][:col].strip():
+                    cut[row - 1] = col  # an inline comment: keep the code before it
+                else:
+                    drop.add(row - 1)
+            elif token.type == tokenize.STRING and token.end[0] > row:
+                # inner lines of a multi-line string (a docstring), not the lines with quotes
+                drop.update(i for i in range(row, token.end[0] - 1) if HINT.search(lines[i]))
+    except (tokenize.TokenError, SyntaxError):
+        return text
+    kept = [
+        (line[: cut[i]].rstrip() + "\n") if i in cut else line
+        for i, line in enumerate(lines)
+        if i not in drop
+    ]
+    result = "".join(kept)
+    return result if not syntax_error(result) else text
+
+
+def _prose_without_hints(text: str) -> str:
+    kept: list[str] = []
+    skipping_level = 0  # inside a section whose heading gives an issue away
+    for line in text.splitlines():
+        heading = re.match(r"^(#+)\s", line)
+        if heading and skipping_level and len(heading.group(1)) <= skipping_level:
+            skipping_level = 0
+        if skipping_level:
+            continue
+        if heading and HINT.search(line):
+            skipping_level = len(heading.group(1))
+            continue
+        if not HINT.search(line):
+            kept.append(line)
+    return "\n".join(kept).rstrip() + "\n"
+
+
+def file_problems(files: dict[str, str]) -> dict[str, str]:
+    """Files that cannot be valid as written: Python that does not compile, JSON that does not
+    parse. Found before anything runs, so a repair can be asked for by name."""
+    out: dict[str, str] = {}
+    for path, text in files.items():
+        if path.endswith(".py"):
+            if error := syntax_error(text, path):
+                out[path] = f"not valid Python ({error})"
+        elif path.endswith(".json") and text.strip():
+            try:
+                json.loads(text)
+            except ValueError as exc:
+                out[path] = f"not valid JSON ({exc})"
+        elif path.endswith(".jsonl"):
+            for number, line in enumerate(text.splitlines(), 1):
+                try:
+                    if line.strip():
+                        json.loads(line)
+                except ValueError as exc:
+                    out[path] = f"line {number} is not valid JSON ({exc})"
+                    break
+    return out
+
+
+def mentioned(output: str, paths: Iterable[str]) -> list[str]:
+    """Repository files named in an error or test output, latest mention first: the innermost
+    frame of a traceback is usually where the fault is."""
+    hits: list[tuple[int, int, str]] = []
+    for path in paths:
+        for found in re.finditer(re.escape(path), output):
+            before = output[found.start() - 1] if found.start() else " "
+            after = output[found.end()] if found.end() < len(output) else " "
+            if not (before.isalnum() or before in "_.-") and not (after.isalnum() or after == "_"):
+                hits.append((found.start(), found.end(), path))
+    # "io.py" inside "src/io.py" is the longer path's mention, not its own
+    own = [h for h in hits if not any(o[0] < h[0] and o[1] == h[1] for o in hits)]
+    last: dict[str, int] = {}
+    for start, _, path in own:
+        last[path] = max(start, last.get(path, -1))
+    return sorted(last, key=lambda p: -last[p])
 
 
 @dataclass
@@ -209,7 +377,9 @@ def split_files(text: str) -> dict[str, str]:
     current: str | None = None
     body: list[str] = []
     for line in text.splitlines():
-        found = re.fullmatch(r"\s*=== (\S+) ===\s*", line)
+        found = re.fullmatch(
+            r"\s*(?:#+\s*)?={3,}\s*(?:file:\s*)?`?([\w./-]+?)`?\s*={3,}\s*", line, flags=re.I
+        )
         if found:
             if current is not None:
                 out[current] = "\n".join(body)
@@ -231,56 +401,102 @@ async def write_files(
     planned: list[PlannedFile],
     render: Callable[[list[PlannedFile], dict[str, str]], dict[str, str]],
     budget_usd: float,
+    batch: int = BATCH_FILES,
+    max_tokens: int = FILE_MAX_TOKENS,
+    stop: list[str] | None = None,
+    temperature: float = 0.3,
 ) -> dict[str, str]:
     """A few files per model call, in order, each call seeing outlines of the files before it.
 
     A cut-off reply is split in half and retried; a single file gets one retry at twice the
-    room; a file the reply left out is asked for on its own."""
+    room; a file the reply left out is asked for on its own.
+
+    One file at a time (`stop` set, a local model): a file under 150 lines that runs past the
+    limit is a model repeating itself, not a long file, and a reply that wrote some other file
+    missed the point. Either is asked again at the same limit, warmer, up to WRONG_FILE_RETRIES
+    times."""
     system, user = load_prompt(version)
     written: dict[str, str] = {}
-    queue = [planned[i : i + BATCH_FILES] for i in range(0, len(planned), BATCH_FILES)]
+    misses: dict[str, int] = {}
+    queue = [planned[i : i + batch] for i in range(0, len(planned), batch)]
     while queue:
         group = queue.pop(0)
-        limit = FILE_MAX_TOKENS
+        limit = max_tokens
         while True:
             result = await gateway.complete(
                 purpose=purpose,
                 messages=[
                     {"role": "system", "content": system},
-                    {"role": "user", "content": user.format(**render(group, written))},
+                    {
+                        "role": "user",
+                        "content": user.format(
+                            **render(group, written), header=f"=== {group[0].path} ==="
+                        ),
+                    },
                 ],
                 tier=tier,
                 max_tokens=limit,
-                temperature=0.3,
+                temperature=min(1.0, temperature + 0.3 * misses.get(group[0].path, 0)),
                 budget_scope="build-artifacts",
                 budget_usd=budget_usd,
                 prompt_version=version,
+                stop=stop,
             )
             spend.cost_usd += float(result.cost_usd)
             spend.model = result.model
-            if result.finish_reason != "length" or len(group) > 1:
+            if result.finish_reason != "length" or len(group) > 1 or stop is not None:
                 break
-            if limit >= FILE_MAX_TOKENS_CEILING:
+            ceiling = max(FILE_MAX_TOKENS_CEILING, max_tokens) if stop is None else 2 * max_tokens
+            if limit >= ceiling:
                 raise FileWriteError(f"{group[0].path}: the reply was cut off at {limit} tokens")
-            limit = min(limit * 2, FILE_MAX_TOKENS_CEILING)  # thinking may have used the room
+            limit = min(limit * 2, ceiling)  # thinking may have used the room
+        if result.finish_reason == "length" and len(group) == 1:  # one file, a looping model
+            path = group[0].path
+            misses[path] = misses.get(path, 0) + 1
+            if misses[path] > WRONG_FILE_RETRIES:
+                raise FileWriteError(f"{path}: the reply was cut off at {limit} tokens")
+            queue.insert(0, group)
+            continue
         if result.finish_reason == "length":
             half = len(group) // 2
             queue[:0] = [group[:half], group[half:]]
             continue
-        files = split_files(result.content)
+        files = one_file(split_files(result.content), result.content, group, planned)
         missing: list[PlannedFile] = []
         for item in group:
             text = files.get(item.path, "")
             if text.strip():
-                written[item.path] = clean_file(text)
+                written[item.path] = clean_file(text, item.path)
             elif PurePosixPath(item.path).name == "__init__.py":
                 written[item.path] = ""  # an empty package marker is a valid file
             else:
                 missing.append(item)
         if missing and len(group) == 1:
-            raise FileWriteError(f"{group[0].path}: the reply was empty")
+            path = group[0].path
+            misses[path] = misses.get(path, 0) + 1
+            if stop is None or misses[path] > WRONG_FILE_RETRIES:
+                raise FileWriteError(f"{path}: the reply was empty")
         queue[:0] = [[item] for item in missing]
     return written
+
+
+def one_file(
+    files: dict[str, str], reply: str, group: list[PlannedFile], planned: list[PlannedFile]
+) -> dict[str, str]:
+    """For a one-file request, the file under the names small models give it: no header at
+    all, or a placeholder header (`=== path ===`) with the real path on the next line."""
+    if len(group) != 1 or group[0].path in files:
+        return files
+    target = group[0].path
+    if not files:
+        return {target: reply} if reply.strip() else {}
+    known = {item.path for item in planned}
+    if len(files) == 1 and not set(files) & known:
+        lines = next(iter(files.values())).lstrip("\n").splitlines()
+        if lines and lines[0].strip().strip("`*") == target:
+            lines = lines[1:]
+        return {target: "\n".join(lines)}
+    return files
 
 
 def is_data(path: str) -> bool:
@@ -343,6 +559,157 @@ def output_dirs(generated: list[str]) -> dict[str, str]:
     return {f"{path.rsplit('/', 1)[0]}/.keep": "" for path in generated if "/" in path}
 
 
+def with_key_contracts(items: list[PlannedFile], generated: list[str]) -> list[PlannedFile]:
+    """The two key scripts with how they are run spelled out: the generator was the file small
+    models got wrong most often (no main block, wrong paths, folders not made)."""
+    rules = {
+        GENERATOR: (
+            " It runs as `python -m key.make_data --seed N` from the repository root and must "
+            f"write exactly these files, at these paths: {', '.join(generated)}. Structure: a "
+            "main() that parses --seed (int) with argparse, makes rng = random.Random(seed), "
+            "creates each folder it writes into (os.makedirs(..., exist_ok=True)) and writes every "
+            "file; the file ends with `if __name__ == '__main__': main()`."
+        ),
+        METRICS_SCRIPT: (
+            " It runs as `python -m key.metrics` from the repository root and writes metrics.json "
+            "there: one flat JSON object of numbers. Structure: a main() that computes and writes "
+            "it; the file ends with `if __name__ == '__main__': main()`."
+        ),
+    }
+    return [
+        i.model_copy(update={"purpose": i.purpose + rules[i.path]}) if i.path in rules else i
+        for i in items
+    ]
+
+
+def local_writing(local: bool) -> dict[str, Any]:
+    """How files are asked for: one at a time, small and stopped at the next header for a model
+    on this machine; a few per call for hosted models, whose requests are counted."""
+    if not local:
+        return {"batch": BATCH_FILES}
+    return {"batch": LOCAL_BATCH_FILES, "max_tokens": LOCAL_FILE_MAX_TOKENS, "stop": ONE_FILE_STOP}
+
+
+def writer_is_local(gateway: LLMGateway, tier: ModelTier, purpose: str) -> bool:
+    """Whether this call goes first to a model on this machine, where calls cost nothing."""
+    model_for = getattr(gateway, "model_for", None)
+    return model_for is not None and str(model_for(tier, purpose)).startswith("ollama/")
+
+
+async def repair_files(
+    gateway: LLMGateway,
+    spend: Spend,
+    *,
+    tier: ModelTier,
+    budget_usd: float,
+    scenario: str,
+    goal: str,
+    problem: str,
+    files: dict[str, str],
+    editable: list[str],
+    round_number: int = 1,
+) -> dict[str, str]:
+    """One model call that rewrites whichever of the first few `editable` files the problem
+    needs. Returns only files it was allowed to change, cleaned; a cut-off reply changes
+    nothing, so a half-written file never replaces a whole one.
+
+    From the second round on, the writer is told the earlier fix did not work and to rewrite
+    simply from scratch, at a higher temperature: asked the same way, a small model gives the
+    same broken answer again."""
+    allowed = list(dict.fromkeys(editable))[:REPAIR_FILES]
+    rewrite = round_number >= REWRITE_FROM_ROUND
+    if round_number > 1:
+        problem = (
+            f"(Round {round_number}: an earlier fix did not solve this. Do not repeat it: "
+            "rewrite the file from scratch, simply and correctly, from the goal and the plan.)\n"
+            + problem
+        )
+    if not allowed:
+        return {}
+    system, user = load_prompt(REPAIR_VERSION)
+    others = {p: t for p, t in files.items() if p not in allowed}
+    result = await gateway.complete(
+        purpose="repair-file",
+        messages=[
+            {"role": "system", "content": system},
+            {
+                "role": "user",
+                "content": user.format(
+                    scenario=scenario,
+                    goal=goal,
+                    problem=tail(problem, 40),
+                    editable="\n\n".join(
+                        f"=== {p} ===\n"
+                        + (
+                            "(the broken version is withheld: write this file again from scratch)"
+                            if rewrite
+                            else files.get(p, "")
+                        )
+                        for p in allowed
+                    ),
+                    others=shown_outline(others),
+                ),
+            },
+        ],
+        tier=tier,
+        max_tokens=REPAIR_MAX_TOKENS,
+        temperature=0.2 if round_number == 1 else 0.7,
+        budget_scope="build-artifacts",
+        budget_usd=budget_usd,
+        prompt_version=REPAIR_VERSION,
+        stop=REPAIR_STOP + (ONE_FILE_STOP if len(allowed) == 1 else []),
+    )
+    spend.cost_usd += float(result.cost_usd)
+    spend.model = result.model
+    if result.finish_reason == "length":
+        return {}
+    replies = split_files(result.content)
+    if not replies and len(allowed) == 1 and result.content.strip():
+        replies = {allowed[0]: result.content}  # one file, written without its header line
+    cleaned = {p: clean_file(t, p) for p, t in replies.items() if p in allowed and t.strip()}
+    # A repair that does not even compile or parse never replaces what is there.
+    broken = file_problems(cleaned)
+    return {p: t for p, t in cleaned.items() if p not in broken}
+
+
+def imported(text: str, paths: Iterable[str]) -> list[str]:
+    """Repository modules a file imports, as paths: where a failing assertion in a test points
+    when its traceback names only the test."""
+    known, out = set(paths), []
+    pattern = r"^\s*(?:from\s+([\w.]+)\s+import\s+\(?([\w, ]+)|import\s+([\w.]+))"
+    for found in re.finditer(pattern, text, flags=re.M):
+        module = (found.group(1) or found.group(3)).replace(".", "/")
+        candidates = [f"{module}.py", f"{module}/__init__.py"]
+        if found.group(1):  # `from package import module` names a file too
+            names = [n.strip() for n in found.group(2).split(",") if n.strip()]
+            candidates = [f"{module}/{n}.py" for n in names] + candidates
+        out += [c for c in candidates if c in known and c not in out]
+    return out
+
+
+def quiet_test_files(before: JobResult, tests: Iterable[str]) -> list[str]:
+    """Test files with no failing test on the starter: the planted issue they target may be
+    missing (a writer sometimes writes the fixed version)."""
+    failing = set(re.findall(r"^(?:FAILED|ERROR) (tests/[^:\s]+)", before.stdout, flags=re.M))
+    return [t for t in tests if t not in failing]
+
+
+def starter_verdict(before: JobResult) -> str:
+    """'' when the starter's tests run and fail, as planted issues should make them."""
+    if before.timed_out:
+        return "the starter's tests timed out"
+    if before.exit_code == PYTEST_FAILED:
+        return ""
+    if before.exit_code == 0:
+        return "the starter already passes its tests, so nothing is planted"
+    output = tail(before.stdout + before.stderr)
+    return f"the starter does not run (pytest exit {before.exit_code}): {output}"
+
+
+def still_a_test(text: str) -> bool:
+    return "def test_" in text and "assert" in text
+
+
 async def build_artifacts(
     gateway: LLMGateway,
     runner: SandboxRunner,
@@ -356,46 +723,84 @@ async def build_artifacts(
 ) -> BuiltArtifacts:
     """Plans, writes, generates and runs everything. Returns every check, pass or fail.
 
+    Every check that fails is first repaired where it failed: the error goes back to the
+    writer with the files it names, and the check runs again, up to REPAIRS times. With a
+    local model these rounds cost nothing; a whole new attempt costs planning calls.
+
     With `reuse` (an earlier attempt whose starter passed its checks) the starter is kept and
     only the reference solution is planned and written again, which saves most of the calls."""
     tickets, rubric, issues = listing(blueprint)
     spend = Spend()
     built = BuiltArtifacts(starter={}, reference={}, key={}, metrics={}, summary="")
+    keep = f"Keep these planted issues exactly where the plan puts them, unmentioned:\n{issues}"
+    repairs = REPAIRS if writer_is_local(gateway, tier, "repair-file") else HOSTED_REPAIRS
+    # A later attempt writes warmer: a deterministic local model would write the same files.
+    write_temperature = 0.6 if feedback else 0.3
 
     def finish() -> BuiltArtifacts:
         built.cost_usd, built.model = spend.cost_usd, spend.model
         return built
 
+    contract = {"notes": ""}  # the starter plan's shared contract, once there is one
+
+    async def fix(
+        goal: str, problem: str, files: dict[str, str], editable: list[str], round_number: int = 1
+    ) -> dict[str, str]:
+        if contract["notes"]:
+            goal += f"\n\nThe plan's notes (the contract every file follows):\n{contract['notes']}"
+        return await repair_files(
+            gateway, spend, tier=tier, budget_usd=budget_usd, scenario=blueprint.scenario,
+            goal=goal, problem=problem, files=files, editable=editable, round_number=round_number,
+        )  # fmt: skip
+
+    async def valid(files: dict[str, str], paths: Iterable[str], extra: str) -> list[str]:
+        """Repairs, in place, each of `paths` that does not compile or parse. Returns the
+        problems left."""
+        for path in [p for p in paths if file_problems({p: files[p]})]:
+            for number in range(1, repairs + 1):
+                why = file_problems({path: files[path]}).get(path)
+                if why is None:
+                    break
+                goal = f"Make {path} a valid file of its type that does what it is for. {extra}"
+                changed = await fix(goal, f"{path}: {why}", files, [path], number)
+                files.update({p: t for p, t in changed.items() if p == path})
+        return [f"{p}: {w}" for p, w in file_problems({p: files[p] for p in paths}).items()]
+
     async def make_starter() -> bool:
         system, user = load_prompt(PLAN_STARTER_VERSION)
         notes = feedback
+        found: list[str] = []
         for _ in range(REPLANS):
-            planned = await gateway.structured(
-                purpose="plan-starter",
-                messages=[
-                    {"role": "system", "content": system},
-                    {
-                        "role": "user",
-                        "content": user.format(
-                            role_name=blueprint.archetype,
-                            scenario=blueprint.scenario,
-                            company=blueprint.company_context,
-                            tickets=tickets,
-                            rubric=rubric,
-                            issues=issues,
-                            seed=seed,
-                            feedback=notes or "(none: this is the first attempt)",
-                        ),
-                    },
-                ],
-                response_model=StarterPlan,
-                tier=tier,
-                max_tokens=PLAN_MAX_TOKENS,
-                temperature=0.4,
-                budget_scope="build-artifacts",
-                budget_usd=budget_usd,
-                prompt_version=PLAN_STARTER_VERSION,
-            )
+            try:
+                planned = await gateway.structured(
+                    purpose="plan-starter",
+                    messages=[
+                        {"role": "system", "content": system},
+                        {
+                            "role": "user",
+                            "content": user.format(
+                                role_name=blueprint.archetype,
+                                scenario=blueprint.scenario,
+                                company=blueprint.company_context,
+                                tickets=tickets,
+                                rubric=rubric,
+                                issues=issues,
+                                seed=seed,
+                                feedback=notes or "(none: this is the first attempt)",
+                            ),
+                        },
+                    ],
+                    response_model=StarterPlan,
+                    tier=tier,
+                    max_tokens=PLAN_MAX_TOKENS,
+                    temperature=0.4,
+                    budget_scope="build-artifacts",
+                    budget_usd=budget_usd,
+                    prompt_version=PLAN_STARTER_VERSION,
+                )
+            except StructuredOutputError as exc:  # a plan that never parsed: plan again
+                found = [f"The plan was not valid JSON for the schema: {str(exc)[:300]}"]
+                continue
             assert planned.parsed is not None
             spend.cost_usd += float(planned.cost_usd)
             spend.model = planned.model
@@ -412,7 +817,8 @@ async def build_artifacts(
         else:
             built.checks.append(Check("starter files are well formed", False, " ".join(found)))
             return False
-        every = [*plan.starter_files, *plan.key_files]
+        every = [*plan.starter_files, *with_key_contracts(plan.key_files, plan.generated)]
+        contract["notes"] = plan.design_notes
 
         def render_starter(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
             return {
@@ -423,11 +829,17 @@ async def build_artifacts(
                 "targets": targets_text(group),
             }
 
+        local = writer_is_local(gateway, tier, "write-starter-file")
         try:
             files = await write_files(
-                gateway, spend, purpose="write-starter-file", version=WRITE_FILE_VERSION, tier=tier,
+                gateway, spend, purpose="write-starter-file", tier=tier,
+                version=WRITE_ONE_FILE_VERSION if local else WRITE_FILE_VERSION,
                 planned=every, render=render_starter, budget_usd=budget_usd,
+                temperature=write_temperature, **local_writing(local),
             )  # fmt: skip
+            for item in plan.starter_files:  # what the person receives gives nothing away
+                files[item.path] = without_hints(item.path, files[item.path])
+            broken = await valid(files, [i.path for i in every], keep)
             draft = StarterDraft(
                 starter_files=[
                     FileDraft(path=i.path, content=files[i.path]) for i in plan.starter_files
@@ -438,7 +850,7 @@ async def build_artifacts(
         except (FileWriteError, ValidationError) as exc:
             built.checks.append(Check("starter files are written", False, str(exc)[:600]))
             return False
-        if problems := starter_problems(draft):
+        if problems := [*starter_problems(draft), *broken]:
             built.checks.append(Check("starter files are well formed", False, " ".join(problems)))
             return False
         built.checks.append(Check("starter files are well formed", True))
@@ -446,47 +858,106 @@ async def build_artifacts(
         starter = {f.path: f.content for f in draft.starter_files}
         key = {f.path: f.content for f in draft.key_files}
 
-        made = await runner.run(
-            SandboxJob(
-                files={**output_dirs(draft.generated), **tree(starter, key)},
-                command=["python", "-m", "key.make_data", "--seed", str(seed)],
-                collect=draft.generated,
-                timeout_s=60,
-            )
+        def apply(changed: dict[str, str]) -> None:
+            for path, text in changed.items():
+                if is_key_path(path):
+                    key[path] = text
+                else:
+                    starter[path] = without_hints(path, text)
+
+        generator_goal = (
+            f"`python -m key.make_data --seed {seed}`, run from the repository root, must exit 0 "
+            f"and write exactly these files: {', '.join(draft.generated)}. It takes --seed N, "
+            "writes the same files for the same seed, creates every folder it writes into, and "
+            f"runs in seconds. {keep}"
         )
-        missing = [p for p in draft.generated if p not in made.files]
-        generated_ok = made.ok and not missing
-        built.checks.append(
-            Check(
-                "the data generator runs and writes every file it lists",
-                generated_ok,
+        made_problem = verdict = ""
+        generator_rounds = test_rounds = 0
+        while True:
+            made = await runner.run(
+                SandboxJob(
+                    files={**output_dirs(draft.generated), **tree(starter, key)},
+                    command=["python", "-m", "key.make_data", "--seed", str(seed)],
+                    collect=draft.generated,
+                    timeout_s=60,
+                )
+            )
+            missing = [p for p in draft.generated if p not in made.files]
+            made_problem = (
                 ""
-                if generated_ok
-                else f"exit {made.exit_code}; missing {missing}; {tail(made.stderr)}",
+                if made.ok and not missing
+                else f"exit {made.exit_code}; missing {missing}; "
+                f"{tail(made.stdout + made.stderr, 25)}"
             )
-        )
+            if made.ok and missing:
+                made_problem += (
+                    "\nIt ran without an error but did not write those files: when run as "
+                    "`python -m key.make_data --seed N`, module-level code must parse --seed and "
+                    "call the code that writes every one of them, at exactly those paths."
+                )
+            if made_problem:
+                if generator_rounds == repairs:
+                    break
+                generator_rounds += 1
+                code = tree(starter, key)
+                sources = [p for p in code if p.endswith(".py") and not p.startswith("tests/")]
+                named = [p for p in mentioned(made_problem, sources) if p != GENERATOR]
+                apply(
+                    await fix(
+                        generator_goal, made_problem, code, [GENERATOR, *named], generator_rounds
+                    )
+                )
+                continue
+            with_data = tree(starter, {p: t for p, t in made.files.items() if not is_key_path(p)})
+            before = await runner.run(
+                SandboxJob(files=with_data, command=TEST_COMMAND, timeout_s=120)
+            )
+            verdict = starter_verdict(before)
+            if not verdict or test_rounds == repairs:
+                break
+            test_rounds += 1
+            output = before.stdout + before.stderr
+            tests = [p for p in starter if p.startswith("tests/") and p.endswith(".py")]
+            if before.exit_code == 0:
+                goal = (
+                    "The target tests pass on this starter, so they do not catch the planted "
+                    "issues. Make sure each planted issue is really in the code or data, written "
+                    "as ordinary code with no comment about it, and that the tests in tests/ "
+                    "check the acceptance criteria of the code tickets, so that they fail on "
+                    "this code because of the planted issues and pass once the issues are fixed "
+                    "properly. Plain asserts, no randomness.\n"
+                    f"Planted issues:\n{issues}\nTickets:\n{tickets}"
+                )
+                editable = [t for test in tests for t in (test, *imported(starter[test], starter))]
+            else:
+                goal = (
+                    "The target tests in tests/ must be collected and run without errors (no "
+                    "import, syntax or fixture errors, no hang) and fail only because of the "
+                    f"planted issues. Fix what the output shows. {keep}"
+                )
+                editable = mentioned(output, [p for p in starter if p.endswith(".py")]) or tests
+            apply(
+                await fix(goal, f"{verdict}\n{tail(output, 40)}", with_data, editable, test_rounds)
+            )
+
+        built.checks.append(
+            Check("the data generator runs and writes every file it lists", not made_problem,
+                  made_problem)
+        )  # fmt: skip
         built.starter, built.key = dict(starter), dict(key)
-        if not generated_ok:
+        if made_problem:
             return False
         for path, text in made.files.items():
             (built.key if is_key_path(path) else built.starter)[path] = text
-        starter = built.starter
-
-        before = await runner.run(
-            SandboxJob(files=dict(starter), command=TEST_COMMAND, timeout_s=120)
-        )
-        if before.timed_out:
-            verdict = "the starter's tests timed out"
-        elif before.exit_code == PYTEST_FAILED:
-            verdict = ""
-        elif before.exit_code == 0:
-            verdict = "the starter already passes its tests, so nothing is planted"
-        else:
-            output = tail(before.stdout + before.stderr)
-            verdict = f"the starter does not run (pytest exit {before.exit_code}): {output}"
         built.checks.append(
             Check("the starter runs and fails its target tests", not verdict, verdict)
         )
+        if not verdict:
+            tests = [p for p in starter if p.startswith("tests/test_") and p.endswith(".py")]
+            built.notes += [
+                f"{t} passes on the starter: check that the planted issue it targets is there."
+                for t in quiet_test_files(before, tests)
+            ]
         return True
 
     if reuse is not None and reuse.starter_ok:
@@ -497,29 +968,33 @@ async def build_artifacts(
     starter = built.starter
 
     system, user = load_prompt(PLAN_REFERENCE_VERSION)
-    ref_planned = await gateway.structured(
-        purpose="plan-reference",
-        messages=[
-            {"role": "system", "content": system},
-            {
-                "role": "user",
-                "content": user.format(
-                    scenario=blueprint.scenario,
-                    tickets=tickets,
-                    issues=issues,
-                    starter=shown_preview(starter),
-                    feedback=feedback or "(none: this is the first attempt)",
-                ),
-            },
-        ],
-        response_model=ReferencePlan,
-        tier=tier,
-        max_tokens=PLAN_MAX_TOKENS,
-        temperature=0.2,
-        budget_scope="build-artifacts",
-        budget_usd=budget_usd,
-        prompt_version=PLAN_REFERENCE_VERSION,
-    )
+    try:
+        ref_planned = await gateway.structured(
+            purpose="plan-reference",
+            messages=[
+                {"role": "system", "content": system},
+                {
+                    "role": "user",
+                    "content": user.format(
+                        scenario=blueprint.scenario,
+                        tickets=tickets,
+                        issues=issues,
+                        starter=shown_preview(starter),
+                        feedback=feedback or "(none: this is the first attempt)",
+                    ),
+                },
+            ],
+            response_model=ReferencePlan,
+            tier=tier,
+            max_tokens=PLAN_MAX_TOKENS,
+            temperature=0.2,
+            budget_scope="build-artifacts",
+            budget_usd=budget_usd,
+            prompt_version=PLAN_REFERENCE_VERSION,
+        )
+    except StructuredOutputError as exc:
+        built.checks.append(Check("reference plan is well formed", False, str(exc)[:600]))
+        return finish()
     assert ref_planned.parsed is not None
     ref_plan = ref_planned.parsed
     spend.cost_usd += float(ref_planned.cost_usd)
@@ -529,28 +1004,77 @@ async def build_artifacts(
         return finish()
 
     def render_reference(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
+        targets = {i.path for i in group}
         return {
             "scenario": blueprint.scenario,
             "plan": plan_text(ref_plan.changes),
-            "starter": shown_preview(starter),
+            # the files being changed in full; the rest as outlines, to keep the prompt small
+            "starter": "\n\n".join(
+                f"=== {p} ===\n{t if p in targets else outline(p, t)}"
+                for p, t in sorted(starter.items())
+            ),
             "written": shown(written),
             "targets": targets_text(group),
         }
 
+    local = writer_is_local(gateway, tier, "write-reference-file")
     try:
         changed = await write_files(
             gateway, spend, purpose="write-reference-file", tier=tier,
-            version=WRITE_REFERENCE_VERSION, planned=ref_plan.changes,
-            render=render_reference, budget_usd=budget_usd,
+            version=WRITE_ONE_REFERENCE_VERSION if local else WRITE_REFERENCE_VERSION,
+            planned=ref_plan.changes, render=render_reference, budget_usd=budget_usd,
+            temperature=write_temperature, **local_writing(local),
         )  # fmt: skip
     except FileWriteError as exc:
         built.checks.append(Check("reference files are written", False, str(exc)))
         return finish()
-    built.checks.append(Check("reference files are written", True))
-    reference = tree(starter, changed)
-    built.reference = reference
+    whole = tree(starter, changed)
+    broken = await valid(whole, list(changed), "")
+    changed = {p: whole[p] for p in changed}
+    built.checks.append(Check("reference files are written", not broken, " ".join(broken)))
+    if broken:
+        return finish()
 
-    after = await runner.run(SandboxJob(files=dict(reference), command=TEST_COMMAND, timeout_s=120))
+    rounds = 0
+    while True:
+        reference = tree(starter, changed)
+        after = await runner.run(
+            SandboxJob(files=dict(reference), command=TEST_COMMAND, timeout_s=120)
+        )
+        if after.ok or rounds == repairs:
+            break
+        rounds += 1
+        output = after.stdout + after.stderr
+        named = mentioned(
+            output, [p for p in reference if p.endswith(".py") and not is_key_path(p)]
+        )
+        tests = [p for p in named if p.startswith("tests/")]
+        sources = [p for p in named if not p.startswith("tests/")]
+        sources += [m for t in tests for m in imported(reference[t], reference) if m not in sources]
+        sources += [p for p in changed if p.endswith(".py") and p not in sources]
+        goal = (
+            "Every test must pass on the fixed project. Fix the planted issues properly in the "
+            f"source code:\n{issues}\nChange a test only if the test itself is wrong (for "
+            "example an expected value worked out wrongly), never to weaken what it checks, and "
+            "never delete a test."
+        )
+        fixed = await fix(goal, output, reference, [*sources[:1], *tests[:1], *sources[1:]], rounds)
+        # A starter test the repair corrected; the reference's own new tests stay its own.
+        new_tests = {
+            p: without_hints(p, t)
+            for p, t in fixed.items()
+            if p.startswith("tests/") and p in starter
+        }
+        if new_tests and all(still_a_test(t) for t in new_tests.values()):
+            # A corrected test must still fail on the starter, or it no longer finds anything.
+            check = await runner.run(
+                SandboxJob(files=tree(starter, new_tests), command=TEST_COMMAND, timeout_s=120)
+            )
+            if check.exit_code == PYTEST_FAILED and not check.timed_out:
+                starter = tree(starter, new_tests)
+                built.starter = starter
+        changed.update({p: t for p, t in fixed.items() if p not in new_tests})
+    built.reference = reference
     built.checks.append(
         Check(
             "the reference solution passes every test",
@@ -561,16 +1085,36 @@ async def build_artifacts(
     if not after.ok:
         return finish()
 
-    measured = await runner.run(
-        SandboxJob(
-            files=tree(reference, built.key),
-            command=["python", "-m", "key.metrics"],
-            collect=["metrics.json"],
-            timeout_s=60,
-        )
+    metrics_goal = (
+        "`python -m key.metrics`, run from the repository root of the fixed project with the key "
+        "files present, must exit 0 and write metrics.json: one flat JSON object of numbers (no "
+        "nesting, strings or booleans) covering the numbers the rubric checks and the planted "
+        "issues refer to."
     )
-    metrics = parse_metrics(measured.files.get("metrics.json", ""))
-    metrics_ok = measured.ok and metrics is not None and bool(metrics)
+    rounds = 0
+    while True:
+        measured = await runner.run(
+            SandboxJob(
+                files=tree(reference, built.key),
+                command=["python", "-m", "key.metrics"],
+                collect=["metrics.json"],
+                timeout_s=60,
+            )
+        )
+        written_metrics = measured.files.get("metrics.json", "")
+        metrics = parse_metrics(written_metrics)
+        metrics_ok = measured.ok and bool(metrics)
+        if metrics_ok or rounds == repairs:
+            break
+        rounds += 1
+        problem = (
+            f"exit {measured.exit_code}; metrics.json: {written_metrics[:400] or '(not written)'}"
+            f"\n{tail(measured.stdout + measured.stderr, 30)}"
+        )
+        changed_key = await fix(
+            metrics_goal, problem, tree(reference, built.key), [METRICS_SCRIPT], rounds
+        )
+        built.key.update({p: t for p, t in changed_key.items() if is_key_path(p)})
     built.checks.append(
         Check(
             "the metrics script reports numbers for the reference solution",
@@ -652,6 +1196,8 @@ def to_text(built: BuiltArtifacts, folder: Path | None) -> str:
     if built.metrics:
         lines += ["", "## Measured from the reference solution"]
         lines += [f"- {name}: {value:g}" for name, value in sorted(built.metrics.items())]
+    if built.notes:
+        lines += ["", "## For the reviewer", *[f"- {n}" for n in built.notes]]
     if built.summary:
         lines += ["", "## What the reference changes", built.summary]
     lines += ["", f"_Model: {built.model}. Cost: ${built.cost_usd:.2f}._"]
