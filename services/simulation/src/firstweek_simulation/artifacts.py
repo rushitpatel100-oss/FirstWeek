@@ -255,7 +255,14 @@ def syntax_error(text: str, path: str = "<file>") -> str:
     try:
         compile(text, path, "exec", dont_inherit=True)
     except SyntaxError as exc:
-        return f"line {exc.lineno}: {exc.msg}"
+        line = (exc.text or "").strip()
+        shown = f": `{line}`" if line else ""
+        hint = (
+            " (a lambda cannot contain a statement such as raise: use a def)"
+            if re.search(r"\blambda\b[^:]*:\s*(raise|return|yield|assert)\b", line)
+            else ""
+        )
+        return f"line {exc.lineno}: {exc.msg}{shown}{hint}"
     except ValueError as exc:  # null bytes
         return str(exc)
     return ""

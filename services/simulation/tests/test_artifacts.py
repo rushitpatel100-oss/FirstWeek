@@ -805,6 +805,11 @@ def test_model_debris_is_tidied_and_problems_are_found_by_name() -> None:
         {"a.py": "def (", "b.json": "{x", "c.jsonl": "{}\n{bad", "d.py": "x = 1", "e.md": "# ("}
     )
     assert sorted(problems) == ["a.py", "b.json", "c.jsonl"]
+    lam = "def test_a():\n    transport = lambda c: raise ValueError()\n"
+    assert art.syntax_error(lam) == (
+        "line 2: invalid syntax: `transport = lambda c: raise ValueError()` (a lambda cannot "
+        "contain a statement such as raise: use a def)"
+    )
     assert problems["c.jsonl"].startswith("line 2")
     output = 'File "/work/key/make_data.py", line 3\n  File "/work/src/io.py", line 9\nsrc/io.py:9'
     assert art.mentioned(output, ["key/make_data.py", "src/io.py", "io.py"]) == [
