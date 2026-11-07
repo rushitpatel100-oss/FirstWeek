@@ -105,4 +105,9 @@ The author's first run with the repair rounds still failed, three times, on thin
 - Config files a model plans (`pytest.ini`, `setup.cfg`, `pyproject.toml`, `tox.ini`, `.flake8`, `mypy.ini`) are dropped, and tests run with `-o addopts=`, for the learner too.
 - A typing name or common standard-library module a file uses but never imports is imported by code.
 - Each repair round works on one failing test file, a different one each round, with the sources its traceback names and the modules it imports. 6 rounds with a local model.
+- Round 3 of each repair goes to a hosted model first (purpose `repair-hard`): a 7B model often cannot see a bug it wrote itself and repeats it every round (seen: a rate counted per retry instead of per call, five rounds running). One hosted call per failing check costs little quota; without quota it falls back to the local model.
+- A test file is never withheld in a rewrite round (it is the spec, and a wrong expected value is corrected in it), and the plan's notes stay with a reused starter, so a later attempt's repairs still know which of code and test is wrong.
+- A syntax error shows the offending line; `name = lambda ...: raise ...`, a slip the 7B made repeatedly, is turned into a def by code.
 - The report lists the calls each model made, so a run shows whether repairs stayed local.
+
+Tested with the 7B model (Qwen2.5-Coder 7B, Q3 to fit the test machine; the author runs Q4) writing every file from a stand-in plan: the generator ran first time, the starter stage passed, and the reference failed 1 test of 4 on a bug the local repair rounds could not see, which is what the hosted round 3 is for. The test machine has no hosted model, so that round could only be tested by unit tests.
