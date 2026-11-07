@@ -1,0 +1,758 @@
+{
+ "archetype": "ai-software-engineer",
+ "trust_level": "golden",
+ "version": 1,
+ "country": "GB",
+ "sample_size": 32,
+ "date_range": [
+  "2025-06-02",
+  "2026-11-06"
+ ],
+ "summary": [
+  {
+   "text": "This is platform and backend engineering where models are a component: serving, deploying and operating them reliably, and the systems around them.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/openai/f8b84ae5-743b-41c9-8432-02dff9993d6b",
+     "tier": "posting",
+     "quote": "You will design and develop systems that support the model lifecycle in production, including deployment orchestration, configuration management, operational automation, reliability, and capacity management.",
+     "published": "2026-08-17"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/synthesia/e9c63d3d-13cc-4049-ae0a-5fef402c595b",
+     "tier": "posting",
+     "quote": "Design and improve the platform systems that support model training, evaluation, and production serving.",
+     "published": "2026-04-08"
+    },
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "You build the platforms and tooling that AI-First engineers depend on.",
+     "published": "2026-04-21"
+    }
+   ],
+   "confidence": 0.933,
+   "verification": "supported"
+  },
+  {
+   "text": "Running models on GPUs at scale, efficiently, is the centre of much of the work.",
+   "citations": [
+    {
+     "source_url": "https://job-boards.greenhouse.io/togetherai/jobs/5214645007",
+     "tier": "posting",
+     "quote": "build the Kubernetes-native control plane that provisions and runs our GPU inference fleet",
+     "published": "2026-08-20"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/Perplexity/60deb376-51b5-46c6-9e17-55377a5ef34e",
+     "tier": "posting",
+     "quote": "Design, deploy, and maintain scalable Kubernetes clusters for AI model inference and training workloads",
+     "published": "2026-04-13"
+    },
+    {
+     "source_url": "https://www.wrok.app/blog/ai-infrastructure-engineer-career-2026",
+     "tier": "blog",
+     "quote": "Every company that has deployed a model needs engineers who can reduce cost-per-token without degrading latency.",
+     "published": "2026-08-03"
+    }
+   ],
+   "confidence": 0.933,
+   "verification": "supported"
+  },
+  {
+   "text": "Platform work now also covers access to hosted LLMs and the runtimes agents use, not only GPUs.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/wayve/40ecaa24-bc9e-4daf-bb06-5007346f7eb4",
+     "tier": "posting",
+     "quote": "You’ll design, build, and operate infrastructure for model access, agent runtimes, and observability.",
+     "published": "2026-10-05"
+    },
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/physicsx/jobs/5025659101",
+     "tier": "posting",
+     "quote": "You will build the LLM access layer for agents on the PhysicsX platform.",
+     "published": "2026-11-03"
+    },
+    {
+     "source_url": "https://www.marian.coach/ai-platform-engineer-role/",
+     "tier": "blog",
+     "quote": "One builds a control plane for models the company buys: access, routing, quotas, cost, guardrails.",
+     "published": "2026-10-09"
+    }
+   ],
+   "confidence": 0.933,
+   "verification": "supported"
+  }
+ ],
+ "asked_for": [
+  {
+   "skill_id": "machine-learning",
+   "label": "Machine learning",
+   "count": 26,
+   "share": 0.8125,
+   "ci_low": 0.6469,
+   "ci_high": 0.9111,
+   "n": 32
+  },
+  {
+   "skill_id": "python",
+   "label": "Python",
+   "count": 25,
+   "share": 0.7812,
+   "ci_low": 0.6124,
+   "ci_high": 0.8898,
+   "n": 32
+  },
+  {
+   "skill_id": "observability",
+   "label": "Observability and monitoring",
+   "count": 23,
+   "share": 0.7188,
+   "ci_low": 0.5463,
+   "ci_high": 0.8444,
+   "n": 32
+  },
+  {
+   "skill_id": "kubernetes",
+   "label": "Kubernetes",
+   "count": 20,
+   "share": 0.625,
+   "ci_low": 0.4525,
+   "ci_high": 0.7707,
+   "n": 32
+  },
+  {
+   "skill_id": "llms",
+   "label": "Large language models",
+   "count": 17,
+   "share": 0.5312,
+   "ci_low": 0.3645,
+   "ci_high": 0.6913,
+   "n": 32
+  },
+  {
+   "skill_id": "software-engineering",
+   "label": "Software engineering",
+   "count": 16,
+   "share": 0.5,
+   "ci_low": 0.3363,
+   "ci_high": 0.6637,
+   "n": 32
+  },
+  {
+   "skill_id": "ai-agents",
+   "label": "AI agents",
+   "count": 13,
+   "share": 0.4062,
+   "ci_low": 0.2552,
+   "ci_high": 0.5774,
+   "n": 32
+  },
+  {
+   "skill_id": "performance-optimization",
+   "label": "Performance optimisation",
+   "count": 12,
+   "share": 0.375,
+   "ci_low": 0.2293,
+   "ci_high": 0.5475,
+   "n": 32
+  },
+  {
+   "skill_id": "distributed-systems",
+   "label": "Distributed systems",
+   "count": 11,
+   "share": 0.3438,
+   "ci_low": 0.2041,
+   "ci_high": 0.5169,
+   "n": 32
+  },
+  {
+   "skill_id": "cloud-infrastructure",
+   "label": "Cloud infrastructure",
+   "count": 10,
+   "share": 0.3125,
+   "ci_low": 0.1795,
+   "ci_high": 0.4857,
+   "n": 32
+  },
+  {
+   "skill_id": "model-serving",
+   "label": "Model serving",
+   "count": 10,
+   "share": 0.3125,
+   "ci_low": 0.1795,
+   "ci_high": 0.4857,
+   "n": 32
+  },
+  {
+   "skill_id": "api-design",
+   "label": "API design",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "aws",
+   "label": "AWS",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "ci-cd",
+   "label": "CI/CD",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "mlops",
+   "label": "MLOps",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "terraform",
+   "label": "Terraform",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "cpp",
+   "label": "C++",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "gcp",
+   "label": "Google Cloud",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "stakeholder-communication",
+   "label": "Stakeholder communication",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "docker",
+   "label": "Docker",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "technical-writing",
+   "label": "Technical writing",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "cuda",
+   "label": "CUDA",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "model-training",
+   "label": "Model training",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "rag",
+   "label": "RAG",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "azure",
+   "label": "Azure",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "cross-functional-collaboration",
+   "label": "Cross-functional collaboration",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "full-stack-development",
+   "label": "Full-stack development",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "linux",
+   "label": "Linux",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "mcp",
+   "label": "MCP",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "mentoring",
+   "label": "Mentoring",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "on-call",
+   "label": "On-call and incident response",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "pytorch",
+   "label": "PyTorch",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "rust",
+   "label": "Rust",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "backend-development",
+   "label": "Backend development",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "inference-optimization",
+   "label": "Inference optimisation",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "llm-evaluation",
+   "label": "LLM evaluation",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "multimodal",
+   "label": "Multimodal models",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "tensorflow",
+   "label": "TensorFlow",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "triton",
+   "label": "Triton",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "vector-databases",
+   "label": "Vector databases",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  }
+ ],
+ "responsibilities": [
+  {
+   "text": "Build and run inference: serving models in real time and in batch, from weight loading to request scheduling.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/Perplexity/e4777627-ff8f-4257-8612-3a016bb58592",
+     "tier": "posting",
+     "quote": "Support transformer-based retrieval, text-generation, and multimodal models in our inference infrastructure, from weight loading, request scheduling and KV-cache management to support in API Gateway.",
+     "published": "2026-04-13"
+    },
+    {
+     "source_url": "https://boards.greenhouse.io/cloudflare/jobs/7764827?gh_jid=7764827",
+     "tier": "posting",
+     "quote": "You'll design and build the core infrastructure that powers AI inference across Cloudflare's global network",
+     "published": "2026-04-01"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/deliveroo/jobs/8205846",
+     "tier": "posting",
+     "quote": "real-time GPU serving, high-throughput batch inference, and model fine-tuning",
+     "published": "2026-10-06"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Build tools and infrastructure that let researchers and ML teams train, debug and ship models.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/cohere/2a9a9b65-4f1b-4387-aa7f-d58c78e738c4",
+     "tier": "posting",
+     "quote": "Instrument training code and build self-service tooling so researchers can see why a run failed and debug it themselves.",
+     "published": "2026-11-06"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/isomorphiclabs/jobs/5818858004",
+     "tier": "posting",
+     "quote": "evolve the foundational infrastructure that makes it easy to train and deploy novel machine learning models over vast (and growing) pools of compute and data",
+     "published": "2026-03-04"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/wayve/82f389e1-b856-4157-ab24-f83f467329e5",
+     "tier": "posting",
+     "quote": "You’ll work closely with machine learning teams to understand their workflows and turn complex requirements into stable, scalable and intuitive software.",
+     "published": "2026-10-05"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Keep AI systems reliable: observability, deployment safety, capacity and incidents.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/wayve/085402fd-1976-4725-bfc3-f0e9dd3bc2ab",
+     "tier": "posting",
+     "quote": "You’ll improve observability, automation, deployment safety, capacity planning, and incident learning",
+     "published": "2026-10-05"
+    },
+    {
+     "source_url": "https://jobs.lever.co/valarian/924e389c-6cbd-40dc-a3e1-e7f2f4b930ec",
+     "tier": "posting",
+     "quote": "lead the deployment, monitoring, orchestration, and operational reliability of our production LLM applications and agentic AI platform.",
+     "published": "2026-10-22"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/isomorphiclabs/jobs/5837899004",
+     "tier": "posting",
+     "quote": "You will play a pivotal role in ensuring the reliability and scalability of the foundations that make this possible.",
+     "published": "2026-03-26"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Build the layer that connects products to models, whether hosted by others or by the company.",
+   "citations": [
+    {
+     "source_url": "https://jobs.elastic.co/jobs?gh_jid=8259062&gh_jid=8259062",
+     "tier": "posting",
+     "quote": "The Elasticsearch Inference API is the integration layer between Elasticsearch and external machine learning services",
+     "published": "2026-10-06"
+    },
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/physicsx/jobs/5025659101",
+     "tier": "posting",
+     "quote": "That layer serves self-hosted open models and routes each task to the model, or combination of models, that best fits its constraints.",
+     "published": "2026-11-03"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/wayve/40ecaa24-bc9e-4daf-bb06-5007346f7eb4",
+     "tier": "posting",
+     "quote": "You’ll design, build, and operate infrastructure for model access, agent runtimes, and observability.",
+     "published": "2026-10-05"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Build the data pipelines that feed training.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/wayve/3ef8fd28-0831-44b8-b3db-deb18882aeec",
+     "tier": "posting",
+     "quote": "you’ll help build the data foundations that make AI model training possible at scale.",
+     "published": "2026-10-06"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/intercom/jobs/7820671",
+     "tier": "posting",
+     "quote": "The AI Infra team built the training pipelines and runs the inference for custom models",
+     "published": "2026-04-17"
+    },
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/speechmatics/jobs/4950383101",
+     "tier": "posting",
+     "quote": "working as part of our ML team to remove friction across the entire lifecycle and get better models into production faster.",
+     "published": "2026-09-04"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Some roles are product engineering on AI products, front end to back end.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/eloquentai/b636810c-e01b-4f9b-8aed-9a0856fee42e",
+     "tier": "posting",
+     "quote": "You’ll work across the entire stack, developing high-performance front-end experiences and scalable back-end systems that power real-time AI-driven workflows.",
+     "published": "2025-10-27"
+    },
+    {
+     "source_url": "https://boards.greenhouse.io/figma/jobs/5551697004?gh_jid=5551697004",
+     "tier": "posting",
+     "quote": "Take part in building new 0→1 products within the agentic coding space",
+     "published": "2025-06-02"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/WRITER/b4116df9-b351-4d91-bf9f-27fb6e2811c5",
+     "tier": "posting",
+     "quote": "building the secure, scalable foundation that allows our generative AI solutions to thrive in complex corporate environments.",
+     "published": "2026-11-03"
+    }
+   ],
+   "confidence": 0.8,
+   "verification": "supported"
+  }
+ ],
+ "day_to_day": [
+  {
+   "text": "For inference engineers the day starts with dashboards: GPU use, queue depth, memory and latency.",
+   "citations": [
+    {
+     "source_url": "https://www.wrok.app/blog/ai-infrastructure-engineer-career-2026",
+     "tier": "blog",
+     "quote": "Day-to-day work starts with dashboards: GPU utilization, inference queue depth, memory pressure, latency percentiles.",
+     "published": "2026-08-03"
+    },
+    {
+     "source_url": "https://mlai.qa/blog/ml-platform-engineering-guide/",
+     "tier": "blog",
+     "quote": "Proper model serving infrastructure (Triton, Ray Serve, BentoML) handles dynamic batching, concurrent model execution, and GPU memory management",
+     "published": "2026-03-13"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "ML platform work is platform engineering with models on top: registries, pipelines, release CI/CD and shared GPU scheduling.",
+   "citations": [
+    {
+     "source_url": "https://www.wrok.app/blog/ai-infrastructure-engineer-career-2026",
+     "tier": "blog",
+     "quote": "Day-to-day work spans building and maintaining feature stores, experiment tracking pipelines, model registries, and CI/CD systems for model releases.",
+     "published": "2026-08-03"
+    },
+    {
+     "source_url": "https://www.marian.coach/ai-platform-engineer-role/",
+     "tier": "blog",
+     "quote": "Mistral’s ML platform posting reads like a Kubernetes scheduler job for researchers, with queueing, quotas, preemption and an explicit on-call rotation across GPU infrastructure.",
+     "published": "2026-10-09"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "LLM platform work means owning the gateway every model call passes through, with traces, evals and limits on cost.",
+   "citations": [
+    {
+     "source_url": "https://www.marian.coach/ai-platform-engineer-role/",
+     "tier": "blog",
+     "quote": "That layer is the gateway model calls pass through, the evals that decide whether a change ships, the traces, and the limits on cost and data.",
+     "published": "2026-10-09"
+    },
+    {
+     "source_url": "https://www.a.team/talent/guides/llm-evals-in-production",
+     "tier": "blog",
+     "quote": "Every call goes through an internal wrapper that implements the same interface but captures every detail, streaming and non-streaming, as it happens.",
+     "published": "2026-07-17"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  }
+ ],
+ "typical_week": [
+  {
+   "text": "On-call for model and inference infrastructure is a normal part of the job.",
+   "citations": [
+    {
+     "source_url": "https://jobs.elastic.co/jobs?gh_jid=8259062&gh_jid=8259062",
+     "tier": "posting",
+     "quote": "Participate in on-call rotation for inference-related incidents",
+     "published": "2026-10-06"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/wayve/3ef8fd28-0831-44b8-b3db-deb18882aeec",
+     "tier": "posting",
+     "quote": "participate in an out-of-hours on-call and support rotation.",
+     "published": "2026-10-06"
+    },
+    {
+     "source_url": "https://www.marian.coach/ai-platform-engineer-role/",
+     "tier": "blog",
+     "quote": "Same title, and the pay, the on-call and the career path differ between them.",
+     "published": "2026-10-09"
+    }
+   ],
+   "confidence": 0.933,
+   "verification": "supported"
+  }
+ ],
+ "pain_points": [
+  {
+   "text": "A healthy service can still serve a degraded model: infrastructure metrics do not show model quality.",
+   "citations": [
+    {
+     "source_url": "https://mlai.qa/blog/ml-platform-engineering-guide/",
+     "tier": "blog",
+     "quote": "Your model can have 99.9% uptime while serving predictions from a distribution that has drifted significantly from what it was trained on.",
+     "published": "2026-03-13"
+    },
+    {
+     "source_url": "https://montecarlo.ai/blog-9-agentic-learnings-after-a-year-of-ai-deployment",
+     "tier": "blog",
+     "quote": "For us, that meant monitoring AI outputs just as much as we monitor the data, system, and code that powers it.",
+     "published": "2025-03-12"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "GPUs are expensive and naive serving wastes them; inference is where most of the compute money goes.",
+   "citations": [
+    {
+     "source_url": "https://mlai.qa/blog/ml-platform-engineering-guide/",
+     "tier": "blog",
+     "quote": "Naive model serving wastes expensive GPU compute.",
+     "published": "2026-03-13"
+    },
+    {
+     "source_url": "https://www.wrok.app/blog/ai-infrastructure-engineer-career-2026",
+     "tier": "blog",
+     "quote": "inference now accounts for 80–90% of AI compute costs in production.",
+     "published": "2026-08-03"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "The titles are vague: people expecting model work can find themselves running Kubernetes for model serving.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "You interview for what sounds like an AI-First role and discover on day two that you're managing Kubernetes clusters for model serving.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://www.marian.coach/ai-platform-engineer-role/",
+     "tier": "blog",
+     "quote": "The title is new enough that postings disagree on what it means.",
+     "published": "2026-10-09"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  }
+ ],
+ "skill_gap": null,
+ "provenance": {
+  "stats_version": 1,
+  "writer_model": "Claude Opus 5.5, in one research session",
+  "writer_prompt": "researched 2026-11-07",
+  "verifier_model": "code that finds every quote word for word in its source",
+  "verifier_prompt": "static_reports.quote_found",
+  "cost_usd": 0.0,
+  "removed": [],
+  "method": "researched"
+ }
+}

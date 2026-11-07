@@ -10,7 +10,7 @@ The portfolio version is done (README "What is built, and what is not"):
 
 - **Live:** the free static demo on GitHub Pages and a 45-second video (ADR 0025).
 - **Practice projects:** hand-written projects and five-day internships for all three golden roles: GenAI Engineer (Northwind), Agentic AI Engineer (Harbor Travel), AI Software Engineer (Relay Systems). No model call needed (ADRs 0022, 0023, 0026). Colleagues and the supervisor fall back to stock replies without quota.
-- **Research and reports:** M1 and M2 done, including the claim verifier, human review and publishing, and the skill-gap check.
+- **Research and reports:** M1 and M2 done, including the claim verifier, human review and publishing, and the skill-gap check. All three golden roles have a published report with no key: researched on 2026-11-07 from 96 hand-checked UK postings and practitioner blogs, kept in the repository, loaded by `make seed-reports`, re-checked by `make check-reports` (ADR 0027).
 - **Workspace:** practice screen, tests in the Docker sandbox, Tech Lead review (ADR 0021).
 
 **Parked: automatic project generation (`make autopilot`, ADR 0020).** Built and heavily hardened (local Ollama model, repair rounds, code-level fixes), but with free models its validation gate has never approved a project: the starter's tests and the separately planned reference solution disagree, and the generated code sometimes calls the network, which the sandbox does not have. If it is picked up again, the structural fix is to build the correct solution and its tests together first, make them pass, and only then plant the issues; and to require tests that never touch the network. Do not resume patching it failure by failure.
@@ -20,7 +20,7 @@ Not built: M6 (skill matrix, GitHub export, CV bullets) and a hosted deployment 
 ## Waiting on Rushit (optional)
 
 - Merge PR #40 (a stopped Docker shows "code runner unavailable" instead of a raw error).
-- Report review and publish: `make review-report role="GenAI Engineer"`, then `make spot-check n=20` a few times, then `make publish-report`.
+- Run `make seed-reports` once so the three reports show on the home page. A pipeline report published later replaces the researched one for that role.
 - Practitioner interviews (3 to 5) would fill "a typical week" in the reports.
 
 ## How we work

@@ -99,3 +99,43 @@ boards:
   # Consultancies with public boards
   - {company: Thoughtworks, ats: greenhouse, token: thoughtworks}
   - {company: Equal Experts, ats: greenhouse, token: equalexperts}
+  # Added 2026-11-07: found by searching the three boards for UK AI engineering openings
+  - {company: Brunswick Group, ats: greenhouse, token: brunswickgroup}
+  - {company: Reflexivity, ats: greenhouse, token: toggleai}
+  - {company: Bluefish AI, ats: greenhouse, token: bluefishai}
+  - {company: Optiver, ats: greenhouse, token: optiverus}
+  - {company: Oura, ats: greenhouse, token: oura}
+  - {company: Capco, ats: greenhouse, token: capco}
+  - {company: DEPT, ats: greenhouse, token: dept}
+  - {company: Addepar, ats: greenhouse, token: addepar1}
+  - {company: spektr, ats: greenhouse, token: spektr}
+  - {company: Sequence, ats: ashby, token: sequence}
+  - {company: Nevis Wealth, ats: ashby, token: nevis}
+  - {company: Eloquent AI, ats: ashby, token: eloquentai}
+  - {company: Edra, ats: ashby, token: edra}
+  - {company: Vega, ats: ashby, token: vega}
+  - {company: Cognition, ats: ashby, token: cognition}
+  - {company: White Circle, ats: ashby, token: whitecircle}
+  - {company: Mistral AI, ats: ashby, token: mistral.ai}
+  - {company: Light, ats: ashby, token: light-inc}
+  - {company: Distyl AI, ats: ashby, token: Distyl}
+  - {company: Capsa, ats: ashby, token: capsa}
+  - {company: Solve Intelligence, ats: ashby, token: solveintelligence}
+  - {company: Causaly, ats: ashby, token: causaly}
+  - {company: n8n, ats: ashby, token: n8n}
+  - {company: Lendable, ats: ashby, token: lendable}
+  - {company: Resonance, ats: ashby, token: Resonance}
+  - {company: Moss, ats: ashby, token: moss}
+  - {company: Taktile, ats: ashby, token: taktile}
+  - {company: Fifty One Degrees, ats: ashby, token: 51d}
+  - {company: 9fin, ats: ashby, token: 9fin}
+  - {company: Glot, ats: ashby, token: glot}
+  - {company: Delfa AI, ats: ashby, token: delfa}
+  - {company: QuantCo, ats: lever, token: quantco-}
+  - {company: Sonar, ats: lever, token: sonarsource}
+  - {company: 01Health, ats: lever, token: 32Co}
+  - {company: Valarian, ats: lever, token: valarian}
+  - {company: Crypto.com, ats: lever, token: crypto}
+  - {company: Yuno, ats: lever, token: yuno}
+  - {company: Moneybox, ats: lever, token: moneyboxapp}
+  - {company: Firstup, ats: lever, token: firstup}

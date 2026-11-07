@@ -1,0 +1,783 @@
+{
+ "archetype": "agentic-ai-engineer",
+ "trust_level": "golden",
+ "version": 1,
+ "country": "GB",
+ "sample_size": 32,
+ "date_range": [
+  "2024-12-20",
+  "2026-11-04"
+ ],
+ "summary": [
+  {
+   "text": "The job is building systems where a model plans and calls tools, and the platform they run on: the agent loop, tools, memory, context and orchestration.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/granola/ed52eb55-cb81-4ed8-b97b-92b477876f9e",
+     "tier": "posting",
+     "quote": "The Core Harness team builds the systems that turn models into useful, reliable agents at Granola: the agent loop, tools, memory, context management and execution environment.",
+     "published": "2024-12-20"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/tide/jobs/7703992003",
+     "tier": "posting",
+     "quote": "That includes context, orchestration, tool execution, trust controls, observability, and evaluation.",
+     "published": "2026-04-17"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/capsa/f5851f66-c702-4340-ae08-1edae32343cf",
+     "tier": "posting",
+     "quote": "You'll own the full harness: agent design, tool building, retrieval, evals, and the iteration that turns a capable demo into a system professionals trust with billion-dollar decisions.",
+     "published": "2026-06-04"
+    }
+   ],
+   "confidence": 0.9,
+   "verification": "supported"
+  },
+  {
+   "text": "Reliability, not capability, is the central problem practitioners describe: demos are easy, production is not.",
+   "citations": [
+    {
+     "source_url": "https://engineering.salesforce.com/how-to-build-reliable-ai-agents-5-engineering-patterns-from-a-production-system/",
+     "tier": "blog",
+     "quote": "If you’ve built an AI agent that works perfectly in demos but becomes unpredictable in production, you’ve probably already discovered that reliability is much harder than capability.",
+     "published": "2026-06-09"
+    },
+    {
+     "source_url": "https://developers.googleblog.com/production-ready-ai-agents-5-lessons-from-refactoring-a-monolith/",
+     "tier": "blog",
+     "quote": "Building an AI agent that works beautifully on your local machine is easy.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://www.redpanda.com/blog/run-ai-agents-scale-engineering-operations",
+     "tier": "blog",
+     "quote": "If you're the one being asked to put agents into production, you can attest that the demo is the easy part.",
+     "published": null
+    }
+   ],
+   "confidence": 0.72,
+   "verification": "supported"
+  },
+  {
+   "text": "These are full software engineering jobs: many are full-stack or backend-weighted roles, not prompt-writing roles.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/WRITER/19ebb038-e398-4a45-b40b-53333d534777",
+     "tier": "posting",
+     "quote": "We’re seeking a highly skilled fullstack software engineer to join our engineering team building advanced AI-driven agent systems",
+     "published": "2026-11-03"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/causaly/b197dd4a-dded-4f35-ab09-3bf757b64d2a",
+     "tier": "posting",
+     "quote": "Full-stack engineering, weighted towards backend and platform.",
+     "published": "2026-07-06"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/taktile/c9d47dd2-3252-4266-a581-b9d1b46e9297",
+     "tier": "posting",
+     "quote": "we’re looking for a Senior Full-Stack Engineer to join our Agent team.",
+     "published": "2026-09-02"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  }
+ ],
+ "asked_for": [
+  {
+   "skill_id": "ai-agents",
+   "label": "AI agents",
+   "count": 27,
+   "share": 0.8438,
+   "ci_low": 0.6825,
+   "ci_high": 0.9314,
+   "n": 32
+  },
+  {
+   "skill_id": "llms",
+   "label": "Large language models",
+   "count": 25,
+   "share": 0.7812,
+   "ci_low": 0.6124,
+   "ci_high": 0.8898,
+   "n": 32
+  },
+  {
+   "skill_id": "python",
+   "label": "Python",
+   "count": 24,
+   "share": 0.75,
+   "ci_low": 0.5789,
+   "ci_high": 0.8675,
+   "n": 32
+  },
+  {
+   "skill_id": "observability",
+   "label": "Observability and monitoring",
+   "count": 20,
+   "share": 0.625,
+   "ci_low": 0.4525,
+   "ci_high": 0.7707,
+   "n": 32
+  },
+  {
+   "skill_id": "api-design",
+   "label": "API design",
+   "count": 18,
+   "share": 0.5625,
+   "ci_low": 0.3933,
+   "ci_high": 0.7183,
+   "n": 32
+  },
+  {
+   "skill_id": "machine-learning",
+   "label": "Machine learning",
+   "count": 15,
+   "share": 0.4688,
+   "ci_low": 0.3087,
+   "ci_high": 0.6355,
+   "n": 32
+  },
+  {
+   "skill_id": "typescript",
+   "label": "TypeScript",
+   "count": 14,
+   "share": 0.4375,
+   "ci_low": 0.2817,
+   "ci_high": 0.6067,
+   "n": 32
+  },
+  {
+   "skill_id": "distributed-systems",
+   "label": "Distributed systems",
+   "count": 12,
+   "share": 0.375,
+   "ci_low": 0.2293,
+   "ci_high": 0.5475,
+   "n": 32
+  },
+  {
+   "skill_id": "software-engineering",
+   "label": "Software engineering",
+   "count": 12,
+   "share": 0.375,
+   "ci_low": 0.2293,
+   "ci_high": 0.5475,
+   "n": 32
+  },
+  {
+   "skill_id": "tool-calling",
+   "label": "Tool calling",
+   "count": 11,
+   "share": 0.3438,
+   "ci_low": 0.2041,
+   "ci_high": 0.5169,
+   "n": 32
+  },
+  {
+   "skill_id": "llm-evaluation",
+   "label": "LLM evaluation",
+   "count": 10,
+   "share": 0.3125,
+   "ci_low": 0.1795,
+   "ci_high": 0.4857,
+   "n": 32
+  },
+  {
+   "skill_id": "postgres",
+   "label": "PostgreSQL",
+   "count": 10,
+   "share": 0.3125,
+   "ci_low": 0.1795,
+   "ci_high": 0.4857,
+   "n": 32
+  },
+  {
+   "skill_id": "backend-development",
+   "label": "Backend development",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "ci-cd",
+   "label": "CI/CD",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "langgraph",
+   "label": "LangGraph",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "multi-agent-systems",
+   "label": "Multi-agent systems",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "performance-optimization",
+   "label": "Performance optimisation",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "react",
+   "label": "React",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "technical-writing",
+   "label": "Technical writing",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "terraform",
+   "label": "Terraform",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "cloud-infrastructure",
+   "label": "Cloud infrastructure",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "data-engineering",
+   "label": "Data engineering",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "full-stack-development",
+   "label": "Full-stack development",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "guardrails",
+   "label": "Guardrails and AI safety",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "langchain",
+   "label": "LangChain",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "prompt-engineering",
+   "label": "Prompt engineering",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "stakeholder-communication",
+   "label": "Stakeholder communication",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "aws",
+   "label": "AWS",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "fastapi",
+   "label": "FastAPI",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "kubernetes",
+   "label": "Kubernetes",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "mcp",
+   "label": "MCP",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "mentoring",
+   "label": "Mentoring",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "sql",
+   "label": "SQL",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "docker",
+   "label": "Docker",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "fine-tuning",
+   "label": "Fine-tuning",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "gcp",
+   "label": "Google Cloud",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "openai-api",
+   "label": "OpenAI API",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "vector-search",
+   "label": "Vector search",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "anthropic-api",
+   "label": "Anthropic API",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "azure",
+   "label": "Azure",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "kafka",
+   "label": "Kafka",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "nodejs",
+   "label": "Node.js",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  }
+ ],
+ "responsibilities": [
+  {
+   "text": "Design, build and ship agents that do real work in production.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/moss/a4cd2807-aabc-4dfb-9256-0b3736582efe",
+     "tier": "posting",
+     "quote": "Design and build agents that automate complex finance workflows.",
+     "published": "2026-10-27"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/solveintelligence/972bab7a-a285-4d22-af00-9ff9d3e41776",
+     "tier": "posting",
+     "quote": "Developing production-ready AI agents.",
+     "published": "2026-01-05"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/capsa/f5851f66-c702-4340-ae08-1edae32343cf",
+     "tier": "posting",
+     "quote": "You'll design, ship, and improve the agents that do real work for deal teams",
+     "published": "2026-06-04"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Build the platform agents run on: orchestration, durable execution, context services and tool layers.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/causaly/99f31334-aef3-4e52-a969-1a2a08368016",
+     "tier": "posting",
+     "quote": "A single run can last hours, fan out across dozens of subagents, and has to produce evidence a scientist can audit.",
+     "published": "2026-07-06"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/tide/jobs/7703992003",
+     "tier": "posting",
+     "quote": "Drive the design of shared services such as context APIs, tool layers, policy controls, and auditability",
+     "published": "2026-04-17"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/togetherai/jobs/5222270007",
+     "tier": "posting",
+     "quote": "we build the platform they run on, including knowledge graphs, retrieval systems, orchestration frameworks, and developer tooling.",
+     "published": "2026-09-01"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Observe and evaluate how agents behave in production, and ship changes based on it.",
+   "citations": [
+    {
+     "source_url": "https://jobs.elastic.co/jobs?gh_jid=8223682&gh_jid=8223682",
+     "tier": "posting",
+     "quote": "how agents, automations and skills behave in production, how we observe them, how we evaluate them, and how we ship changes to them",
+     "published": "2026-09-22"
+    },
+    {
+     "source_url": "https://jobs.lever.co/valarian/55140de9-d3c0-48fb-bae3-41b16bcf7143",
+     "tier": "posting",
+     "quote": "you will own the experimental design, evaluation methodologies, and benchmark infrastructure for our AI models and autonomous agentic workloads",
+     "published": "2026-09-16"
+    },
+    {
+     "source_url": "https://www.hudsonrivertrading.com/careers/job/?gh_jid=8234195",
+     "tier": "posting",
+     "quote": "Developing research environments, evaluation systems, and experimentation platforms that allow us to measure and improve agent performance",
+     "published": "2026-09-25"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Put safeguards around agents: sandboxes, policy enforcement and controls on what they may do.",
+   "citations": [
+    {
+     "source_url": "https://www.hudsonrivertrading.com/careers/job/?gh_jid=8234195",
+     "tier": "posting",
+     "quote": "Designing sandboxing, policy enforcement, monitoring, and other safeguards for increasingly capable autonomous systems",
+     "published": "2026-09-25"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/tide/jobs/7703992003",
+     "tier": "posting",
+     "quote": "You will shape the shared capabilities that allow AI systems to operate safely, reliably, and at scale across Tide.",
+     "published": "2026-04-17"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/openai/c1316397-25bb-4add-9e9d-0e3ea8ba929a",
+     "tier": "posting",
+     "quote": "providing a workspace for AI models to execute code, debug issues, and develop software just as human SWEs do",
+     "published": "2025-05-30"
+    }
+   ],
+   "confidence": 0.9,
+   "verification": "supported"
+  },
+  {
+   "text": "Many roles build agents for the company's own teams, such as marketing, planning or engineering, not only for customers.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/ElevenLabs/b8a111fa-9fd5-44d0-97ed-8fd1280be4ef",
+     "tier": "posting",
+     "quote": "We're building agents that run real parts of our business, take on real work, and get better based on the results they produce.",
+     "published": "2026-10-21"
+    },
+    {
+     "source_url": "https://boards.greenhouse.io/cloudflare/jobs/8328562?gh_jid=8328562",
+     "tier": "posting",
+     "quote": "You will build an auditable multi-agent system on Cloudflare’s platform to replace notebooks and email threads",
+     "published": "2026-11-04"
+    },
+    {
+     "source_url": "https://jobs.lever.co/sonarsource/c1244055-a548-4ade-8f0e-0a76a7133d69",
+     "tier": "posting",
+     "quote": "identifying where AI agents and automated workflows can eliminate manual work, reduce errors, or unlock capabilities that weren’t previously possible.",
+     "published": "2026-07-27"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  }
+ ],
+ "day_to_day": [
+  {
+   "text": "Much of the work is shaping what goes into the agent's context, and teams rebuild their approach as they learn.",
+   "citations": [
+    {
+     "source_url": "https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus",
+     "tier": "blog",
+     "quote": "It's an experimental science—and we've rebuilt our agent framework four times, each time after discovering a better way to shape context.",
+     "published": "2025-07-18"
+    },
+    {
+     "source_url": "https://engineering.salesforce.com/how-to-build-reliable-ai-agents-5-engineering-patterns-from-a-production-system/",
+     "tier": "blog",
+     "quote": "Like many teams building agentic systems, we started with prompts. Then we tried larger prompts. Then we tried multiple agents.",
+     "published": "2026-06-09"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "Practitioners give deterministic code the computation and keep the model for the ambiguous reasoning.",
+   "citations": [
+    {
+     "source_url": "https://engineering.salesforce.com/how-to-build-reliable-ai-agents-5-engineering-patterns-from-a-production-system/",
+     "tier": "blog",
+     "quote": "Reasoning tasks involve ambiguity, which makes them a natural fit for LLMs, but computation tasks require deterministic outputs and are better handled by software built for that purpose.",
+     "published": "2026-06-09"
+    },
+    {
+     "source_url": "https://www.redpanda.com/blog/run-ai-agents-scale-engineering-operations",
+     "tier": "blog",
+     "quote": "If you can write the rule, write the rule, and save agents for work that's well understood but not fully scriptable.",
+     "published": null
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "Tracing and monitoring every step of an agent is part of the daily job.",
+   "citations": [
+    {
+     "source_url": "https://developers.googleblog.com/production-ready-ai-agents-5-lessons-from-refactoring-a-monolith/",
+     "tier": "blog",
+     "quote": "You cannot put an agent into production without live diagnostics.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://montecarlo.ai/blog-9-agentic-learnings-after-a-year-of-ai-deployment",
+     "tier": "blog",
+     "quote": "For us, that meant monitoring AI outputs just as much as we monitor the data, system, and code that powers it.",
+     "published": "2025-03-12"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  }
+ ],
+ "typical_week": [
+  {
+   "text": "Results are checked against ground truth, deterministic code or a person before they are trusted.",
+   "citations": [
+    {
+     "source_url": "https://montecarlo.ai/blog-9-agentic-learnings-after-a-year-of-ai-deployment",
+     "tier": "blog",
+     "quote": "we recommend adding intermediate steps in the process to validate results either by hand, through sample ground truth or through deterministic code.",
+     "published": "2025-03-12"
+    },
+    {
+     "source_url": "https://engineering.salesforce.com/how-to-build-reliable-ai-agents-5-engineering-patterns-from-a-production-system/",
+     "tier": "blog",
+     "quote": "an agent should be considered successful only when objective validation confirms that it is correct.",
+     "published": "2026-06-09"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "Agents are measured against expected outputs and real usage, much like a new hire.",
+   "citations": [
+    {
+     "source_url": "https://www.redpanda.com/blog/run-ai-agents-scale-engineering-operations",
+     "tier": "blog",
+     "quote": "Set KPIs and expected outputs, decide whether performance is cost-based or speed-based or something else measurable, and review against it.",
+     "published": null
+    },
+    {
+     "source_url": "https://montecarlo.ai/blog-9-agentic-learnings-after-a-year-of-ai-deployment",
+     "tier": "blog",
+     "quote": "Tracking user behavior in response to results, like acceptance rate, adoption, etc.",
+     "published": "2025-03-12"
+    }
+   ],
+   "confidence": 0.373,
+   "verification": "supported"
+  }
+ ],
+ "pain_points": [
+  {
+   "text": "Adding more instructions to the prompt rarely fixes an unreliable agent.",
+   "citations": [
+    {
+     "source_url": "https://engineering.salesforce.com/how-to-build-reliable-ai-agents-5-engineering-patterns-from-a-production-system/",
+     "tier": "blog",
+     "quote": "The prompt grows, but the underlying reliability problem remains.",
+     "published": "2026-06-09"
+    },
+    {
+     "source_url": "https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus",
+     "tier": "blog",
+     "quote": "We affectionately refer to this manual process of architecture searching, prompt fiddling, and empirical guesswork as \"Stochastic Graduate Descent\".",
+     "published": "2025-07-18"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "Adding more agents does not automatically make the system more reliable, and errors compound across steps.",
+   "citations": [
+    {
+     "source_url": "https://engineering.salesforce.com/how-to-build-reliable-ai-agents-5-engineering-patterns-from-a-production-system/",
+     "tier": "blog",
+     "quote": "We upgraded models, refined prompts, and introduced reviewer agents, yet the inconsistency remained.",
+     "published": "2026-06-09"
+    },
+    {
+     "source_url": "https://montecarlo.ai/blog-9-agentic-learnings-after-a-year-of-ai-deployment",
+     "tier": "blog",
+     "quote": "these hallucinations can cascade into runaway mistakes in agentic applications where multiple AI workflows are often strung together.",
+     "published": "2025-03-12"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "Failures are a normal part of multi-step runs: rate limits, loops and silent failures.",
+   "citations": [
+    {
+     "source_url": "https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus",
+     "tier": "blog",
+     "quote": "In multi-step tasks, failure is not the exception; it's part of the loop.",
+     "published": "2025-07-18"
+    },
+    {
+     "source_url": "https://developers.googleblog.com/production-ready-ai-agents-5-lessons-from-refactoring-a-monolith/",
+     "tier": "blog",
+     "quote": "This isn't just about elegant code; it's about avoiding runaway cloud bills, reputational damage from hallucinated outputs, and the sheer operational nightmare of a silent failure in production.",
+     "published": "2026-04-21"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  },
+  {
+   "text": "Latency and cost are constant concerns in long agent runs.",
+   "citations": [
+    {
+     "source_url": "https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus",
+     "tier": "blog",
+     "quote": "If I had to choose just one metric, I'd argue that the KV-cache hit rate is the single most important metric for a production-stage AI agent.",
+     "published": "2025-07-18"
+    },
+    {
+     "source_url": "https://developers.googleblog.com/production-ready-ai-agents-5-lessons-from-refactoring-a-monolith/",
+     "tier": "blog",
+     "quote": "Building one that survives contact with reality—handling rate limits, avoiding infinite loops, and scaling beyond hardcoded data—is a completely different beast.",
+     "published": "2026-04-21"
+    }
+   ],
+   "confidence": 0.453,
+   "verification": "supported"
+  }
+ ],
+ "skill_gap": null,
+ "provenance": {
+  "stats_version": 1,
+  "writer_model": "Claude Opus 5.5, in one research session",
+  "writer_prompt": "researched 2026-11-07",
+  "verifier_model": "code that finds every quote word for word in its source",
+  "verifier_prompt": "static_reports.quote_found",
+  "cost_usd": 0.0,
+  "removed": [],
+  "method": "researched"
+ }
+}

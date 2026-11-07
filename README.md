@@ -78,6 +78,14 @@ make review-skills                         # extracted labels the taxonomy does 
 
 `make research` needs `ANTHROPIC_API_KEY`. Re-runs only pay for new postings.
 
+Read the three Role Reality Reports with no API key: they were researched once from 96 real UK postings and practitioner writing and live in the repository, every quote checked by code (ADR 0027):
+
+```bash
+docker compose up -d postgres
+make seed-reports                            # stores them as published; run make api and make web, then open /
+make check-reports                           # optional: fetches every source again and confirms each quote
+```
+
 Try a practice project and its five-day internship (no API key needed; colleagues use stock replies without one):
 
 ```bash
@@ -126,7 +134,7 @@ make migrate
 | --- | --- |
 | M0 Foundations | ✅ Monorepo, local stack, contracts, data model, LLM gateway, CI |
 | M1 Research pipeline | ✅ Collection from 80 job boards and Adzuna, classification, quote-verified extraction, skill statistics, daily Temporal run, hand-labelled evaluations |
-| M2 Role Reality Report | ✅ Evidence search, report writer, claim verifier with confidence, human review and publishing, skill-gap check |
+| M2 Role Reality Report | ✅ Evidence search, report writer, claim verifier with confidence, human review and publishing, skill-gap check; researched reports for the three golden roles in the repository (`make seed-reports`, no key) |
 | M3 Projects and sandbox | ✅ Code sandbox, hand-written projects for the three golden roles; automatic generation experimental |
 | M4 Workspace and Tech Lead | ✅ Practice screen, tests in the sandbox, Tech Lead review |
 | M5 Virtual internship | ✅ Five scripted days, colleagues in character, supervisor review, offline fallbacks |
