@@ -547,6 +547,13 @@ async def test_a_repair_that_does_not_compile_changes_nothing_and_late_rounds_re
     await repair(art.REWRITE_FROM_ROUND)
     assert "x = 1  # broken somehow" not in seen[1]["messages"][1]["content"]
     assert "withheld" in seen[1]["messages"][1]["content"]
+    # a test file is never withheld: it is the spec, and a wrong expected value gets corrected
+    await art.repair_files(
+        Echo(), art.Spend(), tier="judge", budget_usd=1, scenario="s", goal="g", problem="p",  # type: ignore[arg-type]
+        files={"tests/test_a.py": "def test_a():\n    assert 7 == 6\n"},
+        editable=["tests/test_a.py"], round_number=art.REWRITE_FROM_ROUND,
+    )  # fmt: skip
+    assert "assert 7 == 6" in seen[2]["messages"][1]["content"]
 
 
 async def test_the_key_scripts_are_asked_for_with_how_they_are_run() -> None:
@@ -577,6 +584,20 @@ async def test_a_test_file_that_passes_on_the_starter_is_noted_for_the_reviewer(
         "there."
     ]
     assert "## For the reviewer" in art.to_text(built, None)
+
+
+async def test_a_reused_starter_keeps_the_plan_notes_for_the_reference_repairs() -> None:
+    first = FakeGateway(starter_draft(), reference_draft())
+    starter_only = await build(first)
+    assert starter_only.design_notes.startswith("Shared notes about names and signatures.")
+    wrong = reference_draft(files=[f("src/calc.py", BUGGY.replace("total", "total "))])
+    second = FakeGateway(starter_draft(), wrong)
+    await art.build_artifacts(second, LocalRunner(), blueprint(), reuse=starter_only)  # type: ignore[arg-type]
+    repairs = [c for c in second.complete_calls if c["purpose"] == "repair-file"]
+    assert (
+        repairs
+        and "Shared notes about names and signatures." in repairs[0]["messages"][1]["content"]
+    )
 
 
 async def test_a_later_attempt_writes_warmer() -> None:

@@ -117,6 +117,7 @@ class BuiltArtifacts:
     model: str = ""
     notes: list[str] = field(default_factory=list)  # for the reviewer; they do not gate
     calls: dict[str, int] = field(default_factory=dict)  # model -> calls this build made
+    design_notes: str = ""  # the starter plan's contract, kept for a later attempt's repairs
 
     @property
     def ok(self) -> bool:
@@ -805,8 +806,8 @@ async def repair_files(
                         f"=== {p} ===\n"
                         + (
                             "(the broken version is withheld: write this file again from scratch)"
-                            if rewrite
-                            else files.get(p, "")
+                            if rewrite and not p.startswith("tests/")  # tests stay: they are
+                            else files.get(p, "")  # the spec, and a wrong one is corrected
                         )
                         for p in allowed
                     ),
@@ -1018,7 +1019,7 @@ async def build_artifacts(
             built.checks.append(Check("starter files are well formed", False, " ".join(found)))
             return False
         every = [*plan.starter_files, *with_key_contracts(plan.key_files, plan.generated)]
-        contract["notes"] = plan.design_notes
+        contract["notes"] = built.design_notes = plan.design_notes
 
         def render_starter(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
             return {
@@ -1163,6 +1164,7 @@ async def build_artifacts(
     if reuse is not None and reuse.starter_ok:
         built.starter, built.key = dict(reuse.starter), dict(reuse.key)
         built.checks += [c for c in reuse.checks if c.name in STARTER_CHECKS]
+        contract["notes"] = built.design_notes = reuse.design_notes
     elif not await make_starter():
         return finish()
     starter = built.starter
@@ -1250,7 +1252,8 @@ async def build_artifacts(
             "Every test must pass on the fixed project. Fix the planted issues properly in the "
             f"source code:\n{issues}\nChange a test only if the test itself is wrong (for "
             "example an expected value worked out wrongly), never to weaken what it checks, and "
-            "never delete a test."
+            "never delete a test. The plan's notes below are the specification: where a test "
+            "disagrees with them, the test is wrong; where the code does, the code is."
         )
         fixed = await fix(goal, output, reference, focus(output, code, rounds), rounds)
         # A starter test the repair corrected; the reference's own new tests stay its own.
