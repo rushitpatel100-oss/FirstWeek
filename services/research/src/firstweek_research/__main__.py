@@ -10,12 +10,15 @@ python -m firstweek_research eval-extraction
 python -m firstweek_research index-evidence
 python -m firstweek_research search "how is LLM output evaluated" [--role "GenAI Engineer"]
 python -m firstweek_research report --role "GenAI Engineer" [--out report.md]
+python -m firstweek_research seed-reports
+python -m firstweek_research check-reports
 """
 
 import argparse
 import asyncio
 import sys
 import textwrap
+from collections import Counter
 from typing import TYPE_CHECKING
 
 from firstweek_core.config import get_settings
@@ -509,6 +512,30 @@ def database_unreachable(exc: BaseException) -> str | None:
     )
 
 
+def _seed_reports() -> None:
+    from firstweek_research import static_reports
+
+    for slug, outcome in static_reports.seed().items():
+        print(f"{slug}: {outcome}")
+    print("Open http://localhost:3000 to read them (make api and make web).")
+
+
+def _check_reports() -> None:
+    from firstweek_research import static_reports
+
+    missing = 0
+    for slug, checks in static_reports.check_all().items():
+        counts = Counter(c.status for c in checks)
+        print(f"{slug}: " + ", ".join(f"{n} {status}" for status, n in sorted(counts.items())))
+        for c in checks:
+            if c.status != "found":
+                print(f'  {c.status}: {c.url}\n    "{c.quote}"')
+        missing += counts["missing"]
+    if missing:
+        print(f"{missing} quotes are no longer on their page: update the report.")
+        sys.exit(1)
+
+
 def main(argv: list[str] | None = None) -> None:
     try:
         _main(argv)
@@ -593,8 +620,18 @@ def _main(argv: list[str] | None) -> None:
     p_gap.add_argument("--background", required=True, help="A few lines about your experience")
     p_publish = sub.add_parser("publish-report", help="Publish a reviewed report")
     p_publish.add_argument("--role", required=True)
+    sub.add_parser(
+        "seed-reports", help="Store the researched reports in the repository as published"
+    )
+    sub.add_parser("check-reports", help="Fetch every source again and look for each quote")
 
     args = parser.parse_args(argv)
+    if args.command == "seed-reports":
+        _seed_reports()
+        return
+    if args.command == "check-reports":
+        _check_reports()
+        return
     if args.command == "spot-check":
         _human_review("spot-check", None, count=args.count)
         return

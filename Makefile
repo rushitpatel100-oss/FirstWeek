@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 ALEMBIC := uv run alembic -c packages/core/alembic.ini
 
-.PHONY: api seed-demo autopilot autopilot-check export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
+.PHONY: api seed-reports check-reports seed-demo autopilot autopilot-check export-reports artifacts blueprint sandbox-image sandbox-smoke need-role help setup up down logs migrate migration lint format typecheck test check smoke smoke-llm web resolve collect research review-skills esco-suggest review-matches research-now eval-classifier eval-extraction index-evidence search report review-report spot-check publish-report skill-gap
 
 need-role:
 	@test -n "$(role)" || (echo 'Add the role, for example: make $(MAKECMDGOALS) role="GenAI Engineer"' && exit 1)
@@ -104,6 +104,12 @@ spot-check: ## Check the verifier by hand on random claims: make spot-check [n=1
 
 publish-report: need-role ## Publish the reviewed report (needs every claim decided and 50 spot-checks)
 	uv run python -m firstweek_research publish-report --role "$(role)"
+
+seed-reports: ## Store the three researched reports as published, no key and no model call (ADR 0027)
+	uv run python -m firstweek_research seed-reports
+
+check-reports: ## Fetch every source of the researched reports again and confirm each quote is still there
+	uv run python -m firstweek_research check-reports
 
 skill-gap: need-role ## Compare your background with a role: make skill-gap role="GenAI Engineer" background="I was a mechanical engineer ..."
 	uv run python -m firstweek_research skill-gap --role "$(role)" --background "$(background)"

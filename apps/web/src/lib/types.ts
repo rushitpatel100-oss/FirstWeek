@@ -31,6 +31,8 @@ export type Provenance = {
   writer_model: string;
   verifier_model: string;
   removed: { section: string; text: string; stage: string; reason: string }[];
+  /** "researched": kept in the repository, quotes checked by code (ADR 0027). */
+  method?: "pipeline" | "researched";
 };
 
 export type Report = {

@@ -1,0 +1,799 @@
+{
+ "archetype": "genai-engineer",
+ "trust_level": "golden",
+ "version": 1,
+ "country": "GB",
+ "sample_size": 32,
+ "date_range": [
+  "2024-09-27",
+  "2026-11-05"
+ ],
+ "summary": [
+  {
+   "text": "The work is building products around existing models (prompts, retrieval, evaluations and guardrails), far more than training models.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/motorway/85582e6d-8ad4-4a90-8cbd-eba288b44bc8",
+     "tier": "posting",
+     "quote": "Most of what makes a GenAI feature good sits around the model rather than in it.",
+     "published": "2026-09-02"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/addepar1/jobs/8891958002",
+     "tier": "posting",
+     "quote": "Design and implement LLM integrations including prompt engineering, function calling, structured outputs, and retrieval-augmented workflows",
+     "published": "2026-10-15"
+    },
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "Most of the job is integration, not research.",
+     "published": "2026-04-21"
+    }
+   ],
+   "confidence": 0.933,
+   "verification": "supported"
+  },
+  {
+   "text": "Evaluation is a core part of the job: employers ask for eval sets and pipelines, and practitioners say it takes a large share of the time.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/multiverse/58389a21-a599-43b6-9869-9885a16e2072",
+     "tier": "posting",
+     "quote": "You build automated eval pipelines and human-in-the-loop review processes that tell the team whether its AI systems are doing what they should.",
+     "published": "2026-09-29"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/Distyl/e68914e7-4b5c-433b-8204-e724938c8426",
+     "tier": "posting",
+     "quote": "Develop evaluation frameworks that measure model performance across accuracy, latency, cost, reliability, and safety",
+     "published": "2026-10-29"
+    },
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "Evaluation is maybe 30% of the job. It gets 0% of the attention.",
+     "published": "2026-04-21"
+    }
+   ],
+   "confidence": 0.933,
+   "verification": "supported"
+  },
+  {
+   "text": "Engineers usually own a feature end to end, from a rough prototype to a monitored production system.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/motorway/85582e6d-8ad4-4a90-8cbd-eba288b44bc8",
+     "tier": "posting",
+     "quote": "taking them from rapid prototype through to production-grade systems that deliver measurable value",
+     "published": "2026-09-02"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/paddle/e802f2b7-f0df-4354-a2a1-1c322e2706fd",
+     "tier": "posting",
+     "quote": "You’ll be expected to move comfortably from an ambiguous business challenge to a technical design, a working prototype, and then a production-ready solution.",
+     "published": "2026-09-17"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/lendable/a89f244b-b8de-4dbd-9d58-0dcc8e80aa2f",
+     "tier": "posting",
+     "quote": "Own solutions from discovery and prototyping through deployment, evaluation and monitoring.",
+     "published": "2026-09-14"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  }
+ ],
+ "asked_for": [
+  {
+   "skill_id": "llms",
+   "label": "Large language models",
+   "count": 29,
+   "share": 0.9062,
+   "ci_low": 0.7578,
+   "ci_high": 0.9676,
+   "n": 32
+  },
+  {
+   "skill_id": "python",
+   "label": "Python",
+   "count": 26,
+   "share": 0.8125,
+   "ci_low": 0.6469,
+   "ci_high": 0.9111,
+   "n": 32
+  },
+  {
+   "skill_id": "ai-agents",
+   "label": "AI agents",
+   "count": 22,
+   "share": 0.6875,
+   "ci_low": 0.5143,
+   "ci_high": 0.8205,
+   "n": 32
+  },
+  {
+   "skill_id": "llm-evaluation",
+   "label": "LLM evaluation",
+   "count": 17,
+   "share": 0.5312,
+   "ci_low": 0.3645,
+   "ci_high": 0.6913,
+   "n": 32
+  },
+  {
+   "skill_id": "machine-learning",
+   "label": "Machine learning",
+   "count": 17,
+   "share": 0.5312,
+   "ci_low": 0.3645,
+   "ci_high": 0.6913,
+   "n": 32
+  },
+  {
+   "skill_id": "software-engineering",
+   "label": "Software engineering",
+   "count": 16,
+   "share": 0.5,
+   "ci_low": 0.3363,
+   "ci_high": 0.6637,
+   "n": 32
+  },
+  {
+   "skill_id": "aws",
+   "label": "AWS",
+   "count": 14,
+   "share": 0.4375,
+   "ci_low": 0.2817,
+   "ci_high": 0.6067,
+   "n": 32
+  },
+  {
+   "skill_id": "observability",
+   "label": "Observability and monitoring",
+   "count": 14,
+   "share": 0.4375,
+   "ci_low": 0.2817,
+   "ci_high": 0.6067,
+   "n": 32
+  },
+  {
+   "skill_id": "stakeholder-communication",
+   "label": "Stakeholder communication",
+   "count": 14,
+   "share": 0.4375,
+   "ci_low": 0.2817,
+   "ci_high": 0.6067,
+   "n": 32
+  },
+  {
+   "skill_id": "prompt-engineering",
+   "label": "Prompt engineering",
+   "count": 12,
+   "share": 0.375,
+   "ci_low": 0.2293,
+   "ci_high": 0.5475,
+   "n": 32
+  },
+  {
+   "skill_id": "tool-calling",
+   "label": "Tool calling",
+   "count": 12,
+   "share": 0.375,
+   "ci_low": 0.2293,
+   "ci_high": 0.5475,
+   "n": 32
+  },
+  {
+   "skill_id": "api-design",
+   "label": "API design",
+   "count": 11,
+   "share": 0.3438,
+   "ci_low": 0.2041,
+   "ci_high": 0.5169,
+   "n": 32
+  },
+  {
+   "skill_id": "cloud-infrastructure",
+   "label": "Cloud infrastructure",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "fine-tuning",
+   "label": "Fine-tuning",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "performance-optimization",
+   "label": "Performance optimisation",
+   "count": 9,
+   "share": 0.2812,
+   "ci_low": 0.1556,
+   "ci_high": 0.4537,
+   "n": 32
+  },
+  {
+   "skill_id": "nlp",
+   "label": "NLP",
+   "count": 8,
+   "share": 0.25,
+   "ci_low": 0.1325,
+   "ci_high": 0.4211,
+   "n": 32
+  },
+  {
+   "skill_id": "anthropic-api",
+   "label": "Anthropic API",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "gcp",
+   "label": "Google Cloud",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "mlops",
+   "label": "MLOps",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "rag",
+   "label": "RAG",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "sql",
+   "label": "SQL",
+   "count": 7,
+   "share": 0.2188,
+   "ci_low": 0.1102,
+   "ci_high": 0.3876,
+   "n": 32
+  },
+  {
+   "skill_id": "cross-functional-collaboration",
+   "label": "Cross-functional collaboration",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "data-engineering",
+   "label": "Data engineering",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "mcp",
+   "label": "MCP",
+   "count": 6,
+   "share": 0.1875,
+   "ci_low": 0.0889,
+   "ci_high": 0.3531,
+   "n": 32
+  },
+  {
+   "skill_id": "ci-cd",
+   "label": "CI/CD",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "full-stack-development",
+   "label": "Full-stack development",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "guardrails",
+   "label": "Guardrails and AI safety",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "java",
+   "label": "Java",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "multi-agent-systems",
+   "label": "Multi-agent systems",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "react",
+   "label": "React",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "responsible-ai",
+   "label": "Responsible AI",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "statistics",
+   "label": "Statistics",
+   "count": 5,
+   "share": 0.1562,
+   "ci_low": 0.0686,
+   "ci_high": 0.3175,
+   "n": 32
+  },
+  {
+   "skill_id": "azure",
+   "label": "Azure",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "deep-learning",
+   "label": "Deep learning",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "hallucination-mitigation",
+   "label": "Hallucination mitigation",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "langchain",
+   "label": "LangChain",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "mentoring",
+   "label": "Mentoring",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "technical-writing",
+   "label": "Technical writing",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  },
+  {
+   "skill_id": "typescript",
+   "label": "TypeScript",
+   "count": 4,
+   "share": 0.125,
+   "ci_low": 0.0497,
+   "ci_high": 0.2807,
+   "n": 32
+  }
+ ],
+ "responsibilities": [
+  {
+   "text": "Build LLM features with prompts, function calling, structured outputs and retrieval.",
+   "citations": [
+    {
+     "source_url": "https://job-boards.greenhouse.io/addepar1/jobs/8891138002",
+     "tier": "posting",
+     "quote": "Design and implement LLM integrations including prompt engineering, function calling, structured outputs, and retrieval-augmented workflows",
+     "published": "2026-10-15"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/capco/jobs/7908903",
+     "tier": "posting",
+     "quote": "Design and implement agentic workflows using prompt engineering, Retrieval-Augmented Generation (RAG), APIs, and enterprise data integrations",
+     "published": "2026-07-21"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/lendable/a89f244b-b8de-4dbd-9d58-0dcc8e80aa2f",
+     "tier": "posting",
+     "quote": "Experience designing and improving prompts, retrieval pipelines, agent workflows and evaluations.",
+     "published": "2026-09-14"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Design how context reaches the model: retrieval pipelines, chunking, memory and permissions.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/multiverse/58389a21-a599-43b6-9869-9885a16e2072",
+     "tier": "posting",
+     "quote": "Design context and retrieval strategies: the retrieval pipelines, conversation memory, summarisation strategies, chunking logic and RBAC that make context useful and permission-aware",
+     "published": "2026-09-29"
+    },
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/theeconomistgroup/jobs/4729605101",
+     "tier": "posting",
+     "quote": "Build and evaluate RAG pipelines that incorporate retrieval from structured content",
+     "published": "2026-01-08"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/9fin/01140ffd-b8fe-4933-8d80-af96c6db5cdf",
+     "tier": "posting",
+     "quote": "Strong understanding of chunking, document segmentation, retrieval, and context construction",
+     "published": "2026-06-05"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Build evaluation sets and test harnesses, grade outputs with people and model judges, and run regression tests.",
+   "citations": [
+    {
+     "source_url": "https://job-boards.greenhouse.io/intercom/jobs/7749323",
+     "tier": "posting",
+     "quote": "Build evaluation sets, grade output with human and model graders, and run regression tests and production monitoring.",
+     "published": "2026-03-26"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/addepar1/jobs/8891958002",
+     "tier": "posting",
+     "quote": "Define evaluation criteria and build test harnesses for AI systems where correctness is ambiguous and domain-specific",
+     "published": "2026-10-15"
+    },
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/theeconomistgroup/jobs/4729605101",
+     "tier": "posting",
+     "quote": "Own quality evaluation pipelines (BLEU, ROUGE, editorial scoring, custom evals), including human-in-the-loop feedback loops",
+     "published": "2026-01-08"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/isomorphiclabs/jobs/6134265004",
+     "tier": "posting",
+     "quote": "Build rigorous testing for probabilistic systems to ensure model reliability and safety.",
+     "published": "2026-08-04"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Some roles also fine-tune models, for tone, task performance or latency.",
+   "citations": [
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/theeconomistgroup/jobs/4729605101",
+     "tier": "posting",
+     "quote": "Fine-tune large language models (LLMs) for style and tone alignment with The Economist’s editorial voice",
+     "published": "2026-01-08"
+    },
+    {
+     "source_url": "https://job-boards.greenhouse.io/capco/jobs/6870486",
+     "tier": "posting",
+     "quote": "Fine-tune, optimize, and deploy large language and multi-modal models with a focus on performance and latency",
+     "published": "2025-05-08"
+    },
+    {
+     "source_url": "https://reflexivity.firststage.co/jobs?gh_jid=5018743007",
+     "tier": "posting",
+     "quote": "Design, fine-tune, and deploy ML and LLM-driven systems used in production by professional investors",
+     "published": "2026-01-08"
+    }
+   ],
+   "confidence": 0.9,
+   "verification": "supported"
+  },
+  {
+   "text": "Own what you ship in production: reliability, observability and cost.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/paddle/e802f2b7-f0df-4354-a2a1-1c322e2706fd",
+     "tier": "posting",
+     "quote": "You’ll own the full lifecycle of what you build, including evaluation, observability, reliability and cost optimisation.",
+     "published": "2026-09-17"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/motorway/85582e6d-8ad4-4a90-8cbd-eba288b44bc8",
+     "tier": "posting",
+     "quote": "the prompting, the retrieval, the agent design, the evals, the guardrails, the monitoring. You own that whole stack.",
+     "published": "2026-09-02"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/lendable/a89f244b-b8de-4dbd-9d58-0dcc8e80aa2f",
+     "tier": "posting",
+     "quote": "Own solutions from discovery and prototyping through deployment, evaluation and monitoring.",
+     "published": "2026-09-14"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  },
+  {
+   "text": "Work closely with the non-engineers who use the system and explain trade-offs to them.",
+   "citations": [
+    {
+     "source_url": "https://jobs.ashbyhq.com/paddle/e802f2b7-f0df-4354-a2a1-1c322e2706fd",
+     "tier": "posting",
+     "quote": "You’ll work closely with Marketing, Sales, and RevOps to solve high-value problems",
+     "published": "2026-09-17"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/motorway/85582e6d-8ad4-4a90-8cbd-eba288b44bc8",
+     "tier": "posting",
+     "quote": "Represent your technical decisions directly to product managers and stakeholders, translating model behaviour into business consequence.",
+     "published": "2026-09-02"
+    },
+    {
+     "source_url": "https://job-boards.eu.greenhouse.io/theeconomistgroup/jobs/4729605101",
+     "tier": "posting",
+     "quote": "able to work closely with editorial and product stakeholders",
+     "published": "2026-01-08"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/lendable/a89f244b-b8de-4dbd-9d58-0dcc8e80aa2f",
+     "tier": "posting",
+     "quote": "Clear communication and the ability to explain trade-offs and influence stakeholders.",
+     "published": "2026-09-14"
+    }
+   ],
+   "confidence": 1.0,
+   "verification": "supported"
+  }
+ ],
+ "day_to_day": [
+  {
+   "text": "Most of the time goes on integration work around the model, not on the model itself.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "In practice, you spend 60% of your time on integration work. Connecting APIs. Formatting data so the LLM can actually use it.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://www.a.team/talent/guides/llm-evals-in-production",
+     "tier": "blog",
+     "quote": "An AI feature is a system, not a model. It's the code loading configuration, the prompt, how user input gets assembled, and only then the model call.",
+     "published": "2026-07-17"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "Debugging a wrong answer means working out whether the prompt, the context, the retrieval or the model caused it; there is no stack trace.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "When your system produces wrong answers, there's no stack trace.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "Debugging LLM outputs means figuring out whether the problem is the prompt, the context, the retrieval, or the model itself.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://www.a.team/talent/guides/llm-evals-in-production",
+     "tier": "blog",
+     "quote": "Bugs hide in any of those steps. Test the model in isolation and you'll miss most of what actually breaks in production.",
+     "published": "2026-07-17"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "Reading real model outputs by hand, then turning the failures into evals, is routine work.",
+   "citations": [
+    {
+     "source_url": "https://hamel.dev/blog/posts/evals-faq/",
+     "tier": "blog",
+     "quote": "Spend 30 minutes manually reviewing 20-50 LLM outputs whenever you make significant changes.",
+     "published": "2026-09-18"
+    },
+    {
+     "source_url": "https://newsletter.pragmaticengineer.com/p/evals",
+     "tier": "blog",
+     "quote": "Error analysis has been a key part of machine learning for decades and is useful for building LLM applications.",
+     "published": "2025-12-02"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  }
+ ],
+ "typical_week": [
+  {
+   "text": "Prompt changes go round in loops: each fix can create a new edge case.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "The third handles the edge cases you created by fixing the first edge cases.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://newsletter.pragmaticengineer.com/p/evals",
+     "tier": "blog",
+     "quote": "they’d change a prompt, test a few inputs, and if it “looked good to me” (LGTM), they’d ship it.",
+     "published": "2025-12-02"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "Explaining what the model can't do to product managers comes up every week.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "\"Why can't we just have the AI do X?\" is a weekly question.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/motorway/85582e6d-8ad4-4a90-8cbd-eba288b44bc8",
+     "tier": "posting",
+     "quote": "Represent your technical decisions directly to product managers and stakeholders, translating model behaviour into business consequence.",
+     "published": "2026-09-02"
+    }
+   ],
+   "confidence": 0.6,
+   "verification": "supported"
+  }
+ ],
+ "pain_points": [
+  {
+   "text": "Outputs are not deterministic, so without evals nobody can tell whether a change made things better or worse.",
+   "citations": [
+    {
+     "source_url": "https://newsletter.pragmaticengineer.com/p/evals",
+     "tier": "blog",
+     "quote": "An agent appears to work well, but as soon as it is modified, it can’t be established that it’s working correctly.",
+     "published": "2025-12-02"
+    },
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "LLMs are non-deterministic. The same input can produce different outputs.",
+     "published": "2026-04-21"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "Retrieval and data quality cause more trouble than the choice of model.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "Your biggest enemy is not the model. It's the data feeding it.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://jobs.ashbyhq.com/motorway/64e7a546-c2a7-4ad1-8e1d-be4b1e5c1ddd",
+     "tier": "posting",
+     "quote": "The prompting is rarely the hard part. Retrieval quality is, and so is the data feeding it, evaluation you can trust, sensible behaviour when things fail, and getting it live and keeping it there.",
+     "published": "2026-09-02"
+    }
+   ],
+   "confidence": 0.6,
+   "verification": "supported"
+  },
+  {
+   "text": "What works in a notebook often fails at production scale, and failures can quietly cost money.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "The gap between \"works in notebook\" and \"works in production\" is probably 10x wider with LLMs than with traditional software.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://www.a.team/talent/guides/llm-evals-in-production",
+     "tier": "blog",
+     "quote": "One team's code got stuck in a continuous loop while still in QA, quietly burning money by the day before anyone noticed.",
+     "published": "2026-07-17"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  },
+  {
+   "text": "The title is used loosely: the same \"AI Engineer\" posting can mean product work, platform work or classical ML.",
+   "citations": [
+    {
+     "source_url": "https://hackernoon.com/what-ai-engineers-actually-do-all-day",
+     "tier": "blog",
+     "quote": "The problem is that job postings blend all three into one description.",
+     "published": "2026-04-21"
+    },
+    {
+     "source_url": "https://www.marian.coach/ai-platform-engineer-role/",
+     "tier": "blog",
+     "quote": "The title is new enough that postings disagree on what it means.",
+     "published": "2026-10-09"
+    }
+   ],
+   "confidence": 0.533,
+   "verification": "supported"
+  }
+ ],
+ "skill_gap": null,
+ "provenance": {
+  "stats_version": 1,
+  "writer_model": "Claude Opus 5.5, in one research session",
+  "writer_prompt": "researched 2026-11-07",
+  "verifier_model": "code that finds every quote word for word in its source",
+  "verifier_prompt": "static_reports.quote_found",
+  "cost_usd": 0.0,
+  "removed": [],
+  "method": "researched"
+ }
+}

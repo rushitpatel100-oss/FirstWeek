@@ -119,3 +119,19 @@ def test_the_newest_published_report_is_served_and_roles_are_listed_by_name() ->
     assert body["name"] == "GenAI Engineer"
     assert body["report"]["summary"][0]["text"].startswith("New says")
     assert body["report"]["summary"][0]["confidence"] == 0.4
+
+
+@pytest.mark.db
+def test_researched_reports_are_served_after_seeding() -> None:
+    from firstweek_research import static_reports
+
+    static_reports.seed()
+    roles = client.get("/roles").json()
+    assert {r["slug"] for r in roles} == {
+        "agentic-ai-engineer",
+        "ai-software-engineer",
+        "genai-engineer",
+    }
+    body = client.get("/roles/ai-software-engineer/report").json()
+    assert body["report"]["provenance"]["method"] == "researched"
+    assert body["report"]["asked_for"][0]["n"] == body["report"]["sample_size"]

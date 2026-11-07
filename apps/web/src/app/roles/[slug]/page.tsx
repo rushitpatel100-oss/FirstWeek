@@ -48,6 +48,7 @@ async function Report({ params }: { params: Promise<{ slug: string }> }) {
   const { report } = published;
   const [from, to] = report.date_range;
   const practitioner = [...report.day_to_day, ...report.typical_week];
+  const researched = report.provenance?.method === "researched";
   return (
     <article className="flex flex-col gap-12">
       <header className="flex flex-col gap-3">
@@ -56,10 +57,11 @@ async function Report({ params }: { params: Promise<{ slug: string }> }) {
         </p>
         <h1 className="text-4xl font-semibold tracking-tight">{published.name}</h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Based on {report.sample_size} {report.country} job postings, all open in the last six
-          months (posted {month(from)} to {month(to)}), plus practitioner writing. Every claim
-          below shows how much evidence stands behind it and links to the exact words it rests
-          on.
+          {researched
+            ? `Based on ${report.sample_size} ${report.country} job postings that were open when we checked (first posted ${month(from)} to ${month(to)}), plus practitioner writing.`
+            : `Based on ${report.sample_size} ${report.country} job postings, all open in the last six months (posted ${month(from)} to ${month(to)}), plus practitioner writing.`}{" "}
+          Every claim below shows how much evidence stands behind it and links to the exact words
+          it rests on.
         </p>
       </header>
 
@@ -116,7 +118,15 @@ async function Report({ params }: { params: Promise<{ slug: string }> }) {
           independent, recent sources agree. Low means one source or an old one: a lead to
           check, not a finding.
         </p>
-        {report.provenance && (
+        {report.provenance && researched && (
+          <p>
+            Statistics version {report.provenance.stats_version}. Researched and written by{" "}
+            {report.provenance.writer_model}, with no model calls at run time. The postings were
+            matched to the role by hand, the skill shares counted from them by code, and every
+            quote checked by {report.provenance.verifier_model}.
+          </p>
+        )}
+        {report.provenance && !researched && (
           <p>
             Statistics version {report.provenance.stats_version}. Written by{" "}
             {report.provenance.writer_model}, checked claim by claim by{" "}

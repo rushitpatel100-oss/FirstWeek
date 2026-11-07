@@ -181,6 +181,11 @@ class ReportProvenance(BaseModel):
     verifier_prompt: str
     cost_usd: float
     removed: list[RemovedClaim] = Field(default_factory=list)
+    method: Literal["pipeline", "researched"] = Field(
+        default="pipeline",
+        description="pipeline: written and checked by models (ADR 0013/0014). researched: "
+        "researched in one session and kept in the repository, quotes checked by code (ADR 0027).",
+    )
 
 
 class RoleRealityReport(BaseModel):
