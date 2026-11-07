@@ -111,3 +111,7 @@ The author's first run with the repair rounds still failed, three times, on thin
 - The report lists the calls each model made, so a run shows whether repairs stayed local.
 
 Tested with the 7B model (Qwen2.5-Coder 7B, Q3 to fit the test machine; the author runs Q4) writing every file from a stand-in plan: the generator ran first time, the starter stage passed, and the reference failed 1 test of 4 on a bug the local repair rounds could not see, which is what the hosted round 3 is for. The test machine has no hosted model, so that round could only be tested by unit tests.
+
+## Status 2026-11-07: parked
+
+The portfolio is finished without it: learners use the hand-written projects (ADRs 0022, 0026). The author's last run, with every fix above, passed every starter check and kept repairs local (23 local calls, 3 Gemini), then failed the reference check in all three attempts for two reasons the patches cannot reach: generated code called a real URL, which the sandbox cannot resolve, and the tests (written from the starter plan) and the reference (written from a separate plan) disagreed on behaviour, such as raising versus returning an error. Fixing one failure at a time moved the failure one stage on each time. If this is picked up again, change the design instead: write the correct solution and its tests together, make them pass, then plant the issues into a copy; and require tests that never touch the network.
