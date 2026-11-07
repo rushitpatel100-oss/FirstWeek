@@ -2,7 +2,7 @@
 
 **Live your first week in a new AI role.** Type any job title, such as GenAI Engineer or Agentic AI Engineer, and FirstWeek shows what the job really involves, backed by evidence from real job postings and practitioner sources. Then you do the job: a five-day simulated project with tickets, a codebase, and AI colleagues (a Tech Lead who reviews your pull requests, a PM who changes priorities mid-week) who react to your work. You leave with a portfolio repo and a skill matrix where every score links to evidence.
 
-> Status: **M1 Research pipeline, part 2.** Postings are collected, classified against role definitions, and mined for skills with quote-verified extraction, giving skill shares with 95% intervals. See the [roadmap](#roadmap).
+> Status: **portfolio version finished (November 2026).** What works: the live demo and video, three complete practice projects with a five-day internship each, the research pipeline and evidence-checked Role Reality Reports, and a real code sandbox. Generating new projects automatically is experimental (see [below](#generated-projects-experimental)).
 
 ## Try it (free demo)
 
@@ -24,26 +24,30 @@ New AI roles are hard to understand from the outside. Career switchers can learn
 
 | Layer | What you get |
 | --- | --- |
-| **Discover** | A Role Reality Report: responsibilities, tools, a typical week and pain points. Every claim cites sources and carries a confidence level. |
-| **Experience** | A simulated project over five days, with tickets, a sandbox that runs real code, and AI colleagues. |
-| **Prove** | An evaluation with deterministic checks plus an independent AI judge, a skill matrix, a GitHub repo of your work, and CV bullets drawn only from verified results. |
+| **Discover** | A Role Reality Report: responsibilities, tools and pain points, built from real UK job postings and practitioner sources. Every claim cites its sources, is checked by a model from another family, and carries a confidence level. |
+| **Experience** | A five-day virtual internship at a made-up company: colleagues message you in character, work arrives day by day (a manager's message, a complaint, a ticket, a meeting), and you fix a real Python codebase whose tests run in a sandbox. |
+| **Review** | A Tech Lead reviews your code, and your supervisor writes an end-of-week review. Both work offline with stock replies when the free model quota runs out. |
 
-Accuracy comes from evidence, not model memory: job postings are de-duplicated and counted, every report sentence is checked against the passages it cites, and three "golden" roles are reviewed by people. Any other role is researched on demand and clearly labelled as not yet reviewed.
+Accuracy comes from evidence, not model memory: job postings are de-duplicated and counted, every report sentence is checked against the passages it cites, and the three "golden" roles (GenAI Engineer, Agentic AI Engineer, AI Software Engineer) each have a hand-written practice project, reviewed by a person, with planted issues and a reference solution.
+
+## Generated projects (experimental)
+
+`make autopilot role="..."` tries to design and build a new practice project with free models: a hosted model plans it, a local model (Ollama) writes and repairs the files, and a validation gate runs everything in the sandbox. The gate approves a project only if its starter fails its tests for the planted reasons and its reference solution passes every test. With free models it has not yet approved one: their tests and reference solutions often disagree. The gate refused each of those instead of publishing it, which is its job. The hand-written projects are what learners use. See [ADR 0020](docs/adr/0020-autopilot-and-gate.md).
 
 ## Architecture
 
 ```
-Web app (Next.js) ──► API (FastAPI)
+Web app (Next.js) ──► API (FastAPI) ──► Code sandbox (Docker locally, E2B for demos)
                           │
-         ┌────────────────┼─────────────────┐
-         ▼                ▼                 ▼
- Temporal workflows   Sandbox runner   LangGraph agents
- (research, blueprint, (E2B; Docker     (router, Tech Lead,
-  evaluation)           for dev)         PM, Teammate)
-         │                │                 │
-         └──────► Postgres + pgvector, Redis, object storage
-         │
-         └──────► LLM gateway (LiteLLM + Langfuse) ──► Claude, OpenAI judge
+         ┌────────────────┴─────────────────┐
+         ▼                                  ▼
+ Temporal worker                    LLM gateway (LiteLLM, traced with Langfuse)
+ (daily research run)                 ├─ Claude: report writing
+         │                            ├─ free Gemini / Groq: claim checks, colleagues, plans
+         ▼                            └─ local Ollama model (optional): project files
+ Postgres + pgvector, Redis
+
+Static demo (Vite + React + Pyodide) ──► GitHub Pages, no server
 ```
 
 Key decisions are recorded in [docs/adr](docs/adr).
@@ -74,6 +78,16 @@ make review-skills                         # extracted labels the taxonomy does 
 
 `make research` needs `ANTHROPIC_API_KEY`. Re-runs only pay for new postings.
 
+Try a practice project and its five-day internship (no API key needed; colleagues use stock replies without one):
+
+```bash
+docker compose up -d postgres
+make seed-demo role="AI Software Engineer"   # or "GenAI Engineer", "Agentic AI Engineer"
+make sandbox-image                           # the code sandbox the tests run in
+make api                                     # in one terminal
+make web                                     # in another; then open /roles/ai-software-engineer/practice
+```
+
 Check the whole path works (API → Temporal → worker → database):
 
 ```bash
@@ -101,22 +115,23 @@ make migrate
 | `services/research` | Role definitions, collectors, cleaning, de-duplication, classification, extraction, statistics; prompts in `firstweek_research/prompts` |
 | `apps/api` | FastAPI service |
 | `services/worker` | Temporal worker and workflows |
+| `services/simulation` | Practice projects: hand-written projects, internships, blueprint design, the generator and its validation gate |
 | `apps/web` | Next.js frontend |
+| `apps/demo` | The free static demo (GitHub Pages) |
 | `docs/adr` | Architecture decision records |
-| `prompts`, `evals` | Versioned prompts and evaluation datasets (from M1) |
 
-## Roadmap
+## What is built, and what is not
 
-| Milestone | Outcome |
+| Milestone | Status |
 | --- | --- |
-| M0 Foundations ✅ | Monorepo, local stack, contracts, data model, LLM gateway, CI |
-| **M1 Research pipeline** | Postings and sources collected, cleaned, extracted and counted (collection, extraction and statistics done; workflow next) |
-| M2 Role Reality Report | Evidence-backed reports with verified claims |
-| M3 Blueprints and sandbox | Generated projects that pass a validation gate |
-| M4 Workspace and Tech Lead | Real code review in the browser |
-| M5 Full simulation | Five playable days with PM and Teammate |
-| M6 Evaluation and portfolio | Skill matrix, GitHub export, CV bullets |
-| M7 Deploy and write-up | Public demo on AWS, eval report |
+| M0 Foundations | ✅ Monorepo, local stack, contracts, data model, LLM gateway, CI |
+| M1 Research pipeline | ✅ Collection from 80 job boards and Adzuna, classification, quote-verified extraction, skill statistics, daily Temporal run, hand-labelled evaluations |
+| M2 Role Reality Report | ✅ Evidence search, report writer, claim verifier with confidence, human review and publishing, skill-gap check |
+| M3 Projects and sandbox | ✅ Code sandbox, hand-written projects for the three golden roles; automatic generation experimental |
+| M4 Workspace and Tech Lead | ✅ Practice screen, tests in the sandbox, Tech Lead review |
+| M5 Virtual internship | ✅ Five scripted days, colleagues in character, supervisor review, offline fallbacks |
+| M6 Evaluation and portfolio | Not built: skill matrix, GitHub export, CV bullets |
+| M7 Deploy | Free static demo live on GitHub Pages; the full app runs locally (deployment kit in [docs/deploy.md](docs/deploy.md), ADR 0024) |
 
 ## License
 
