@@ -19,7 +19,17 @@ from firstweek_core.llm import Tier as ModelTier
 from firstweek_core.sandbox import JobResult, SandboxJob, SandboxRunner
 from firstweek_simulation.blueprint import load_prompt
 
-TEST_COMMAND = ["python", "-m", "pytest", "-q", "--tb=short", "-p", "no:cacheprovider"]
+TEST_COMMAND = [
+    "python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "-p",
+    "no:cacheprovider",
+    "-o",
+    "addopts=",
+]
 TEST_TIMEOUT_S = 60.0
 REVIEW_VERSION = "tech-lead-review.v1"
 REVIEW_FILE_CHARS = 24_000  # what the reviewer reads, so a big paste cannot run up the bill

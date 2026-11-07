@@ -94,3 +94,15 @@ With a local model doing the writing, every failure still threw away the attempt
 - A plan that never parses, or an attempt that crashes, is a failed try with its error recorded, not a lost run.
 
 How this was tested: unit tests for every path above, and real runs of the pipeline code against a real local model, Qwen2.5-Coder 3B on CPU (the 7B the author runs did not fit the test machine's memory), with the design from the author's last run and a hand-written plan standing in for the hosted planner. Those runs found most of the problems fixed here (placeholder headers taken literally, whole repositories written per call, `# FLAW` comments, looping replies, a repeated broken repair). With the 3B model, file writing, the starter stage and the repair rounds worked as designed; the 3B could not write a correct data generator or fix its own wrong test expectations, so no 3B run reached approval. The 7B is the model to use.
+
+## Addendum 2026-11-07: fix by code what a run should never fail on
+
+The author's first run with the repair rounds still failed, three times, on things no repair should have to fix: `import requests` (not installed in the sandbox), a model-written `pytest.ini` with `addopts = --flake8` (pytest stopped before any test ran), and `List` used without importing it. Its report also showed the repairs had gone to Groq, not the local model: a dataset written as one long JSON line went whole into every repair prompt (previews cut by lines, not characters), which no longer fit the local model's window, so the gateway sent each repair to a hosted model and spent the daily quota.
+
+- Data previews are cut by characters as well as lines, and a repair prompt shows the other files most related to the ones it repairs first, within 12,000 characters, then only names.
+- The sandbox image has `requests` (models reach for it for any API client), and `make autopilot` builds the image first (cached: seconds).
+- Imports of anything else the sandbox lacks are found by code before anything runs, and the file is repaired with that reason.
+- Config files a model plans (`pytest.ini`, `setup.cfg`, `pyproject.toml`, `tox.ini`, `.flake8`, `mypy.ini`) are dropped, and tests run with `-o addopts=`, for the learner too.
+- A typing name or common standard-library module a file uses but never imports is imported by code.
+- Each repair round works on one failing test file, a different one each round, with the sources its traceback names and the modules it imports. 6 rounds with a local model.
+- The report lists the calls each model made, so a run shows whether repairs stayed local.

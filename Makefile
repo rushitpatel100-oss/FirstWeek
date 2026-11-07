@@ -114,7 +114,7 @@ blueprint: need-role ## Design a draft project blueprint (scenario, tickets, rub
 seed-demo: need-role ## Store the hand-written practice project for a role, no model call: make seed-demo role="GenAI Engineer"
 	uv run python -m firstweek_simulation seed-demo --role "$(role)"
 
-autopilot: need-role ## Design, build and gate a project unattended, free by default (needs make sandbox-image and GEMINI_API_KEY). Refuses to start unless today's free quota covers the worst case; resumes a paused run
+autopilot: need-role sandbox-image ## Design, build and gate a project unattended, free by default (needs GEMINI_API_KEY or MODEL_LOCAL). Refuses to start unless today's free quota covers the worst case; resumes a paused run
 	uv run python -m firstweek_simulation autopilot --role "$(role)"
 
 autopilot-check: need-role ## Show today's free quota and whether an autopilot run fits (no model call)
@@ -125,11 +125,11 @@ export-reports: ## Write each role's newest stored report to data/reports/*.json
 	  f="data/reports/$$(echo $$r | tr 'A-Z ' 'a-z-').json"; \
 	  uv run python -m firstweek_simulation export-report --role "$$r" --out "$$f" || true; done
 
-artifacts: need-role ## Build the starter repo, data and reference solution for the latest draft blueprint (needs make sandbox-image; ~$0.20)
+artifacts: need-role sandbox-image ## Build the starter repo, data and reference solution for the latest draft blueprint (~$0.20)
 	uv run python -m firstweek_simulation artifacts --role "$(role)"
 
-sandbox-image: ## Build the code sandbox image (Docker)
-	docker build -f infra/docker/sandbox.Dockerfile -t firstweek-sandbox:py infra/docker
+sandbox-image: ## Build the code sandbox image (Docker; cached, so seconds when nothing changed)
+	docker build -q -f infra/docker/sandbox.Dockerfile -t firstweek-sandbox:py infra/docker
 
 sandbox-smoke: ## Run real jobs in the sandbox: make sandbox-smoke (backend from SANDBOX_BACKEND, default docker)
 	uv run python -m firstweek_core.sandbox.smoke

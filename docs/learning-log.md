@@ -63,3 +63,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-04: optional local Ollama model (MODEL_LOCAL) first in the free chain: unlimited autopilot runs on the author's RTX 3060.
 - 2026-11-04: local model only writes files; design and plans stay on hosted free models (a 7B model could not design a valid project).
 - 2026-11-06: autopilot repairs each failing check where it fails (syntax, generator, starter tests, reference, metrics) instead of a new attempt; real runs with a local 3B model found and fixed a dozen small-model failure modes.
+- 2026-11-07: autopilot fixes by code what it should never fail on (uninstalled packages, pytest config, forgotten imports, oversized prompts that pushed repairs off the local model); repairs focus on one failing test file per round.
