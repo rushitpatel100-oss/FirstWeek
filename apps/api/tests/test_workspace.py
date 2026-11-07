@@ -186,3 +186,15 @@ def test_reviews_need_a_key_and_are_rate_limited(
     )
     monkeypatch.setattr(wsapi, "get_settings", lambda: no_key)
     assert client.post("/roles/genai-engineer/project/review", json=body).status_code == 503
+
+
+@pytest.mark.db
+def test_a_dead_code_runner_is_a_503_not_a_failing_test(
+    world: tuple[FakeRunner, Prompts],
+) -> None:
+    runner, _ = world
+    runner.exit_code = 125  # what `docker run` returns when the daemon or image is missing
+    path = "/roles/genai-engineer/project"
+    assert client.post(f"{path}/tests", json={"files": {}}).status_code == 503
+    review = client.post(f"{path}/review", json={"ticket": "GENAI-101", "files": {}})
+    assert review.status_code == 503

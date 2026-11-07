@@ -42,6 +42,7 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-02: first full autopilot attempt reached the build gate; free Gemini caps at 20 requests/day/model, so the gateway now fails fast on a spent daily quota.
 - 2026-11-02: practice workspace API (project, run tests, Tech Lead review); the review runs the tests itself so the reviewer reads real output.
 - 2026-11-02: hand-written demo project (make seed-demo) so the workspace works without waiting for model quota; it passes the same gate as model output.
+- 2026-11-02: a dead Docker daemon now shows as a 503 'code runner not available' instead of a failing test.
 - 2026-11-02: make api: the practice project needs the API on the host (the compose API container cannot reach Docker or var/artifacts).
 - 2026-11-02: virtual internship slice (ADR 0023): scripted week, in-character colleagues who never see the answer key, end-of-week supervisor review; the report moves backstage.
 - 2026-11-02: Groq as a second free model source (ADR 0020 addendum); model failures now return 502/503 with a log line.

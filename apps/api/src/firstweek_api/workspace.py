@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/roles", tags=["workspace"])
 
 MAX_EDIT_FILES = 40
+DOCKER_FAILED = 125  # `docker run` itself failed (daemon down, image missing); pytest uses 0 to 5
 tests_limit = Limiter(30, 3600)
 review_limit = Limiter(10, 3600)
 review_day_limit = Limiter(200, 86400)
@@ -96,6 +97,11 @@ async def _run(project: ws.Project, edits: Edits) -> TestRun:
         result = await ws.run_tests(runner(), project, edits.files)
     except (ws.WorkspaceError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if result.exit_code == DOCKER_FAILED:
+        raise HTTPException(
+            status_code=503,
+            detail="The code runner is not available right now. Please try again later.",
+        )
     return TestRun(
         exit_code=result.exit_code,
         output=result.stdout + result.stderr,
