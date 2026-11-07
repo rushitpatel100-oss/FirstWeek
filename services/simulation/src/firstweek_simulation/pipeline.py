@@ -62,6 +62,7 @@ def save_checkpoint(
         starter = {
             "starter": built.starter,
             "key": built.key,
+            "design_notes": built.design_notes,
             "checks": [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in built.checks],
         }
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,6 +101,7 @@ def load_checkpoint(
         built = BuiltArtifacts(
             starter=saved["starter"], reference={}, key=saved["key"], metrics={}, summary="",
             checks=[Check(c["name"], c["ok"], c["detail"]) for c in saved["checks"]],
+            design_notes=str(saved.get("design_notes", "")),
         )  # fmt: skip
     return designed, int(raw["attempts_done"]), str(raw["feedback"]), built
 

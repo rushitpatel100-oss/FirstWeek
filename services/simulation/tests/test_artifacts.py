@@ -1,6 +1,7 @@
 """Starter, data and reference solution: the models write, the sandbox decides (ADR 0019)."""
 
 import asyncio
+import json
 import os
 import re
 import subprocess
@@ -169,7 +170,7 @@ class FakeGateway:
 
     async def complete(self, **kwargs: Any) -> SimpleNamespace:
         self.complete_calls.append(kwargs)
-        if kwargs["purpose"] == "repair-file":
+        if kwargs["purpose"] in ("repair-file", "repair-hard"):
             reply = self.repairs.pop(0) if self.repairs else ""
             return SimpleNamespace(
                 content=reply, cost_usd=Decimal("0.01"), model="fake", finish_reason="stop"
@@ -255,7 +256,7 @@ async def test_a_file_left_out_of_a_reply_is_asked_for_on_its_own() -> None:
 
 def test_data_is_previewed_and_long_code_is_outlined() -> None:
     data = "\n".join(f'{{"id": {i}}}' for i in range(500))
-    assert "(500 lines in all)" in art.preview("data/x.jsonl", data)
+    assert "(500 lines, " in art.preview("data/x.jsonl", data)
     assert len(art.preview("data/x.jsonl", data)) < 400
     code = 'import json\n\n\ndef f(x):\n    """Does f."""\n' + "    x += 1\n" * 60
     shown = art.outline("src/f.py", code)
@@ -302,7 +303,7 @@ async def test_a_starter_that_already_passes_has_nothing_planted() -> None:
 async def test_a_starter_that_does_not_run_is_reported_with_the_error() -> None:
     broken = starter_draft(
         starter_files=[
-            f("src/calc.py", "import no_such_module\n\n" + BUGGY),
+            f("src/calc.py", 'raise RuntimeError("config missing")\n\n' + BUGGY),
             f("tests/test_calc.py", TEST),
             f("README.md"),
         ]
@@ -313,8 +314,11 @@ async def test_a_starter_that_does_not_run_is_reported_with_the_error() -> None:
     assert any("does not run" in c.detail for c in built.checks)
     repairs = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
     assert len(repairs) == art.HOSTED_REPAIRS  # hosted only: one round, so the quota lasts
-    assert "no_such_module" in repairs[0]["messages"][1]["content"]
-    assert "=== src/calc.py ===\nimport no_such_module" in repairs[0]["messages"][1]["content"]
+    assert "config missing" in repairs[0]["messages"][1]["content"]
+    assert (
+        '=== src/calc.py ===\nraise RuntimeError("config missing")'
+        in repairs[0]["messages"][1]["content"]
+    )
 
 
 async def test_a_file_that_is_not_valid_python_is_named_before_anything_runs() -> None:
@@ -510,8 +514,11 @@ async def test_a_local_model_gets_more_repair_rounds_than_a_hosted_one() -> None
     gateway.repairs = [""] * (art.REPAIRS - 1) + [f"=== src/calc.py ===\n{BUGGY}"]
     built = await build(gateway)
     assert built.ok, failed(built)  # fixed on the last free round
-    repairs = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
-    assert len(repairs) == 4
+    repairs = [c for c in gateway.complete_calls if c["purpose"].startswith("repair-")]
+    assert len(repairs) == art.REPAIRS
+    # round 3 goes to a hosted model first; the others stay on the local one
+    assert [c["purpose"] for c in repairs].count("repair-hard") == 1
+    assert repairs[art.HOSTED_ROUND - 1]["purpose"] == "repair-hard"
     # the first round patches; later rounds rewrite from scratch, warmer, with the contract
     assert repairs[0]["temperature"] == 0.2 and repairs[1]["temperature"] == 0.7
     assert "Round 2" not in repairs[0]["messages"][1]["content"]
@@ -543,6 +550,13 @@ async def test_a_repair_that_does_not_compile_changes_nothing_and_late_rounds_re
     await repair(art.REWRITE_FROM_ROUND)
     assert "x = 1  # broken somehow" not in seen[1]["messages"][1]["content"]
     assert "withheld" in seen[1]["messages"][1]["content"]
+    # a test file is never withheld: it is the spec, and a wrong expected value gets corrected
+    await art.repair_files(
+        Echo(), art.Spend(), tier="judge", budget_usd=1, scenario="s", goal="g", problem="p",  # type: ignore[arg-type]
+        files={"tests/test_a.py": "def test_a():\n    assert 7 == 6\n"},
+        editable=["tests/test_a.py"], round_number=art.REWRITE_FROM_ROUND,
+    )  # fmt: skip
+    assert "assert 7 == 6" in seen[2]["messages"][1]["content"]
 
 
 async def test_the_key_scripts_are_asked_for_with_how_they_are_run() -> None:
@@ -573,6 +587,20 @@ async def test_a_test_file_that_passes_on_the_starter_is_noted_for_the_reviewer(
         "there."
     ]
     assert "## For the reviewer" in art.to_text(built, None)
+
+
+async def test_a_reused_starter_keeps_the_plan_notes_for_the_reference_repairs() -> None:
+    first = FakeGateway(starter_draft(), reference_draft())
+    starter_only = await build(first)
+    assert starter_only.design_notes.startswith("Shared notes about names and signatures.")
+    wrong = reference_draft(files=[f("src/calc.py", BUGGY.replace("total", "total "))])
+    second = FakeGateway(starter_draft(), wrong)
+    await art.build_artifacts(second, LocalRunner(), blueprint(), reuse=starter_only)  # type: ignore[arg-type]
+    repairs = [c for c in second.complete_calls if c["purpose"] == "repair-file"]
+    assert (
+        repairs
+        and "Shared notes about names and signatures." in repairs[0]["messages"][1]["content"]
+    )
 
 
 async def test_a_later_attempt_writes_warmer() -> None:
@@ -644,6 +672,124 @@ def test_a_one_file_reply_is_found_under_the_names_small_models_give_it() -> Non
     assert art.one_file(other, "", readme, plan) == other
 
 
+def test_a_dataset_written_as_one_long_line_does_not_fill_a_prompt() -> None:
+    dataset = json.dumps([{"id": i, "text": "word " * 40} for i in range(500)])
+    shown = art.preview("data/golden_dataset.json", dataset)
+    assert len(dataset) > 100_000 and len(shown) < art.DATA_PREVIEW_CHARS + 100
+    assert shown.endswith(f"(1 lines, {len(dataset)} characters in all)")
+    assert art.preview("data/small.json", '{"a": 1}') == '{"a": 1}'
+
+
+def test_a_repair_prompt_shows_related_files_first_and_stays_small() -> None:
+    big = "\n".join(f"def f{i}(x):\n    return x + {i}" for i in range(2000))
+    files = {
+        "src/a.py": "from src.util import helper\n",
+        "src/util.py": "def helper():\n    return 1\n",
+        "src/huge.py": big,
+        "tests/test_a.py": "from src.a import f\n",
+        "data/rows.json": json.dumps([{"x": "y" * 50}] * 2000),
+    }
+    others = {p: t for p, t in files.items() if p != "src/a.py"}
+    shown = art.related_outline(others, ["src/a.py"], files)
+    assert shown.index("=== src/util.py ===") < shown.index("=== tests/test_a.py ===")
+    assert len(shown) < art.REPAIR_CONTEXT_CHARS + 500
+    assert "Also in the repository (not shown): src/huge.py" in shown
+
+
+def test_config_files_a_model_plans_are_never_written() -> None:
+    plan = StarterPlan(
+        design_notes="Shared notes about names and signatures that every file follows exactly.",
+        starter_files=[
+            PlannedFile(path=p, purpose="Does what the plan says.")
+            for p in ("src/a.py", "tests/test_a.py", "pytest.ini", "setup.cfg", "pyproject.toml")
+        ],
+        key_files=[
+            PlannedFile(path="key/make_data.py", purpose="Writes the data files."),
+            PlannedFile(path="key/metrics.py", purpose="Writes metrics.json."),
+        ],
+        generated=["data/a.json"],
+    )
+    kept = [f.path for f in art.repair_plan(plan).starter_files]
+    assert kept == ["src/a.py", "tests/test_a.py"]
+    assert art.TEST_COMMAND[-2:] == ["-o", "addopts="]
+
+
+def test_packages_the_sandbox_does_not_have_are_found_before_anything_runs() -> None:
+    files = {
+        "src/client.py": "import requests\nimport numpy as np\nfrom src import util\n",
+        "src/util.py": "import openai\nfrom sklearn.metrics import f1_score\n",
+        "src/optional.py": "try:\n    import yaml\nexcept ImportError:\n    yaml = None\n",
+        "app.py": "import app_helpers\n",
+        "app_helpers.py": "",
+    }
+    assert art.missing_packages(files) == {"src/util.py": ["openai", "sklearn"]}
+
+
+def test_forgotten_imports_are_added_by_code() -> None:
+    text = (
+        '"""Chunks documents."""\n\nfrom __future__ import annotations\n\n\n'
+        "def chunk(text: str, size: int = 200) -> List[str]:\n"
+        "    rng = random.Random(1)\n"
+        "    return [text[i : i + size] for i in range(0, len(text), size)]\n"
+    )
+    fixed = art.add_missing_imports(text)
+    assert fixed.startswith(
+        '"""Chunks documents."""\n\nfrom __future__ import annotations\nimport random\n'
+        "from typing import List\n"
+    )
+    shadowed = "def f(List, random):\n    return List, random.x\n"
+    assert art.add_missing_imports(shadowed) == shadowed
+    assert art.add_missing_imports("x = (\n") == "x = (\n"
+
+
+def test_each_repair_round_works_on_one_failing_test_file_and_its_sources() -> None:
+    files = {
+        "src/a.py": "", "src/b.py": "", "src/__init__.py": "",
+        "tests/test_a.py": "from src.a import f\n", "tests/test_b.py": "from src import b\n",
+    }  # fmt: skip
+    output = (
+        "FAILED tests/test_a.py::test_one - AssertionError\n"
+        "FAILED tests/test_b.py::test_two - KeyError\n"
+    )
+    assert art.focus(output, files, 1) == ["src/a.py", "tests/test_a.py"]
+    assert art.focus(output, files, 2) == ["src/b.py", "tests/test_b.py"]
+    assert art.focus(output, files, 3) == ["src/a.py", "tests/test_a.py"]
+
+
+async def test_a_starter_importing_an_uninstalled_package_is_repaired_before_it_runs() -> None:
+    uses_openai = "import openai\n\n" + BUGGY
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[
+                f("src/calc.py", uses_openai),
+                f("tests/test_calc.py", TEST),
+                f("README.md"),
+            ]
+        ),
+        reference_draft(),
+    )
+    gateway.repairs = [f"=== src/calc.py ===\n{BUGGY}"]
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    (repair,) = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    assert "imports openai, which the sandbox does not have" in repair["messages"][1]["content"]
+
+
+async def test_a_starter_with_a_forgotten_typing_import_runs_without_a_repair() -> None:
+    hinted = "def total(xs: List[int]) -> int:\n    return sum(xs[:-1])\n"
+    gateway = FakeGateway(
+        starter_draft(
+            starter_files=[f("src/calc.py", hinted), f("tests/test_calc.py", TEST), f("README.md")]
+        ),
+        reference_draft(),
+    )
+    built = await build(gateway)
+    assert built.ok, failed(built)
+    assert built.starter["src/calc.py"].startswith("from typing import List\n")
+    assert not [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    assert "_Model calls: fake " in art.to_text(built, None)
+
+
 def test_the_modules_a_test_imports_are_found_as_paths() -> None:
     files = ["src/calc.py", "src/io.py", "src/__init__.py", "app.py", "tests/test_x.py"]
     text = "import os\nfrom src.calc import total\nfrom src import io, missing\nimport app\n"
@@ -662,6 +808,18 @@ def test_model_debris_is_tidied_and_problems_are_found_by_name() -> None:
         {"a.py": "def (", "b.json": "{x", "c.jsonl": "{}\n{bad", "d.py": "x = 1", "e.md": "# ("}
     )
     assert sorted(problems) == ["a.py", "b.json", "c.jsonl"]
+    raising = (
+        "def test_a():\n    transport = lambda c, *a: raise ApiTimeout('x')\n    f(transport)\n"
+    )
+    assert art.clean_file(raising, "tests/test_a.py") == (
+        "def test_a():\n    def transport(c, *a):\n        raise ApiTimeout('x')\n"
+        "    f(transport)\n"
+    )
+    lam = "def test_a():\n    transport = lambda c: raise ValueError()\n"
+    assert art.syntax_error(lam) == (
+        "line 2: invalid syntax: `transport = lambda c: raise ValueError()` (a lambda cannot "
+        "contain a statement such as raise: use a def)"
+    )
     assert problems["c.jsonl"].startswith("line 2")
     output = 'File "/work/key/make_data.py", line 3\n  File "/work/src/io.py", line 9\nsrc/io.py:9'
     assert art.mentioned(output, ["key/make_data.py", "src/io.py", "io.py"]) == [

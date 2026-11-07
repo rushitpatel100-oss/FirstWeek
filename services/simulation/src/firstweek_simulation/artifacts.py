@@ -5,12 +5,17 @@ number in the answer key's metrics comes from running the reference solution, ne
 model's guess. This module builds and measures; the validation gate (next step) decides what
 is acceptable and regenerates."""
 
+import ast
+import builtins
 import io
 import json
 import re
 import shutil
+import sys
 import tokenize
+import typing
 import uuid
+from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -52,15 +57,20 @@ FILE_MAX_TOKENS_CEILING = 16000
 BATCH_FILES = 4  # files per model call; a cut-off batch is split in half and retried
 LOCAL_BATCH_FILES = 1  # a model on this machine writes one file per call: calls are free, and a
 # small model keeps its context window and its attention on one file
-REPAIRS = 4  # fix-and-run-again rounds per check with a local model, where calls are free
+REPAIRS = 6  # fix-and-run-again rounds per check with a local model, where calls are free
 HOSTED_REPAIRS = 1  # with hosted free models only: one round, so the daily quota lasts
 REPAIR_VERSION = "repair-files.v1"
 REPAIR_MAX_TOKENS = 6000
-REPAIR_FILES = 2  # files shown in full, and allowed to change, in one repair call
-REWRITE_FROM_ROUND = 3  # from this round the broken file is withheld: written fresh, not patched
+REPAIR_FILES = 3  # files shown in full, and allowed to change, in one repair call
+REWRITE_FROM_ROUND = 4  # from this round the broken file is withheld: written fresh, not patched
+# With a local model, this round goes to a hosted model first (purpose "repair-hard", not in
+# MODEL_LOCAL_PURPOSES): a small model often cannot see the bug it wrote itself, and one hosted
+# call per failing check costs little quota. Without hosted quota it falls back to the local one.
+HOSTED_ROUND = 3
 # A small model sometimes runs on into the prompt's own headings; stop it there.
 REPAIR_STOP = ["\nOther files in the repository", "\nWhat went wrong:", "\nFiles you may change"]
 FENCE = re.compile(r"^\s*```[\w+-]*\s*$")
+LAMBDA_RAISE = re.compile(r"^([ \t]*)(\w+)\s*=\s*lambda\b([^:\n]*):\s*raise\s+(.+)$", re.M)
 HINT = re.compile(r"\b(?:planted|flaws?|flawed|deliberate(?:ly)?|intentional(?:ly)?)\b", re.I)
 SEPARATOR = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,}|\*\*.*\*\*:?)\s*$")  # never Python
 DATA_PREVIEW_LINES = 12  # data files appear in prompts as their first lines only
@@ -77,7 +87,18 @@ ALLOWED_SUFFIXES = {
 KEY_DIR = "key"
 GENERATOR = f"{KEY_DIR}/make_data.py"
 METRICS_SCRIPT = f"{KEY_DIR}/metrics.py"
-TEST_COMMAND = ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+# `-o addopts=` ignores options a written config file adds (`--flake8`, `--cov`): plugins the
+# sandbox does not have would stop pytest before any test runs.
+TEST_COMMAND = ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts="]
+# Config files a model may plan that change how pytest or a linter runs: never written.
+CONFIG_FILES = {"pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml", ".flake8", "mypy.ini"}
+# Packages the sandbox image has besides the standard library (infra/docker/sandbox.Dockerfile).
+SANDBOX_PACKAGES = {
+    "numpy", "pandas", "pytest", "_pytest", "requests", "urllib3", "idna", "certifi",
+    "charset_normalizer", "dateutil", "pytz", "tzdata", "six",
+}  # fmt: skip
+DATA_PREVIEW_CHARS = 1500  # a dataset written as one long line must not fill a prompt
+DATA_PREVIEW_LINE_CHARS = 300
 SHARED_SEED = 1
 PYTEST_FAILED = 1  # pytest's exit code when tests ran and some failed
 
@@ -100,6 +121,8 @@ class BuiltArtifacts:
     cost_usd: float = 0.0
     model: str = ""
     notes: list[str] = field(default_factory=list)  # for the reviewer; they do not gate
+    calls: dict[str, int] = field(default_factory=dict)  # model -> calls this build made
+    design_notes: str = ""  # the starter plan's contract, kept for a later attempt's repairs
 
     @property
     def ok(self) -> bool:
@@ -159,14 +182,19 @@ def repair_plan(plan: StarterPlan) -> StarterPlan:
 
     `metrics.json` is what key/metrics.py writes, not what make_data.py writes, so it is not a
     generated file. A path both written as a file and generated is generated, so it is not also
-    written."""
+    written. Config files (pytest.ini, setup.cfg, pyproject.toml, ...) are dropped: a model's
+    `addopts = --flake8` stops pytest before any test runs."""
     generated = [g for g in plan.generated if g not in ("metrics.json", f"{KEY_DIR}/metrics.json")]
     taken = set(generated)
+
+    def keep(path: str) -> bool:
+        return path not in taken and PurePosixPath(path).name not in CONFIG_FILES
+
     return plan.model_copy(
         update={
             "generated": generated or plan.generated,
-            "starter_files": [f for f in plan.starter_files if f.path not in taken],
-            "key_files": [f for f in plan.key_files if f.path not in taken],
+            "starter_files": [f for f in plan.starter_files if keep(f.path)],
+            "key_files": [f for f in plan.key_files if keep(f.path)],
         }
     )
 
@@ -221,7 +249,7 @@ def clean_file(text: str, path: str = "") -> str:
         body = "\n".join(lines[1:-1])
     body = body.rstrip() + "\n"
     if path.endswith(".py"):
-        return tidy_python(body)
+        return add_missing_imports(tidy_python(body))
     if path.endswith((".json", ".jsonl", ".csv")):
         return "\n".join(line for line in body.splitlines() if not FENCE.match(line)) + "\n"
     return body
@@ -232,7 +260,14 @@ def syntax_error(text: str, path: str = "<file>") -> str:
     try:
         compile(text, path, "exec", dont_inherit=True)
     except SyntaxError as exc:
-        return f"line {exc.lineno}: {exc.msg}"
+        line = (exc.text or "").strip()
+        shown = f": `{line}`" if line else ""
+        hint = (
+            " (a lambda cannot contain a statement such as raise: use a def)"
+            if re.search(r"\blambda\b[^:]*:\s*(raise|return|yield|assert)\b", line)
+            else ""
+        )
+        return f"line {exc.lineno}: {exc.msg}{shown}{hint}"
     except ValueError as exc:  # null bytes
         return str(exc)
     return ""
@@ -242,6 +277,11 @@ def tidy_python(text: str) -> str:
     """Valid Python as it is; otherwise the first cleaned-up version that compiles: without
     fence lines, then cut at the first fence or separator line after the code started (a model
     often ends a file with `---` and an explanation). Unchanged if nothing compiles."""
+    if not syntax_error(text):
+        return text
+    text = LAMBDA_RAISE.sub(
+        lambda m: f"{m[1]}def {m[2]}({m[3].strip()}):\n{m[1]}    raise {m[4]}", text
+    )  # `f = lambda x: raise E()` is a slip small models make often: as a def it is valid
     if not syntax_error(text):
         return text
     lines = text.splitlines()
@@ -323,6 +363,107 @@ def _prose_without_hints(text: str) -> str:
     return "\n".join(kept).rstrip() + "\n"
 
 
+def _optional_imports(tree: ast.AST) -> set[int]:
+    """ids of import nodes inside `try: ... except ImportError`: optional, so allowed."""
+    found: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try) and any(
+            isinstance(h.type, ast.Name) and h.type.id in ("ImportError", "ModuleNotFoundError")
+            for h in node.handlers
+        ):
+            found.update(id(n) for b in node.body for n in ast.walk(b))
+    return found
+
+
+def missing_packages(files: dict[str, str]) -> dict[str, list[str]]:
+    """Python files that import a package the sandbox does not have (only the standard
+    library and SANDBOX_PACKAGES are there, and no network to install more)."""
+    local = {PurePosixPath(p).parts[0].removesuffix(".py") for p in files}
+    out: dict[str, list[str]] = {}
+    for path, text in files.items():
+        if not path.endswith(".py"):
+            continue
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue
+        optional = _optional_imports(tree)
+        names: set[str] = set()
+        for node in ast.walk(tree):
+            if id(node) in optional:
+                continue
+            if isinstance(node, ast.Import):
+                names |= {a.name.split(".")[0] for a in node.names}
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names.add(node.module.split(".")[0])
+        missing = sorted(
+            n for n in names
+            if n not in sys.stdlib_module_names and n not in SANDBOX_PACKAGES and n not in local
+        )  # fmt: skip
+        if missing:
+            out[path] = missing
+    return out
+
+
+COMMON_MODULES = {
+    "json", "os", "re", "sys", "time", "math", "random", "datetime", "pathlib", "itertools",
+    "functools", "collections", "statistics", "csv", "logging", "argparse", "dataclasses",
+    "hashlib", "uuid", "string", "textwrap", "copy", "enum", "abc", "asyncio", "heapq",
+    "bisect", "decimal", "fractions", "operator", "pprint", "tempfile", "shutil", "glob",
+    "unittest", "inspect", "warnings", "contextlib", "threading", "queue", "secrets", "base64",
+}  # fmt: skip
+
+
+def add_missing_imports(text: str) -> str:
+    """Adds the imports a model forgot: a typing name (`List`, `Optional`) or a common standard
+    library module (`random`, `json`) that the file uses but never imports or defines. Small
+    models forget these all the time, and a NameError at import stops every test."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return text
+    bound: set[str] = set(dir(builtins))
+    used: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            bound |= {(a.asname or a.name).split(".")[0] for a in node.names}
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            bound.add(node.name)
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, ast.Global | ast.Nonlocal):
+            bound |= set(node.names)
+        elif isinstance(node, ast.MatchAs | ast.MatchStar) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, ast.Name):
+            (used if isinstance(node.ctx, ast.Load) else bound).add(node.id)
+    missing = used - bound
+    typing_names = sorted(n for n in missing if n in typing.__all__)
+    modules = sorted(n for n in missing if n in COMMON_MODULES)
+    if not typing_names and not modules:
+        return text
+    added = [f"import {m}" for m in modules]
+    if typing_names:
+        added.append(f"from typing import {', '.join(typing_names)}")
+    # after a module docstring and `from __future__` imports, before everything else
+    at = 0
+    for statement in tree.body:
+        is_docstring = (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        )
+        is_future = isinstance(statement, ast.ImportFrom) and statement.module == "__future__"
+        if not (is_docstring or is_future):
+            break
+        at = statement.end_lineno or at
+    lines = text.splitlines()
+    result = "\n".join([*lines[:at], *added, *lines[at:]]) + "\n"
+    return result if not syntax_error(result) else text
+
+
 def file_problems(files: dict[str, str]) -> dict[str, str]:
     """Files that cannot be valid as written: Python that does not compile, JSON that does not
     parse. Found before anything runs, so a repair can be asked for by name."""
@@ -369,6 +510,12 @@ def mentioned(output: str, paths: Iterable[str]) -> list[str]:
 class Spend:
     cost_usd: float = 0.0
     model: str = ""
+    calls: Counter[str] = field(default_factory=Counter)  # model -> calls, for the report
+
+    def add(self, cost_usd: object, model: str) -> None:
+        self.cost_usd += float(cost_usd)  # type: ignore[arg-type]
+        self.model = model
+        self.calls[model] += 1
 
 
 def split_files(text: str) -> dict[str, str]:
@@ -442,8 +589,7 @@ async def write_files(
                 prompt_version=version,
                 stop=stop,
             )
-            spend.cost_usd += float(result.cost_usd)
-            spend.model = result.model
+            spend.add(result.cost_usd, result.model)
             if result.finish_reason != "length" or len(group) > 1 or stop is not None:
                 break
             ceiling = max(FILE_MAX_TOKENS_CEILING, max_tokens) if stop is None else 2 * max_tokens
@@ -504,11 +650,19 @@ def is_data(path: str) -> bool:
 
 
 def preview(path: str, text: str) -> str:
-    """Data files as their first lines: enough to see the format, not the whole dataset."""
-    lines = text.splitlines()
-    if not is_data(path) or len(lines) <= DATA_PREVIEW_LINES:
+    """Data files as their first lines, each and all cut short: enough to see the format, not
+    the whole dataset. A JSON file written as one long line is one line of any length."""
+    if not is_data(path):
         return text
-    return "\n".join(lines[:DATA_PREVIEW_LINES]) + f"\n... ({len(lines)} lines in all)"
+    lines = text.splitlines()
+    kept = [
+        line if len(line) <= DATA_PREVIEW_LINE_CHARS else line[:DATA_PREVIEW_LINE_CHARS] + " ..."
+        for line in lines[:DATA_PREVIEW_LINES]
+    ]
+    shown_text = "\n".join(kept)[:DATA_PREVIEW_CHARS]
+    if shown_text == text:
+        return text
+    return shown_text + f"\n... ({len(lines)} lines, {len(text)} characters in all)"
 
 
 def outline(path: str, text: str) -> str:
@@ -532,6 +686,33 @@ def shown_outline(files: dict[str, str]) -> str:
         "\n\n".join(f"=== {p} ===\n{outline(p, c)}" for p, c in sorted(files.items()))
         or "(none yet)"
     )
+
+
+REPAIR_CONTEXT_CHARS = 12_000  # outlines of other files in a repair prompt, at most
+
+
+def related_outline(others: dict[str, str], allowed: list[str], files: dict[str, str]) -> str:
+    """Outlines of the other files for a repair, the most related first (modules the repaired
+    files import, then files that import them), within REPAIR_CONTEXT_CHARS; past that, only
+    names. A repair prompt has to fit a local model's context window, or it goes to a hosted
+    model and spends the daily quota."""
+    imports = {m for a in allowed for m in imported(files.get(a, ""), files)}
+    stems = {PurePosixPath(a).with_suffix("").as_posix().replace("/", ".") for a in allowed}
+    importers = {p for p, t in others.items() if any(stem in t for stem in stems)}
+    order = sorted(others, key=lambda p: (p not in imports, p not in importers, is_data(p), p))
+    parts: list[str] = []
+    used = 0
+    left: list[str] = []
+    for path in order:
+        block = f"=== {path} ===\n{outline(path, others[path])}"
+        if used + len(block) > REPAIR_CONTEXT_CHARS:
+            left.append(path)
+            continue
+        parts.append(block)
+        used += len(block)
+    if left:
+        parts.append("Also in the repository (not shown): " + ", ".join(left))
+    return "\n\n".join(parts) or "(none)"
 
 
 def shown_preview(files: dict[str, str]) -> str:
@@ -608,6 +789,7 @@ async def repair_files(
     files: dict[str, str],
     editable: list[str],
     round_number: int = 1,
+    hard: bool = False,
 ) -> dict[str, str]:
     """One model call that rewrites whichever of the first few `editable` files the problem
     needs. Returns only files it was allowed to change, cleaned; a cut-off reply changes
@@ -617,7 +799,7 @@ async def repair_files(
     simply from scratch, at a higher temperature: asked the same way, a small model gives the
     same broken answer again."""
     allowed = list(dict.fromkeys(editable))[:REPAIR_FILES]
-    rewrite = round_number >= REWRITE_FROM_ROUND
+    rewrite = round_number >= REWRITE_FROM_ROUND and not hard
     if round_number > 1:
         problem = (
             f"(Round {round_number}: an earlier fix did not solve this. Do not repeat it: "
@@ -629,7 +811,7 @@ async def repair_files(
     system, user = load_prompt(REPAIR_VERSION)
     others = {p: t for p, t in files.items() if p not in allowed}
     result = await gateway.complete(
-        purpose="repair-file",
+        purpose="repair-hard" if hard else "repair-file",
         messages=[
             {"role": "system", "content": system},
             {
@@ -642,12 +824,12 @@ async def repair_files(
                         f"=== {p} ===\n"
                         + (
                             "(the broken version is withheld: write this file again from scratch)"
-                            if rewrite
-                            else files.get(p, "")
+                            if rewrite and not p.startswith("tests/")  # tests stay: they are
+                            else files.get(p, "")  # the spec, and a wrong one is corrected
                         )
                         for p in allowed
                     ),
-                    others=shown_outline(others),
+                    others=related_outline(others, allowed, files),
                 ),
             },
         ],
@@ -659,8 +841,7 @@ async def repair_files(
         prompt_version=REPAIR_VERSION,
         stop=REPAIR_STOP + (ONE_FILE_STOP if len(allowed) == 1 else []),
     )
-    spend.cost_usd += float(result.cost_usd)
-    spend.model = result.model
+    spend.add(result.cost_usd, result.model)
     if result.finish_reason == "length":
         return {}
     replies = split_files(result.content)
@@ -692,6 +873,30 @@ def quiet_test_files(before: JobResult, tests: Iterable[str]) -> list[str]:
     missing (a writer sometimes writes the fixed version)."""
     failing = set(re.findall(r"^(?:FAILED|ERROR) (tests/[^:\s]+)", before.stdout, flags=re.M))
     return [t for t in tests if t not in failing]
+
+
+def failing_tests(output: str) -> list[str]:
+    """Test files pytest reports as failing or erroring, in the order it reports them."""
+    found = re.findall(r"^(?:FAILED|ERROR) (tests/[^:\s]+\.py)", output, flags=re.M)
+    return list(dict.fromkeys(found))
+
+
+def focus(output: str, files: dict[str, str], round_number: int) -> list[str]:
+    """The files one repair round works on: one failing test file (a different one each round,
+    so every failing file gets its turn) with the source files its traceback names and the
+    modules it imports, sources first. A small model fixes one thing well, not four."""
+    code = [p for p in files if p.endswith(".py")]
+    named = mentioned(output, code)
+    failing = [t for t in failing_tests(output) if t in files] or [
+        p for p in named if p.startswith("tests/")
+    ]
+    if not failing:
+        return named or [p for p in code if p.startswith("tests/")]
+    test = failing[(round_number - 1) % len(failing)]
+    sources = [p for p in named if not p.startswith("tests/")]
+    sources += [m for m in imported(files[test], files) if m not in sources]
+    sources = [p for p in sources if not p.endswith("__init__.py")] or sources
+    return [*sources[:1], test, *sources[1:]]
 
 
 def starter_verdict(before: JobResult) -> str:
@@ -739,6 +944,7 @@ async def build_artifacts(
 
     def finish() -> BuiltArtifacts:
         built.cost_usd, built.model = spend.cost_usd, spend.model
+        built.calls = dict(spend.calls)
         return built
 
     contract = {"notes": ""}  # the starter plan's shared contract, once there is one
@@ -751,20 +957,35 @@ async def build_artifacts(
         return await repair_files(
             gateway, spend, tier=tier, budget_usd=budget_usd, scenario=blueprint.scenario,
             goal=goal, problem=problem, files=files, editable=editable, round_number=round_number,
+            hard=repairs >= HOSTED_ROUND and round_number == HOSTED_ROUND,
         )  # fmt: skip
 
     async def valid(files: dict[str, str], paths: Iterable[str], extra: str) -> list[str]:
-        """Repairs, in place, each of `paths` that does not compile or parse. Returns the
-        problems left."""
-        for path in [p for p in paths if file_problems({p: files[p]})]:
+        """Repairs, in place, each of `paths` that does not compile or parse, or imports a
+        package the sandbox does not have. Returns the problems left."""
+        paths = list(paths)
+
+        def problem(path: str) -> str | None:
+            if why := file_problems({path: files[path]}).get(path):
+                return why
+            if packages := missing_packages(files).get(path):
+                return (
+                    f"imports {', '.join(packages)}, which the sandbox does not have (it has only "
+                    "the standard library, numpy, pandas, requests and pytest, and no network): "
+                    "do the same with those, or take the dependency as an argument that tests "
+                    "replace with a fake"
+                )
+            return None
+
+        for path in [p for p in paths if problem(p)]:
             for number in range(1, repairs + 1):
-                why = file_problems({path: files[path]}).get(path)
+                why = problem(path)
                 if why is None:
                     break
                 goal = f"Make {path} a valid file of its type that does what it is for. {extra}"
                 changed = await fix(goal, f"{path}: {why}", files, [path], number)
                 files.update({p: t for p, t in changed.items() if p == path})
-        return [f"{p}: {w}" for p, w in file_problems({p: files[p] for p in paths}).items()]
+        return [f"{p}: {why}" for p in paths if (why := problem(p))]
 
     async def make_starter() -> bool:
         system, user = load_prompt(PLAN_STARTER_VERSION)
@@ -802,8 +1023,7 @@ async def build_artifacts(
                 found = [f"The plan was not valid JSON for the schema: {str(exc)[:300]}"]
                 continue
             assert planned.parsed is not None
-            spend.cost_usd += float(planned.cost_usd)
-            spend.model = planned.model
+            spend.add(planned.cost_usd, planned.model)
             plan = repair_plan(planned.parsed)
             found = plan_problems(
                 [f.path for f in plan.starter_files],
@@ -818,7 +1038,7 @@ async def build_artifacts(
             built.checks.append(Check("starter files are well formed", False, " ".join(found)))
             return False
         every = [*plan.starter_files, *with_key_contracts(plan.key_files, plan.generated)]
-        contract["notes"] = plan.design_notes
+        contract["notes"] = built.design_notes = plan.design_notes
 
         def render_starter(group: list[PlannedFile], written: dict[str, str]) -> dict[str, str]:
             return {
@@ -935,7 +1155,7 @@ async def build_artifacts(
                     "import, syntax or fixture errors, no hang) and fail only because of the "
                     f"planted issues. Fix what the output shows. {keep}"
                 )
-                editable = mentioned(output, [p for p in starter if p.endswith(".py")]) or tests
+                editable = focus(output, starter, test_rounds)
             apply(
                 await fix(goal, f"{verdict}\n{tail(output, 40)}", with_data, editable, test_rounds)
             )
@@ -963,6 +1183,7 @@ async def build_artifacts(
     if reuse is not None and reuse.starter_ok:
         built.starter, built.key = dict(reuse.starter), dict(reuse.key)
         built.checks += [c for c in reuse.checks if c.name in STARTER_CHECKS]
+        contract["notes"] = built.design_notes = reuse.design_notes
     elif not await make_starter():
         return finish()
     starter = built.starter
@@ -997,7 +1218,7 @@ async def build_artifacts(
         return finish()
     assert ref_planned.parsed is not None
     ref_plan = ref_planned.parsed
-    spend.cost_usd += float(ref_planned.cost_usd)
+    spend.add(ref_planned.cost_usd, ref_planned.model)
     built.summary = ref_plan.summary
     if problems := reference_problems(ref_plan, starter):
         built.checks.append(Check("reference plan is well formed", False, " ".join(problems)))
@@ -1045,20 +1266,15 @@ async def build_artifacts(
             break
         rounds += 1
         output = after.stdout + after.stderr
-        named = mentioned(
-            output, [p for p in reference if p.endswith(".py") and not is_key_path(p)]
-        )
-        tests = [p for p in named if p.startswith("tests/")]
-        sources = [p for p in named if not p.startswith("tests/")]
-        sources += [m for t in tests for m in imported(reference[t], reference) if m not in sources]
-        sources += [p for p in changed if p.endswith(".py") and p not in sources]
+        code = {p: t for p, t in reference.items() if not is_key_path(p)}
         goal = (
             "Every test must pass on the fixed project. Fix the planted issues properly in the "
             f"source code:\n{issues}\nChange a test only if the test itself is wrong (for "
             "example an expected value worked out wrongly), never to weaken what it checks, and "
-            "never delete a test."
+            "never delete a test. The plan's notes below are the specification: where a test "
+            "disagrees with them, the test is wrong; where the code does, the code is."
         )
-        fixed = await fix(goal, output, reference, [*sources[:1], *tests[:1], *sources[1:]], rounds)
+        fixed = await fix(goal, output, reference, focus(output, code, rounds), rounds)
         # A starter test the repair corrected; the reference's own new tests stay its own.
         new_tests = {
             p: without_hints(p, t)
@@ -1200,7 +1416,8 @@ def to_text(built: BuiltArtifacts, folder: Path | None) -> str:
         lines += ["", "## For the reviewer", *[f"- {n}" for n in built.notes]]
     if built.summary:
         lines += ["", "## What the reference changes", built.summary]
-    lines += ["", f"_Model: {built.model}. Cost: ${built.cost_usd:.2f}._"]
+    calls = ", ".join(f"{m} {n}" for m, n in sorted(built.calls.items(), key=lambda c: -c[1]))
+    lines += ["", f"_Model calls: {calls or 'none'}. Cost: ${built.cost_usd:.2f}._"]
     if folder is not None:
         lines.append(f"Files: {folder}")
     return "\n".join(lines)
