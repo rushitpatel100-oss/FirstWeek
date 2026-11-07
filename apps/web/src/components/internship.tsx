@@ -12,7 +12,11 @@ import type { Internship, Project, Turn } from "@/lib/types";
 const LAST_DAY = 5;
 const KINDS = { message: "Message", ticket: "New ticket", meeting: "Meeting" } as const;
 
-type Saved = { day: number; chats: Record<string, Turn[]> };
+/** `reached` is the furthest day of the week; `day` is the one on screen (earlier days can be
+ * looked back at). Weeks saved before `reached` existed load with reached = day. */
+type Saved = { day: number; reached?: number; chats: Record<string, Turn[]> };
+
+const clampDay = (d: number) => Math.min(Math.max(Math.trunc(d) || 1, 1), LAST_DAY);
 
 function load(key: string): Saved | null {
   try {
@@ -115,11 +119,14 @@ function Week({
   internship: Internship;
 }) {
   const storeKey = `firstweek:${slug}:internship`;
-  const [day, setDay] = useState(() => {
-    const saved = load(storeKey);
-    return saved ? Math.min(Math.max(saved.day, 1), LAST_DAY) : 1;
-  });
-  const [chats, setChats] = useState<Record<string, Turn[]>>(() => load(storeKey)?.chats ?? {});
+  const [saved] = useState(() => load(storeKey));
+  const [reached, setReached] = useState(() =>
+    saved ? clampDay(Math.max(saved.reached ?? saved.day, saved.day)) : 1,
+  );
+  const [day, setDay] = useState(() => (saved ? Math.min(clampDay(saved.day), reached) : 1));
+  const [chats, setChats] = useState<Record<string, Turn[]>>(() => saved?.chats ?? {});
+  const [round, setRound] = useState(0);
+  const [confirmRestart, setConfirmRestart] = useState(false);
   const [who, setWho] = useState(internship.colleagues[0].key);
   const [draft, setDraft] = useState("");
   const [chatError, setChatError] = useState("");
@@ -129,15 +136,18 @@ function Week({
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    save(storeKey, { day, chats });
-  }, [storeKey, day, chats]);
+    save(storeKey, { day, reached, chats });
+  }, [storeKey, day, reached, chats]);
   useEffect(() => {
     bottom.current?.scrollIntoView?.({ block: "nearest" });
   }, [chats, who]);
 
   const people = Object.fromEntries(internship.colleagues.map((c) => [c.key, c]));
   const events = internship.events.filter((e) => e.day <= day);
-  const assigned = new Set(events.flatMap((e) => (e.ticket ? [e.ticket] : [])));
+  // Work assigned so far stays in the workspace while you look back at an earlier day.
+  const assigned = new Set(
+    internship.events.filter((e) => e.day <= reached).flatMap((e) => (e.ticket ? [e.ticket] : [])),
+  );
   const visible: Project = {
     ...project,
     blueprint: {
@@ -156,7 +166,7 @@ function Week({
     setChatError("");
     setChats((c) => ({ ...c, [who]: [...history, { who: "you", text: message }] }));
     start(async () => {
-      const result = await sendMessage(slug, who, day, message, history);
+      const result = await sendMessage(slug, who, reached, message, history);
       if (result.status === "error") {
         setChatError(result.message);
         return;
@@ -166,6 +176,25 @@ function Week({
         [who]: [...(c[who] ?? []), { who: "them", text: result.reply }],
       }));
     });
+  }
+
+  function nextDay() {
+    const next = clampDay(reached + 1);
+    setReached(next);
+    setDay(next);
+  }
+
+  function restart() {
+    setDay(1);
+    setReached(1);
+    setChats({});
+    setDraft("");
+    setChatError("");
+    setWeek({ status: "idle" });
+    setWho(internship.colleagues[0].key);
+    filesRef.current = {};
+    setRound((r) => r + 1); // a fresh workspace: the starter code again
+    setConfirmRestart(false);
   }
 
   function end() {
@@ -181,30 +210,78 @@ function Week({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <ol className="flex gap-2" aria-label="Days of the week">
             {Array.from({ length: LAST_DAY }, (_, i) => i + 1).map((d) => (
-              <li
-                key={d}
-                aria-current={d === day ? "step" : undefined}
-                className={`rounded-full border px-3 py-1 text-sm ${
-                  d === day
-                    ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                    : d < day
-                      ? "border-zinc-300 text-zinc-500 dark:border-zinc-700"
-                      : "border-dashed border-zinc-300 text-zinc-400 dark:border-zinc-700"
-                }`}
-              >
-                Day {d}
+              <li key={d}>
+                <button
+                  type="button"
+                  onClick={() => setDay(d)}
+                  disabled={d > reached}
+                  aria-current={d === day ? "step" : undefined}
+                  title={d > reached ? "Finish the days before it first" : `Show day ${d}`}
+                  className={`rounded-full border px-3 py-1 text-sm ${
+                    d === day
+                      ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                      : d <= reached
+                        ? "border-zinc-300 text-zinc-600 hover:border-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+                        : "cursor-not-allowed border-dashed border-zinc-300 text-zinc-400 dark:border-zinc-700"
+                  }`}
+                >
+                  Day {d}
+                </button>
               </li>
             ))}
           </ol>
-          {day < LAST_DAY && (
-            <button
-              onClick={() => setDay(day + 1)}
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
-            >
-              Finish day {day}, start day {day + 1}
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {day === reached && reached < LAST_DAY && (
+              <button
+                type="button"
+                onClick={nextDay}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
+              >
+                Finish day {day}, start day {day + 1}
+              </button>
+            )}
+            {reached > 1 &&
+              (confirmRestart ? (
+                <span className="flex items-center gap-2 text-sm">
+                  Clear your chats and code and go back to day 1?
+                  <button
+                    type="button"
+                    onClick={restart}
+                    className="rounded-lg bg-zinc-900 px-3 py-1.5 font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  >
+                    Start again
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmRestart(false)}
+                    className="rounded-lg border border-zinc-300 px-3 py-1.5 dark:border-zinc-700"
+                  >
+                    Keep my week
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRestart(true)}
+                  className="rounded-lg px-3 py-2 text-sm text-zinc-600 underline-offset-2 hover:underline dark:text-zinc-400"
+                >
+                  Start the week again
+                </button>
+              ))}
+          </div>
         </div>
+        {day < reached && (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Looking back at day {day}. Your week is on day {reached}.{" "}
+            <button
+              type="button"
+              onClick={() => setDay(reached)}
+              className="font-medium underline underline-offset-2"
+            >
+              Back to day {reached}
+            </button>
+          </p>
+        )}
         <h2 className="text-xl font-semibold tracking-tight">Your inbox</h2>
         <ul className="flex flex-col gap-3">
           {[...events].reverse().map((e, i) => (
@@ -299,11 +376,11 @@ function Week({
         </p>
       </section>
 
-      <Workspace slug={slug} project={visible} onFiles={(f) => {
+      <Workspace key={round} slug={slug} project={visible} onFiles={(f) => {
           filesRef.current = f;
         }} />
 
-      {day === LAST_DAY && (
+      {reached === LAST_DAY && (
         <section className="flex flex-col gap-3 border-t border-zinc-200 pt-8 dark:border-zinc-800">
           <h2 className="text-xl font-semibold tracking-tight">End of the week</h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">

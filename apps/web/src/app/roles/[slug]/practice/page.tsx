@@ -31,7 +31,9 @@ async function Practice({ params }: { params: Promise<{ slug: string }> }) {
         <p className="text-sm font-medium uppercase tracking-wide text-zinc-500">
           {internship ? "Virtual internship" : "Practice project"}
         </p>
-        <h1 className="text-4xl font-semibold tracking-tight">Your first week as a {project.blueprint.archetype}</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">Your first week as {/^[AEIOU]/i.test(project.blueprint.archetype) ? "an" : "a"}{" "}
+          {project.blueprint.archetype}
+        </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
           {internship
             ? "A made-up company, a real-looking problem and a team to work with. Read your inbox, talk to your colleagues, do the work and finish the week for a review. Each day brings something new."
