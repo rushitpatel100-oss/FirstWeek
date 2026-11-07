@@ -66,6 +66,7 @@ REWRITE_FROM_ROUND = 3  # from this round the broken file is withheld: written f
 # A small model sometimes runs on into the prompt's own headings; stop it there.
 REPAIR_STOP = ["\nOther files in the repository", "\nWhat went wrong:", "\nFiles you may change"]
 FENCE = re.compile(r"^\s*```[\w+-]*\s*$")
+LAMBDA_RAISE = re.compile(r"^([ \t]*)(\w+)\s*=\s*lambda\b([^:\n]*):\s*raise\s+(.+)$", re.M)
 HINT = re.compile(r"\b(?:planted|flaws?|flawed|deliberate(?:ly)?|intentional(?:ly)?)\b", re.I)
 SEPARATOR = re.compile(r"^\s*(?:-{3,}|\*{3,}|_{3,}|\*\*.*\*\*:?)\s*$")  # never Python
 DATA_PREVIEW_LINES = 12  # data files appear in prompts as their first lines only
@@ -272,6 +273,11 @@ def tidy_python(text: str) -> str:
     """Valid Python as it is; otherwise the first cleaned-up version that compiles: without
     fence lines, then cut at the first fence or separator line after the code started (a model
     often ends a file with `---` and an explanation). Unchanged if nothing compiles."""
+    if not syntax_error(text):
+        return text
+    text = LAMBDA_RAISE.sub(
+        lambda m: f"{m[1]}def {m[2]}({m[3].strip()}):\n{m[1]}    raise {m[4]}", text
+    )  # `f = lambda x: raise E()` is a slip small models make often: as a def it is valid
     if not syntax_error(text):
         return text
     lines = text.splitlines()

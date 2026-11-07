@@ -805,6 +805,13 @@ def test_model_debris_is_tidied_and_problems_are_found_by_name() -> None:
         {"a.py": "def (", "b.json": "{x", "c.jsonl": "{}\n{bad", "d.py": "x = 1", "e.md": "# ("}
     )
     assert sorted(problems) == ["a.py", "b.json", "c.jsonl"]
+    raising = (
+        "def test_a():\n    transport = lambda c, *a: raise ApiTimeout('x')\n    f(transport)\n"
+    )
+    assert art.clean_file(raising, "tests/test_a.py") == (
+        "def test_a():\n    def transport(c, *a):\n        raise ApiTimeout('x')\n"
+        "    f(transport)\n"
+    )
     lam = "def test_a():\n    transport = lambda c: raise ValueError()\n"
     assert art.syntax_error(lam) == (
         "line 2: invalid syntax: `transport = lambda c: raise ValueError()` (a lambda cannot "
