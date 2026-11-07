@@ -62,7 +62,11 @@ HOSTED_REPAIRS = 1  # with hosted free models only: one round, so the daily quot
 REPAIR_VERSION = "repair-files.v1"
 REPAIR_MAX_TOKENS = 6000
 REPAIR_FILES = 3  # files shown in full, and allowed to change, in one repair call
-REWRITE_FROM_ROUND = 3  # from this round the broken file is withheld: written fresh, not patched
+REWRITE_FROM_ROUND = 4  # from this round the broken file is withheld: written fresh, not patched
+# With a local model, this round goes to a hosted model first (purpose "repair-hard", not in
+# MODEL_LOCAL_PURPOSES): a small model often cannot see the bug it wrote itself, and one hosted
+# call per failing check costs little quota. Without hosted quota it falls back to the local one.
+HOSTED_ROUND = 3
 # A small model sometimes runs on into the prompt's own headings; stop it there.
 REPAIR_STOP = ["\nOther files in the repository", "\nWhat went wrong:", "\nFiles you may change"]
 FENCE = re.compile(r"^\s*```[\w+-]*\s*$")
@@ -785,6 +789,7 @@ async def repair_files(
     files: dict[str, str],
     editable: list[str],
     round_number: int = 1,
+    hard: bool = False,
 ) -> dict[str, str]:
     """One model call that rewrites whichever of the first few `editable` files the problem
     needs. Returns only files it was allowed to change, cleaned; a cut-off reply changes
@@ -794,7 +799,7 @@ async def repair_files(
     simply from scratch, at a higher temperature: asked the same way, a small model gives the
     same broken answer again."""
     allowed = list(dict.fromkeys(editable))[:REPAIR_FILES]
-    rewrite = round_number >= REWRITE_FROM_ROUND
+    rewrite = round_number >= REWRITE_FROM_ROUND and not hard
     if round_number > 1:
         problem = (
             f"(Round {round_number}: an earlier fix did not solve this. Do not repeat it: "
@@ -806,7 +811,7 @@ async def repair_files(
     system, user = load_prompt(REPAIR_VERSION)
     others = {p: t for p, t in files.items() if p not in allowed}
     result = await gateway.complete(
-        purpose="repair-file",
+        purpose="repair-hard" if hard else "repair-file",
         messages=[
             {"role": "system", "content": system},
             {
@@ -952,6 +957,7 @@ async def build_artifacts(
         return await repair_files(
             gateway, spend, tier=tier, budget_usd=budget_usd, scenario=blueprint.scenario,
             goal=goal, problem=problem, files=files, editable=editable, round_number=round_number,
+            hard=repairs >= HOSTED_ROUND and round_number == HOSTED_ROUND,
         )  # fmt: skip
 
     async def valid(files: dict[str, str], paths: Iterable[str], extra: str) -> list[str]:

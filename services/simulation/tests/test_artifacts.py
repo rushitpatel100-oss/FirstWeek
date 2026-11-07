@@ -170,7 +170,7 @@ class FakeGateway:
 
     async def complete(self, **kwargs: Any) -> SimpleNamespace:
         self.complete_calls.append(kwargs)
-        if kwargs["purpose"] == "repair-file":
+        if kwargs["purpose"] in ("repair-file", "repair-hard"):
             reply = self.repairs.pop(0) if self.repairs else ""
             return SimpleNamespace(
                 content=reply, cost_usd=Decimal("0.01"), model="fake", finish_reason="stop"
@@ -514,8 +514,11 @@ async def test_a_local_model_gets_more_repair_rounds_than_a_hosted_one() -> None
     gateway.repairs = [""] * (art.REPAIRS - 1) + [f"=== src/calc.py ===\n{BUGGY}"]
     built = await build(gateway)
     assert built.ok, failed(built)  # fixed on the last free round
-    repairs = [c for c in gateway.complete_calls if c["purpose"] == "repair-file"]
+    repairs = [c for c in gateway.complete_calls if c["purpose"].startswith("repair-")]
     assert len(repairs) == art.REPAIRS
+    # round 3 goes to a hosted model first; the others stay on the local one
+    assert [c["purpose"] for c in repairs].count("repair-hard") == 1
+    assert repairs[art.HOSTED_ROUND - 1]["purpose"] == "repair-hard"
     # the first round patches; later rounds rewrite from scratch, warmer, with the contract
     assert repairs[0]["temperature"] == 0.2 and repairs[1]["temperature"] == 0.7
     assert "Round 2" not in repairs[0]["messages"][1]["content"]

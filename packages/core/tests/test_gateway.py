@@ -737,6 +737,13 @@ async def test_a_local_model_is_not_sent_a_reasoning_effort() -> None:
     assert "reasoning_effort" not in seen[0]
 
 
+async def test_a_hard_repair_tries_the_hosted_models_first() -> None:
+    settings = Settings(_env_file=None, model_local="ollama/qwen2.5-coder:7b")
+    gateway = LLMGateway(settings=settings, recorder=lambda _: None)
+    assert gateway.model_for("judge", "repair-file") == "ollama/qwen2.5-coder:7b"
+    assert gateway.model_for("judge", "repair-hard") == settings.model_judge
+
+
 async def test_the_project_design_stays_on_the_hosted_models() -> None:
     seen: list[str] = []
 
