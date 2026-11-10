@@ -1,29 +1,36 @@
 import { ConfidenceBadge } from "./confidence-badge";
-import { publisher, TIER_LABEL, month } from "@/lib/format";
+import { month, publisher, TIER_LABEL } from "@/lib/format";
 import type { Claim } from "@/lib/types";
 
 function Sources({ claim }: { claim: Claim }) {
   const n = claim.citations.length;
   return (
-    <details className="group mt-1.5 text-sm">
-      <summary className="cursor-pointer text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
-        {n} {n === 1 ? "source" : "sources"}
+    <details className="group mt-2 text-sm">
+      <summary className="w-fit cursor-pointer list-none text-muted hover:text-ink">
+        <span className="underline decoration-line underline-offset-4 group-open:hidden">
+          Show {n === 1 ? "the source" : `${n} sources`}
+        </span>
+        <span className="hidden underline decoration-line underline-offset-4 group-open:inline">
+          Hide {n === 1 ? "the source" : "sources"}
+        </span>
       </summary>
-      <ul className="mt-2 space-y-3 border-l-2 border-zinc-200 pl-4 dark:border-zinc-800">
+      <ul className="mt-3 flex flex-col gap-4">
         {claim.citations.map((c) => (
-          <li key={`${c.source_url}-${c.quote}`}>
-            <blockquote className="text-zinc-700 dark:text-zinc-300">“{c.quote}”</blockquote>
-            <p className="mt-0.5 text-xs text-zinc-500">
-              {TIER_LABEL[c.tier]} ·{" "}
+          <li key={`${c.source_url}-${c.quote}`} className="flex flex-col gap-1.5">
+            <blockquote className="leading-relaxed">
+              <mark className="box-decoration-clone rounded-sm bg-mark px-1 text-mark-ink">{c.quote}</mark>
+            </blockquote>
+            <p className="text-xs text-muted">
+              {TIER_LABEL[c.tier]} from{" "}
               <a
                 href={c.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline underline-offset-2 hover:text-zinc-800 dark:hover:text-zinc-200"
+                className="font-medium text-ink underline decoration-line underline-offset-2 hover:decoration-ink"
               >
                 {publisher(c.source_url)}
               </a>
-              {c.published ? ` · ${month(c.published)}` : " · undated"}
+              {c.published ? `, ${month(c.published)}` : ", undated"}
             </p>
           </li>
         ))}
@@ -35,13 +42,13 @@ function Sources({ claim }: { claim: Claim }) {
 export function ClaimList({ claims }: { claims: Claim[] }) {
   if (claims.length === 0) return null;
   return (
-    <ul className="space-y-5">
+    <ul className="flex flex-col divide-y divide-line">
       {claims.map((claim) => (
-        <li key={claim.text} className={claim.confidence < 0.5 ? "opacity-80" : undefined}>
-          <p className="flex items-start gap-3">
-            <span className="flex-1">{claim.text}</span>
+        <li key={claim.text} className="py-4 first:pt-0 last:pb-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <p className="max-w-[68ch] leading-relaxed">{claim.text}</p>
             <ConfidenceBadge confidence={claim.confidence} />
-          </p>
+          </div>
           <Sources claim={claim} />
         </li>
       ))}

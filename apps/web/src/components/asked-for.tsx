@@ -1,53 +1,60 @@
-import { bandWord, percent } from "@/lib/format";
+import { percent } from "@/lib/format";
 import type { SkillStat } from "@/lib/types";
 
-const SHOWN = 15;
+const SHOWN = 12;
+
+function Row({ s }: { s: SkillStat }) {
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 sm:grid-cols-[13rem_minmax(0,1fr)_7.5rem]">
+      <span className="leading-snug">{s.label}</span>
+      <span className="text-right tabular-nums sm:order-last">
+        <span className="font-medium">{percent(s.share)}</span>{" "}
+        <span className="text-xs text-muted">
+          {percent(s.ci_low)}–{percent(s.ci_high)}
+        </span>
+      </span>
+      <span
+        className="relative col-span-2 h-3 rounded-sm bg-page sm:col-span-1"
+        role="img"
+        aria-label={`${percent(s.share)} of ${s.n} postings, likely between ${percent(s.ci_low)} and ${percent(s.ci_high)}`}
+      >
+        <span
+          className="absolute inset-y-0 rounded-sm bg-brand-soft"
+          style={{ left: `${s.ci_low * 100}%`, width: `${(s.ci_high - s.ci_low) * 100}%` }}
+        />
+        <span className="absolute inset-y-0 left-0 rounded-sm bg-brand" style={{ width: `${s.share * 100}%` }} />
+      </span>
+    </li>
+  );
+}
 
 export function AskedFor({ skills }: { skills: SkillStat[] }) {
   const ranked = [...skills].sort((a, b) => b.share - a.share);
-  const cut = ranked[SHOWN - 1]?.share ?? 0;
-  const top = ranked.filter((s, i) => i < SHOWN || s.share >= cut);
-  const rest = ranked.filter((s) => !top.includes(s) && bandWord(s.share) !== null);
+  const top = ranked.slice(0, SHOWN);
+  const rest = ranked.slice(SHOWN);
   return (
-    <div>
-      <ul className="space-y-2.5">
+    <div className="flex flex-col gap-4">
+      <ul className="flex flex-col gap-3">
         {top.map((s) => (
-          <li key={s.skill_id} className="grid grid-cols-1 items-center gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,12rem)_1fr]">
-            <span className="truncate text-sm">{s.label}</span>
-            <span className="flex items-center gap-3">
-              <span
-                className="relative h-2.5 flex-1 rounded-full bg-zinc-200 dark:bg-zinc-800"
-                role="img"
-                aria-label={`${percent(s.share)} of ${s.n} postings, 95% interval ${percent(s.ci_low)} to ${percent(s.ci_high)}`}
-              >
-                <span
-                  className="absolute inset-y-0 rounded-full bg-zinc-300 dark:bg-zinc-700"
-                  style={{ left: `${s.ci_low * 100}%`, width: `${(s.ci_high - s.ci_low) * 100}%` }}
-                />
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-zinc-900 dark:bg-zinc-100"
-                  style={{ width: `${s.share * 100}%` }}
-                />
-              </span>
-              <span className="w-28 shrink-0 text-right text-sm tabular-nums">
-                {percent(s.share)}{" "}
-                <span className="text-xs text-zinc-500">
-                  ({percent(s.ci_low)}–{percent(s.ci_high)})
-                </span>
-              </span>
-            </span>
-          </li>
+          <Row key={s.skill_id} s={s} />
         ))}
       </ul>
       {rest.length > 0 && (
-        <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium">Also asked for: </span>
-          {rest.map((s) => `${s.label} (${percent(s.share)})`).join(", ")}
-        </p>
+        <details className="group">
+          <summary className="w-fit cursor-pointer list-none text-sm text-muted underline decoration-line underline-offset-4 hover:text-ink">
+            <span className="group-open:hidden">Show {rest.length} more skills</span>
+            <span className="hidden group-open:inline">Show fewer</span>
+          </summary>
+          <ul className="mt-3 flex flex-col gap-3">
+            {rest.map((s) => (
+              <Row key={s.skill_id} s={s} />
+            ))}
+          </ul>
+        </details>
       )}
-      <p className="mt-3 text-xs text-zinc-500">
-        Bars show the share of postings that mention the skill; the lighter band is the 95%
-        interval, which is wide because the sample is small.
+      <p className="text-xs text-muted">
+        The dark bar is the share of postings that mention the skill. The light band is where the
+        true share probably lies (95% interval): wide, because the sample is small.
       </p>
     </div>
   );

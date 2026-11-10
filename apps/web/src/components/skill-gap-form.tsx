@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { compareBackground, type GapState } from "@/app/roles/[slug]/actions";
 import { percent } from "@/lib/format";
 import type { GapLine } from "@/lib/types";
+import { button } from "./ui";
 
 const GROUPS: { status: GapLine["status"]; title: string }[] = [
   { status: "have", title: "You have" },
@@ -25,23 +26,23 @@ function Result({ state }: { state: Extract<GapState, { status: "done" }> }) {
         if (group.length === 0) return null;
         return (
           <section key={status}>
-            <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-zinc-500">
+            <h3 className="mb-2 text-lg font-semibold">
               {title} ({group.length})
             </h3>
             <ul className="space-y-2">
               {group.map((line) => (
                 <li key={line.skill_id} className="text-sm">
                   <span className="font-medium">{line.label}</span>{" "}
-                  <span className="text-zinc-500">(asked by {percent(line.share)} of postings)</span>
+                  <span className="text-muted">(asked by {percent(line.share)} of postings)</span>
                   <br />
-                  <span className="text-zinc-700 dark:text-zinc-300">{line.reason}</span>
+                  <span className="text-muted">{line.reason}</span>
                 </li>
               ))}
             </ul>
           </section>
         );
       })}
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         The skills and shares come from the collected postings. Whether your background matches
         them is a model&apos;s judgement of your own words, so check it against what you know.
       </p>
@@ -67,23 +68,23 @@ export function SkillGapForm({ slug }: { slug: string }) {
           maxLength={2000}
           rows={5}
           placeholder="For example: I was a mechanical engineer for six years. I write Python scripts to analyse test data."
-          className="rounded-lg border border-zinc-300 bg-transparent p-3 text-sm dark:border-zinc-700"
+          className="rounded-lg border border-line bg-page p-3 text-sm leading-relaxed placeholder:text-muted"
         />
         <div className="flex flex-wrap items-center gap-4">
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+            className={button.primary}
           >
-            {pending ? "Comparing…" : "Compare"}
+            {pending ? "Comparing…" : "Compare my background"}
           </button>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Your text is sent to Claude to make the comparison and is not stored.
           </p>
         </div>
       </form>
       {state.status === "error" && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {state.message}
         </p>
       )}
