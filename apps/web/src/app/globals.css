@@ -1,24 +1,91 @@
 @import "tailwindcss";
 
+/* FirstWeek: a desk on your first week. Cool paper, blue-black ink, one pine accent for
+   what to do next, and a highlighter for the exact words every claim rests on. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --page: #f3f5f7;
+  --paper: #ffffff;
+  --ink: #172231;
+  --muted: #5a6576;
+  --line: #dce1e7;
+  --brand: #0f6b57;
+  --brand-soft: #e3f1ec;
+  --on-brand: #ffffff;
+  --mark: #ffe36e;
+  --mark-ink: #172231;
+  --danger: #b42318;
+  --code-bg: #172231;
+  --code-ink: #e7ecf2;
+  --code-dim: #7d8a9c;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --page: #0f141a;
+    --paper: #161c24;
+    --ink: #e7ecf2;
+    --muted: #98a3b3;
+    --line: #2a333f;
+    --brand: #45c29f;
+    --brand-soft: #16302a;
+    --on-brand: #0f141a;
+    --mark: #6b5d1c;
+    --mark-ink: #fff6cc;
+    --danger: #ff8a7a;
+    --code-bg: #0b1016;
+    --code-ink: #e7ecf2;
+    --code-dim: #66727f;
   }
 }
 
+@theme inline {
+  --color-page: var(--page);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+  --color-mark: var(--mark);
+  --color-mark-ink: var(--mark-ink);
+  --color-danger: var(--danger);
+  --color-code-bg: var(--code-bg);
+  --color-code-ink: var(--code-ink);
+  --color-code-dim: var(--code-dim);
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--mark);
+  color: var(--mark-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }

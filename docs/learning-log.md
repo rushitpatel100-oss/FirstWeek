@@ -68,3 +68,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-07: portfolio version finished; automatic project generation parked (gate never approved a free-model project); README now states what is and is not built.
 - 2026-11-07: reports with no key: 96 UK postings from 119 free job boards matched to the roles by hand, skills counted by code, claims quoting postings and blogs word for word; stored in the repo and loaded by `make seed-reports` (ADR 0027).
 - 2026-11-07: practice week: earlier days can be opened again, "Start the week again" resets day, chats and code; a week saved on day 5 no longer locks you there.
+- 2026-11-10: friendlier, better-looking web app: a Monday-to-Friday desk for the practice week (inbox and team beside the ticket and editor, a first-day guide), an editor with line numbers and Tab, plain evidence labels and highlighted quotes on reports, role cards with top skills on the home page.
