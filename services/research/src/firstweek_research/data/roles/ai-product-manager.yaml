@@ -1,0 +1,32 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: ai-product-manager
+name: AI Product Manager
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Decides what AI-powered products to build and whether they are good enough to ship: defining
+  the problem and success measures, working with engineers and data scientists on model
+  quality, reading evaluation results critically, weighing cost, latency and risk, planning
+  launches and monitoring them, and explaining trade-offs to leadership and customers.
+  Distinct from engineering roles (not hands-on building), from general product management (no
+  AI or ML product) and from project management (delivery without product decisions). Counts
+  only when owning an AI or ML product or feature is the main job. Not counted: people
+  managers whose core is leading a team of product managers; sales and marketing roles; and
+  pure programme management.
+aliases:
+  - AI Product Manager
+  - Product Manager, AI
+  - Machine Learning Product Manager
+  - ML Product Manager
+  - Generative AI Product Manager
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'AI product manager real work challenges'
+  - 'AI product manager what I actually do at work'
+forum_queries:
+  - 'what is it really like working as an AI product manager'
+  - 'AI product manager frustrations at work'
+  - 'AI product manager vs normal product manager what is different'

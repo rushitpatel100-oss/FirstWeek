@@ -1,0 +1,37 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: data-scientist
+name: Data Scientist
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Turns data into decisions with statistics and machine learning: framing questions, analysing
+  and modelling data, designing and reading experiments (A/B tests), building predictive
+  models, and explaining results and their uncertainty to non-technical colleagues. Typical
+  tools are Python or R, SQL, pandas, scikit-learn and notebooks. Distinct from ML engineering
+  (shipping and running models in production), from data analysis alone (reporting without
+  modelling or experiments) and from research science (new methods). The job must centre on
+  analysis, experimentation or modelling; pure business-intelligence or reporting roles are a
+  separate role. Counts only when hands-on building is the main job. Not counted: people
+  managers whose core is leading a team; advisory, strategy and pre-sales roles, at
+  consultancies too; and forward-deployed, solutions and delivery roles at vendors whose main
+  job is delivering for the vendor's customers. Engineers who build these systems for clients
+  at a consultancy do count.
+aliases:
+  - Data Scientist
+  - Applied Data Scientist
+  - Product Data Scientist
+  - Machine Learning Data Scientist
+  - Decision Scientist
+title_filter: ai
+title_patterns:
+  - '\bdata scientists?\b'
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'data scientist real work experiments stakeholders'
+  - 'data scientist what I actually do at work'
+forum_queries:
+  - 'what is it really like working as a data scientist'
+  - 'data scientist frustrations at work'
+  - 'data scientist vs machine learning engineer what is the difference in practice'

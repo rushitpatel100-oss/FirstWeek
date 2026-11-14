@@ -17,6 +17,10 @@ The portfolio version is done (README "What is built, and what is not"):
 
 M6 is partly built (portfolio zip, skill matrix, CV bullets: ADR 0028). Not built: GitHub push, judge calibration (needs Rushit's 30 blind scores) and a hosted deployment of the full app (kit ready in `docs/deploy.md`, ADR 0024).
 
+## In progress: more roles (ADR 0029)
+
+Seven on-demand roles are added with hand-written projects and weeks: ML Engineer, Data Scientist, MLOps Engineer, AI Data Engineer, NLP Engineer, Computer Vision Engineer, AI Product Manager. To make one show up: `make research role="<name>"` (key and network on Rushit's machine), then `make seed-demo role="<name>"`; a published report is needed for the home page. Not yet reviewed by a practitioner. More roles are cheap to add: copy a `demo_*.py` and a role YAML.
+
 ## Waiting on Rushit (optional)
 
 - Merge PR #40 (a stopped Docker shows "code runner unavailable" instead of a raw error).

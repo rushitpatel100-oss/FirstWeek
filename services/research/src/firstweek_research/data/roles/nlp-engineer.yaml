@@ -1,0 +1,35 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: nlp-engineer
+name: NLP Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Builds systems that work with human language: text classification, extraction, search and
+  ranking, summarisation, speech and translation, with attention to evaluation, data quality
+  and behaviour on messy real-world text. Work spans classical NLP and modern language models,
+  including training and fine-tuning and measuring them against real traffic. Typical tools
+  are Python, PyTorch, Hugging Face, spaCy and evaluation harnesses. Distinct from GenAI
+  engineering (applications on top of hosted foundation models with little training), from
+  research science (new methods) and from general ML engineering (no language focus). The job
+  must centre on language-focused modelling or evaluation. Counts only when hands-on building
+  is the main job. Not counted: people managers whose core is leading a team; advisory,
+  strategy and pre-sales roles, at consultancies too; and forward-deployed, solutions and
+  delivery roles at vendors whose main job is delivering for the vendor's customers. Engineers
+  who build these systems for clients at a consultancy do count.
+aliases:
+  - NLP Engineer
+  - Natural Language Processing Engineer
+  - NLP Scientist
+  - Applied NLP Engineer
+  - Language Technology Engineer
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'NLP engineer real work challenges production'
+  - 'NLP engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as an NLP engineer'
+  - 'NLP engineer frustrations at work'
+  - 'NLP engineer after LLMs what changed in the job'

@@ -13,13 +13,24 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import select
 
 from firstweek_core.contracts import AnswerKey, Criterion, Internship, ProjectBlueprint, Ticket
 from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype
 from firstweek_core.db.session import session_scope
-from firstweek_simulation import demo_agentic, demo_software
+from firstweek_simulation import (
+    demo_agentic,
+    demo_data_engineer,
+    demo_data_scientist,
+    demo_ml,
+    demo_mlops,
+    demo_nlp,
+    demo_product,
+    demo_software,
+    demo_vision,
+)
 from firstweek_simulation.blueprint import BlueprintError
 from firstweek_simulation.demo_internship import internship
 from firstweek_simulation.internship import write_internship
@@ -286,7 +297,29 @@ SOFTWARE = Pack(
     demo_software.SCENARIO, demo_software.CONTEXT, demo_software.files, demo_software.tickets,
     demo_software.rubric, demo_software.PLANTED, demo_software.metrics, demo_software.internship,
 )  # fmt: skip
-PACKS = {"agentic-ai-engineer": AGENTIC, "ai-software-engineer": SOFTWARE}
+ML = Pack(
+    demo_ml.SCENARIO, demo_ml.CONTEXT, demo_ml.files, demo_ml.tickets,
+    demo_ml.rubric, demo_ml.PLANTED, demo_ml.metrics, demo_ml.internship,
+)  # fmt: skip
+
+
+def _pack(m: Any) -> Pack:
+    return Pack(
+        m.SCENARIO, m.CONTEXT, m.files, m.tickets, m.rubric, m.PLANTED, m.metrics, m.internship
+    )
+
+
+PACKS = {
+    "agentic-ai-engineer": AGENTIC,
+    "ai-software-engineer": SOFTWARE,
+    "ml-engineer": ML,
+    "data-scientist": _pack(demo_data_scientist),
+    "mlops-engineer": _pack(demo_mlops),
+    "ai-data-engineer": _pack(demo_data_engineer),
+    "nlp-engineer": _pack(demo_nlp),
+    "computer-vision-engineer": _pack(demo_vision),
+    "ai-product-manager": _pack(demo_product),
+}
 
 
 def pack_for(slug: str) -> Pack:

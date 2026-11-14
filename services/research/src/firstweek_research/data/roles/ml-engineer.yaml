@@ -1,0 +1,40 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# The definition is the classifier's yardstick for "is this posting this role?".
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: ml-engineer
+name: ML Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Builds, trains, evaluates and ships machine learning models that power a product or an
+  internal decision: preparing training data and features, choosing and training models
+  (classical machine learning and deep learning), designing offline evaluation and
+  experiments that predict real-world performance, and taking models into production with
+  attention to monitoring, drift, latency and cost. Typical tools are Python, PyTorch or
+  TensorFlow, scikit-learn, SQL, and pipelines or serving platforms. Distinct from ML research
+  (new methods, publications), from data science (analysis and reporting, little shipped
+  code), from data engineering (pipelines without modelling), and from GenAI engineering
+  (building on top of foundation models through prompts and retrieval, with no model training).
+  The job must centre on training or productionising models. Counts only when hands-on
+  building is the main job. Not counted: people managers whose core is leading a team;
+  advisory, strategy and pre-sales roles, at consultancies too; pure research scientist roles;
+  and forward-deployed, solutions and delivery roles at vendors whose main job is delivering
+  for the vendor's customers. Engineers who build these systems for clients at a consultancy do
+  count.
+aliases:
+  - ML Engineer
+  - Machine Learning Engineer
+  - Applied ML Engineer
+  - Applied Machine Learning Engineer
+  - Production ML Engineer
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'machine learning engineer real work challenges production'
+  - 'ML engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as a machine learning engineer'
+  - 'machine learning engineer frustrations at work'
+  - 'ML engineer job hours on-call model monitoring burnout'
+  - 'ML engineer vs data scientist what is the difference in practice'
