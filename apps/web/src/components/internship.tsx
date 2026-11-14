@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { finishWeek, sendMessage, type WeekState } from "@/app/roles/[slug]/practice/actions";
+import {
+  exportPortfolio,
+  finishWeek,
+  sendMessage,
+  type PortfolioState,
+  type WeekState,
+} from "@/app/roles/[slug]/practice/actions";
 import { Workspace } from "@/components/workspace";
-import type { Internship, InternshipEvent, Project, Turn } from "@/lib/types";
+import type { Internship, InternshipEvent, Project, Turn, WeekReview } from "@/lib/types";
 import { button, initials, panel } from "./ui";
 
 const LAST_DAY = 5;
@@ -47,7 +53,66 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   );
 }
 
-function WeekReviewCard({ state }: { state: WeekState }) {
+function downloadZip(base64: string, name: string) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/zip" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function PortfolioCard({ slug, getFiles, review }: { slug: string; getFiles: () => Record<string, string>; review: WeekReview }) {
+  const [state, setState] = useState<PortfolioState | null>(null);
+  const [busy, startBusy] = useTransition();
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-line p-4" aria-label="Portfolio">
+      <h3 className="text-lg font-semibold">Take it with you</h3>
+      <p className="text-sm text-muted">
+        A zip of your code, a skill matrix and CV bullets. Every number is measured from your final
+        test run; the bullets say this was a practice project.
+      </p>
+      <div>
+        <button
+          disabled={busy}
+          className={button.secondary}
+          onClick={() =>
+            startBusy(async () => {
+              const result = await exportPortfolio(slug, getFiles(), review.verdict, review.model);
+              setState(result);
+              if (result.status === "ok") downloadZip(result.portfolio.zip_base64, `${slug}-practice.zip`);
+            })
+          }
+        >
+          {busy ? "Preparing…" : "Download my portfolio"}
+        </button>
+      </div>
+      {state?.status === "error" && (
+        <p role="alert" className="text-sm text-danger">
+          {state.message}
+        </p>
+      )}
+      {state?.status === "ok" && (
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+          {state.portfolio.summary.cv_bullets.map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function WeekReviewCard({
+  state,
+  slug,
+  getFiles,
+}: {
+  state: WeekState;
+  slug: string;
+  getFiles: () => Record<string, string>;
+}) {
   if (state.status === "idle") return null;
   if (state.status === "error") {
     return (
@@ -97,6 +162,7 @@ function WeekReviewCard({ state }: { state: WeekState }) {
         <span className="font-medium">Your next step: </span>
         {verdict.next_step}
       </p>
+      <PortfolioCard slug={slug} getFiles={getFiles} review={state.review} />
       <p className="text-xs text-muted">
         Final tests: {tests.passed ? "passed" : "failing"}. Written by {model} from your code, your
         tests and what you wrote in chat. Evidence about this week&apos;s work, not a verdict on you.
@@ -470,7 +536,7 @@ function Week({ slug, project, internship }: { slug: string; project: Project; i
               </button>
             </div>
           )}
-          <WeekReviewCard state={week} />
+          <WeekReviewCard state={week} slug={slug} getFiles={() => filesRef.current} />
         </section>
       )}
     </div>

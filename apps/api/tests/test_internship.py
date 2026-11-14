@@ -226,3 +226,27 @@ def test_the_visitor_address_is_believed_only_with_the_shared_key(
     # it claims falls back to its real one, so the claims share one allowance.
     assert send("3.3.3.3", "wrong") == 200
     assert send("4.4.4.4", "wrong") == 429
+
+
+@pytest.mark.db
+def test_the_portfolio_export_is_measured_and_never_holds_the_answer_key(
+    team: tuple[FakeRunner, Replies],
+) -> None:
+    import base64
+    import io
+    import zipfile
+
+    res = client.post(
+        "/roles/genai-engineer/internship/portfolio",
+        json={"files": {"src/calc.py": "def total(xs):\n    return sum(xs)\n"}, "verdict": VERDICT},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["summary"]["skill_matrix"][0]["skill_id"] == "python"
+    archive = zipfile.ZipFile(io.BytesIO(base64.b64decode(body["zip_base64"])))
+    assert "CV_BULLETS.md" in archive.namelist()
+    assert all(SECRET not in archive.read(n).decode("utf-8", "ignore") for n in archive.namelist())
+    assert (
+        client.post("/roles/genai-engineer/internship/portfolio", json={"verdict": {}}).status_code
+        == 422
+    )
