@@ -15,7 +15,7 @@ The portfolio version is done (README "What is built, and what is not"):
 
 **Parked: automatic project generation (`make autopilot`, ADR 0020).** Built and heavily hardened (local Ollama model, repair rounds, code-level fixes), but with free models its validation gate has never approved a project: the starter's tests and the separately planned reference solution disagree, and the generated code sometimes calls the network, which the sandbox does not have. If it is picked up again, the structural fix is to build the correct solution and its tests together first, make them pass, and only then plant the issues; and to require tests that never touch the network. Do not resume patching it failure by failure.
 
-Not built: M6 (skill matrix, GitHub export, CV bullets) and a hosted deployment of the full app (kit ready in `docs/deploy.md`, ADR 0024).
+M6 is partly built (portfolio zip, skill matrix, CV bullets: ADR 0028). Not built: GitHub push, judge calibration (needs Rushit's 30 blind scores) and a hosted deployment of the full app (kit ready in `docs/deploy.md`, ADR 0024).
 
 ## In progress: more roles (ADR 0029)
 

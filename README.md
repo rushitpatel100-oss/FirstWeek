@@ -138,7 +138,7 @@ make migrate
 | M3 Projects and sandbox | ✅ Code sandbox, hand-written projects for the three golden roles; automatic generation experimental |
 | M4 Workspace and Tech Lead | ✅ Practice screen, tests in the sandbox, Tech Lead review |
 | M5 Virtual internship | ✅ Five scripted days, colleagues in character, supervisor review, offline fallbacks |
-| M6 Evaluation and portfolio | Not built: skill matrix, GitHub export, CV bullets |
+| M6 Evaluation and portfolio | Partly built: skill matrix, CV bullets from measured results and a repo zip export (ADR 0028). Not built: GitHub push, judge calibration |
 | M7 Deploy | Free static demo live on GitHub Pages; the full app runs locally (deployment kit in [docs/deploy.md](docs/deploy.md), ADR 0024) |
 
 ## License

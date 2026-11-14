@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import type { Review, TestRun, Turn, WeekReview } from "@/lib/types";
+import type { Review, TestRun, Turn, Verdict, WeekReview } from "@/lib/types";
 
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
 
@@ -75,6 +75,19 @@ export type WeekState =
   | { status: "error"; message: string }
   | { status: "done"; review: WeekReview };
 
+export type Portfolio = {
+  summary: {
+    weighted_score: number | null;
+    skill_matrix: { skill_id: string; score: number; weight: number; evidence: string }[];
+    cv_bullets: string[];
+  };
+  zip_base64: string;
+};
+
+export type PortfolioState =
+  | { status: "ok"; portfolio: Portfolio }
+  | { status: "error"; message: string };
+
 const TEAM_MESSAGES: Record<number, string> = {
   404: "This project has no internship yet.",
   422: "That message cannot be sent.",
@@ -122,6 +135,22 @@ export async function finishWeek(slug: string, files: Files, chat: string[]): Pr
     const res = await internshipPost(slug, "verdict", { files, chat }, 180_000);
     if (!res.ok) return teamFailure(res.status);
     return { status: "done", review: (await res.json()) as WeekReview };
+  } catch {
+    return { status: "error", message: "That took too long or the API did not answer." };
+  }
+}
+
+/** The skill matrix, CV bullets and a zip of the repo. The API re-runs the tests for the numbers. */
+export async function exportPortfolio(
+  slug: string,
+  files: Files,
+  verdict: Verdict,
+  reviewer: string,
+): Promise<PortfolioState> {
+  try {
+    const res = await internshipPost(slug, "portfolio", { files, verdict, reviewer }, 120_000);
+    if (!res.ok) return teamFailure(res.status);
+    return { status: "ok", portfolio: (await res.json()) as Portfolio };
   } catch {
     return { status: "error", message: "That took too long or the API did not answer." };
   }
