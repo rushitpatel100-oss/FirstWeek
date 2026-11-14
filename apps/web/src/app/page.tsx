@@ -40,7 +40,7 @@ async function SystemStatus() {
 
 async function RoleRow({ role }: { role: RoleSummary }) {
   const [published, project] = await Promise.all([
-    getReport(role.slug).catch(() => null),
+    role.has_report ? getReport(role.slug).catch(() => null) : null,
     getProject(role.slug).catch(() => null),
   ]);
   const report = published?.report;
@@ -61,13 +61,17 @@ async function RoleRow({ role }: { role: RoleSummary }) {
           </ul>
         )}
         <p className="text-sm text-muted">
-          From {role.sample_size} {place(role.country)} job postings, published {month(role.published_at)}
+          {role.has_report && role.sample_size && role.country && role.published_at
+            ? `From ${role.sample_size} ${place(role.country)} job postings, published ${month(role.published_at)}`
+            : "Practice week only: the job-posting report for this role is not published yet."}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Link href={`/roles/${role.slug}`} className={button.secondary}>
-          Read the report
-        </Link>
+        {role.has_report && (
+          <Link href={`/roles/${role.slug}`} className={button.secondary}>
+            Read the report
+          </Link>
+        )}
         {project && (
           <Link href={`/roles/${role.slug}/practice`} className={button.primary}>
             Start your first week

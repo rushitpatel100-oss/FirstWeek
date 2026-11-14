@@ -52,9 +52,10 @@ export type Report = {
 export type RoleSummary = {
   slug: string;
   name: string;
-  country: string;
-  sample_size: number;
-  published_at: string;
+  has_report: boolean;
+  country: string | null;
+  sample_size: number | null;
+  published_at: string | null;
 };
 
 export type PublishedReport = {

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from firstweek_core.contracts import RoleRealityReport
-from firstweek_core.db.models import ArchetypeVersion, RoleArchetype, RoleReport
+from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype, RoleReport
 from firstweek_core.db.session import session_scope
 
 router = APIRouter(prefix="/roles", tags=["reports"])
@@ -18,9 +18,10 @@ router = APIRouter(prefix="/roles", tags=["reports"])
 class RoleSummary(BaseModel):
     slug: str
     name: str
-    country: str
-    sample_size: int
-    published_at: datetime
+    has_report: bool = True
+    country: str | None = None
+    sample_size: int | None = None
+    published_at: datetime | None = None
 
 
 class PublishedReport(BaseModel):
@@ -50,6 +51,24 @@ def _newest_published(slug: str | None = None) -> list[tuple[RoleArchetype, Role
         return sorted(newest.values(), key=lambda pair: pair[0].name)
 
 
+def _practice_only(skip: set[str]) -> list[RoleArchetype]:
+    """Roles with an approved practice project but no published report (ADR 0030)."""
+    with session_scope() as session:
+        roles = (
+            session.execute(
+                select(RoleArchetype)
+                .join(ArchetypeVersion, ArchetypeVersion.archetype_id == RoleArchetype.id)
+                .join(Blueprint, Blueprint.archetype_version_id == ArchetypeVersion.id)
+                .where(Blueprint.status == "approved")
+                .distinct()
+            )
+            .scalars()
+            .all()
+        )
+        session.expunge_all()
+        return sorted((r for r in roles if r.slug not in skip), key=lambda r: r.name)
+
+
 def published_report_id(slug: str) -> uuid.UUID | None:
     found = _newest_published(slug)
     return found[0][1].id if found else None
@@ -57,7 +76,8 @@ def published_report_id(slug: str) -> uuid.UUID | None:
 
 @router.get("")
 def list_roles() -> list[RoleSummary]:
-    """Roles that have a published report."""
+    """Roles with a published report, then roles that only have a practice project. The second
+    group has no report, so its summary has no sample and the web app offers only the week."""
     found = []
     for role, row in _newest_published():
         report = RoleRealityReport.model_validate(row.report)
@@ -71,6 +91,10 @@ def list_roles() -> list[RoleSummary]:
                 published_at=row.published_at,
             )
         )
+    found.extend(
+        RoleSummary(slug=r.slug, name=r.name, has_report=False)
+        for r in _practice_only({f.slug for f in found})
+    )
     return found
 
 
