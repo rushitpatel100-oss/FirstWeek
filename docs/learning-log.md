@@ -72,3 +72,4 @@ One line per session: what was built and the one idea worth remembering.
 - 2026-11-14: seven more roles as on-demand (not scheduled): ML Engineer, Data Scientist, MLOps Engineer, AI Data Engineer, NLP Engineer, Computer Vision Engineer, AI Product Manager. Each has a hand-written practice project with two planted mistakes and a five-day week, all stdlib Python (ADR 0029). Each needs `make research role="..."` before it can be seeded.
 - 2026-11-14: portfolio export: skill matrix, CV bullets from measured numbers only and a zip of the learner's repo after the week review (ADR 0028); no model call.
 - 2026-11-14: roles with a practice project but no published report now appear on the home page with only the week (ADR 0030).
+- 2026-11-14: two more on-demand roles, AI Evaluation Engineer and AI Safety Engineer, each with a stdlib project and a five-day week (ADR 0031).

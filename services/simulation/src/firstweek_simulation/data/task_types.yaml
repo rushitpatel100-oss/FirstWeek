@@ -36,4 +36,6 @@ roles:
   nlp-engineer: [code, notebook, data_analysis, design_doc, message]
   computer-vision-engineer: [code, notebook, data_analysis, design_doc, message]
   ai-product-manager: [code, data_analysis, design_doc, message, prioritisation]
+  ai-evaluation-engineer: [code, data_analysis, design_doc, message, notebook]
+  ai-safety-engineer: [code, data_analysis, design_doc, message, incident_triage]
 default: [code, design_doc, message, prioritisation]

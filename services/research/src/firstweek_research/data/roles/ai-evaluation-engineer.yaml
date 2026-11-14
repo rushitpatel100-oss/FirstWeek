@@ -1,0 +1,34 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0031).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: ai-evaluation-engineer
+name: AI Evaluation Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Measures whether AI systems are good enough to ship: building evaluation sets and graders,
+  running evaluations of language-model and machine learning systems, finding out why scores
+  move, tracking quality in production, and telling product and leadership how far a number
+  can be trusted. Typical tools are Python, evaluation frameworks and harnesses, observability
+  tooling and statistics. Distinct from ML engineering (building the model), from data science
+  (analysis without an AI system under test) and from QA (no model behaviour). The job must
+  centre on evaluating AI systems; pure software test roles are a separate role. Counts only
+  when hands-on building is the main job. Not counted: people managers whose core is leading a
+  team; advisory, strategy and pre-sales roles, at consultancies too; and forward-deployed,
+  solutions and delivery roles at vendors whose main job is delivering for the vendor's
+  customers. Engineers who build these systems for clients at a consultancy do count.
+aliases:
+  - AI Evaluation Engineer
+  - LLM Evaluation Engineer
+  - Evals Engineer
+  - AI Quality Engineer
+  - Model Evaluation Engineer
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'AI evaluation engineer real work challenges'
+  - 'LLM evals engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working on LLM evaluations'
+  - 'AI evaluation engineer frustrations at work'
+  - 'evals engineer how do you trust an eval score'
