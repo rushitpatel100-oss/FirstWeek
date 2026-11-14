@@ -9,7 +9,7 @@ from sqlalchemy.exc import OperationalError
 
 from firstweek_api.main import app
 from firstweek_core.contracts import Citation, Claim, RoleRealityReport, SkillStat
-from firstweek_core.db.models import ArchetypeVersion, RoleArchetype, RoleReport
+from firstweek_core.db.models import ArchetypeVersion, Blueprint, RoleArchetype, RoleReport
 from firstweek_core.db.session import get_engine, session_scope
 
 client = TestClient(app)
@@ -119,6 +119,40 @@ def test_the_newest_published_report_is_served_and_roles_are_listed_by_name() ->
     assert body["name"] == "GenAI Engineer"
     assert body["report"]["summary"][0]["text"].startswith("New says")
     assert body["report"]["summary"][0]["confidence"] == 0.4
+
+
+@pytest.mark.db
+def test_a_role_with_only_a_practice_project_is_listed_without_a_report() -> None:
+    add_report("genai-engineer", "GenAI Engineer", "published", "Published")
+    with session_scope() as session:
+        role = RoleArchetype(
+            slug="ml-engineer", name="ML Engineer", definition="d", trust_level="on_demand"
+        )
+        session.add(role)
+        session.flush()
+        version = ArchetypeVersion(
+            archetype_id=role.id, version=1, country="GB", date_from=date(2026, 5, 1),
+            date_to=date(2026, 10, 1), sample_size=0, status="draft",
+        )  # fmt: skip
+        session.add(version)
+        session.flush()
+        for status in ("draft", "approved"):  # a draft alone would not list the role
+            session.add(
+                Blueprint(
+                    archetype_version_id=version.id,
+                    scenario="s",
+                    blueprint={},
+                    answer_key={},
+                    validated=True,
+                    status=status,
+                )
+            )
+    roles = {r["slug"]: r for r in client.get("/roles").json()}
+    assert list(roles) == ["genai-engineer", "ml-engineer"]  # reports first
+    assert roles["genai-engineer"]["has_report"] is True
+    assert roles["ml-engineer"]["has_report"] is False
+    assert roles["ml-engineer"]["sample_size"] is None
+    assert client.get("/roles/ml-engineer/report").status_code == 404
 
 
 @pytest.mark.db
