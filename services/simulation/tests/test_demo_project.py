@@ -1,5 +1,6 @@
 """The hand-written demo project must itself pass the gate autopilot applies to model output."""
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -164,5 +165,42 @@ def test_the_software_dashboard_overstates_the_hit_rate(tmp_path: Path) -> None:
 def test_each_role_gets_its_own_project_and_others_the_default() -> None:
     assert demo.pack_for("agentic-ai-engineer") is demo.AGENTIC
     assert demo.pack_for("ai-software-engineer") is demo.SOFTWARE
+    assert demo.pack_for("ml-engineer") is demo.ML
     assert demo.pack_for("genai-engineer") is demo.GENAI
     assert demo.pack_for("anything-else") is demo.GENAI
+
+
+async def test_the_ml_starter_fails_and_each_mistake_is_caught_by_its_own_test() -> None:
+    starter, reference = demo.ML.files()
+    assert await run(starter) == 1
+    assert await run(reference) == 0
+    assert await run({**reference, "src/split.py": starter["src/split.py"]}) == 1
+    assert await run({**reference, "src/report.py": starter["src/report.py"]}) == 1
+
+
+def test_the_ml_dashboard_overstates_and_the_honest_score_is_no_better_than_guessing() -> None:
+    metrics = demo.ML.metrics()
+    assert metrics["dashboard_claims"] >= 0.9  # the roughly 91% the story says
+    assert metrics["accuracy"] < metrics["baseline"] < metrics["dashboard_claims"]
+    assert metrics["recall"] < 0.2
+    assert demo.ML.metrics() == demo.ML.metrics()  # deterministic
+
+
+async def test_the_ml_reference_report_matches_the_numbers_in_the_answer_key() -> None:
+    _, reference = demo.ML.files()
+    result = await LocalRunner().run(
+        SandboxJob(
+            files=reference,
+            command=["python", "-c", "from src.report import evaluate; print(evaluate())"],
+        )
+    )
+    got = ast.literal_eval(result.stdout.strip())  # the dict the reference prints
+    metrics = demo.ML.metrics()
+    assert got == {k: metrics[k] for k in ("accuracy", "baseline", "recall")}
+
+
+def test_the_ml_public_view_hides_the_key(tmp_path: Path) -> None:
+    project = demo.blueprint("ML Engineer", tmp_path, demo.ML)
+    public = str(project.public_view())
+    assert "planted_issues" not in public and "reference_solution_uri" not in public
+    assert not any(issue in public for issue in demo.ML.planted)

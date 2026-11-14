@@ -1,0 +1,36 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: mlops-engineer
+name: MLOps Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Builds and runs the platform that takes machine learning models from experiment to reliable
+  production: training and deployment pipelines, model registries and serving, monitoring for
+  drift and degradation, feature stores, CI/CD for models, cost and capacity, and on-call for
+  model systems. Typical tools are Python, Kubernetes, Docker, MLflow, Kubeflow or cloud ML
+  platforms, and observability tooling. Distinct from ML engineering (building the model
+  itself), from data engineering (data pipelines without models) and from general DevOps (no
+  model lifecycle). The job must centre on productionising and operating machine learning
+  systems; pure infrastructure roles with no machine learning workloads are a separate role.
+  Counts only when hands-on building is the main job. Not counted: people managers whose core
+  is leading a team; advisory, strategy and pre-sales roles, at consultancies too; and
+  forward-deployed, solutions and delivery roles at vendors whose main job is delivering for
+  the vendor's customers. Engineers who build these systems for clients at a consultancy do
+  count.
+aliases:
+  - MLOps Engineer
+  - ML Platform Engineer
+  - Machine Learning Platform Engineer
+  - ML Infrastructure Engineer
+  - LLMOps Engineer
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'MLOps engineer real work challenges production'
+  - 'MLOps engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as an MLOps engineer'
+  - 'MLOps engineer frustrations at work'
+  - 'MLOps engineer on-call model monitoring burnout'

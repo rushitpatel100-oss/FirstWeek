@@ -1,0 +1,35 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: ai-data-engineer
+name: AI Data Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Builds the data pipelines, storage and quality checks that machine learning and AI systems
+  depend on: ingesting and cleaning data, building feature and training datasets, embedding
+  and indexing pipelines for retrieval, data validation and lineage, and keeping data fresh
+  and trustworthy for models. Typical tools are Python, SQL, Spark, Airflow or dbt, Kafka,
+  cloud warehouses and vector databases. Distinct from ML engineering (training and serving
+  models), from analytics engineering (reporting models only) and from general data
+  engineering with no AI or ML consumers. The job must centre on pipelines that mainly serve
+  machine learning or AI systems; pure BI or reporting roles are a separate role. Counts only
+  when hands-on building is the main job. Not counted: people managers whose core is leading a
+  team; advisory, strategy and pre-sales roles, at consultancies too; and forward-deployed,
+  solutions and delivery roles at vendors whose main job is delivering for the vendor's
+  customers. Engineers who build these systems for clients at a consultancy do count.
+aliases:
+  - AI Data Engineer
+  - ML Data Engineer
+  - Machine Learning Data Engineer
+  - Data Engineer, AI
+  - Data Engineer, Machine Learning
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'data engineer for machine learning real work challenges'
+  - 'AI data engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as a data engineer for ML teams'
+  - 'data engineer machine learning frustrations at work'
+  - 'data engineer on-call pipelines breaking burnout'

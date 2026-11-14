@@ -1,0 +1,37 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0029).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: computer-vision-engineer
+name: Computer Vision Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Builds systems that understand images and video: detection, segmentation, classification,
+  tracking and recognition, with attention to data collection and labelling, evaluation that
+  matches real conditions, and running models fast on servers or devices. Typical tools are
+  Python, PyTorch, OpenCV, CUDA and model-optimisation tooling. Distinct from general ML
+  engineering (no vision focus), from research science (new methods and papers) and from
+  graphics or rendering engineering. The job must centre on building or evaluating vision
+  models. Counts only when hands-on building is the main job. Not counted: people managers
+  whose core is leading a team; advisory, strategy and pre-sales roles, at consultancies too;
+  and forward-deployed, solutions and delivery roles at vendors whose main job is delivering
+  for the vendor's customers. Engineers who build these systems for clients at a consultancy
+  do count.
+aliases:
+  - Computer Vision Engineer
+  - Computer Vision Scientist
+  - Vision Engineer
+  - Perception Engineer
+  - Applied Computer Vision Engineer
+title_filter: ai
+title_patterns:
+  - '\bcomputer vision\b'
+  - '\bperception\b'
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'computer vision engineer real work challenges production'
+  - 'computer vision engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as a computer vision engineer'
+  - 'computer vision engineer frustrations at work'
+  - 'computer vision engineer labelling data edge deployment reality'
