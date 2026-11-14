@@ -20,6 +20,8 @@ SLUGS = [
     "nlp-engineer",
     "computer-vision-engineer",
     "ai-product-manager",
+    "ai-evaluation-engineer",
+    "ai-safety-engineer",
 ]
 TEST_COMMAND = ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
 GIVEAWAYS = [

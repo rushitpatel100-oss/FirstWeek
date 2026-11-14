@@ -1,0 +1,34 @@
+# On-demand role: researched when asked for, not on the daily schedule (ADR 0031).
+# It is a scoping decision, not a claim about the world: Rushit reviews it before it is trusted.
+slug: ai-safety-engineer
+name: AI Safety Engineer
+trust_level: on_demand
+reviewed: false
+definition: >-
+  Makes AI systems safer to deploy: red-teaming models and applications, building and testing
+  guardrails and content filters, measuring how often attacks succeed and how often harmless
+  requests are wrongly blocked, running safety evaluations, and documenting risks for sign-
+  off. Typical tools are Python, red-teaming and evaluation harnesses and guardrail
+  frameworks. Distinct from general security engineering (no model behaviour), from policy and
+  governance roles (no hands-on testing) and from AI research (new methods). The job must
+  centre on testing or building safeguards for AI systems. Counts only when hands-on building
+  is the main job. Not counted: people managers whose core is leading a team; advisory,
+  strategy and pre-sales roles, at consultancies too; and forward-deployed, solutions and
+  delivery roles at vendors whose main job is delivering for the vendor's customers. Engineers
+  who build these systems for clients at a consultancy do count.
+aliases:
+  - AI Safety Engineer
+  - AI Red Team Engineer
+  - Trust and Safety Engineer, AI
+  - Responsible AI Engineer
+  - AI Security Engineer
+title_filter: ai
+web_queries:
+  - 'what does a {name} do day to day'
+  - '{name} day in the life'
+  - 'AI safety engineer real work challenges'
+  - 'AI red team engineer what I actually do at work'
+forum_queries:
+  - 'what is it really like working as an AI safety engineer'
+  - 'AI red teaming frustrations at work'
+  - 'AI safety engineer guardrails what do you actually do'

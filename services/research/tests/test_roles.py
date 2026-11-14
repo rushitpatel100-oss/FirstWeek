@@ -9,6 +9,7 @@ def test_golden_roles_load_and_are_unreviewed_until_checked() -> None:
     on_demand = {
         "ml-engineer", "data-scientist", "mlops-engineer", "ai-data-engineer",
         "nlp-engineer", "computer-vision-engineer", "ai-product-manager",
+        "ai-evaluation-engineer", "ai-safety-engineer",
     }  # fmt: skip
     assert set(roles) == golden | on_demand
     assert all(roles[slug].trust_level == "golden" for slug in golden)
@@ -41,6 +42,8 @@ def test_normalize_title_strips_level_location_and_punctuation(title: str, expec
         ("Natural Language Processing Engineer", "nlp-engineer", "exact"),
         ("Computer Vision Engineer", "computer-vision-engineer", "exact"),
         ("Product Manager, AI", "ai-product-manager", "exact"),
+        ("LLM Evaluation Engineer", "ai-evaluation-engineer", "exact"),
+        ("AI Red Team Engineer", "ai-safety-engineer", "exact"),
         ("Principal AI Software Engineer", "ai-software-engineer", "exact"),
         ("Generative AI Engineers", "genai-engineer", "fuzzy"),
         ("Agentic AI Enginer", "agentic-ai-engineer", "fuzzy"),

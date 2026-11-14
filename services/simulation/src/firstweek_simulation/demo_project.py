@@ -24,10 +24,12 @@ from firstweek_simulation import (
     demo_agentic,
     demo_data_engineer,
     demo_data_scientist,
+    demo_evals,
     demo_ml,
     demo_mlops,
     demo_nlp,
     demo_product,
+    demo_safety,
     demo_software,
     demo_vision,
 )
@@ -319,6 +321,8 @@ PACKS = {
     "nlp-engineer": _pack(demo_nlp),
     "computer-vision-engineer": _pack(demo_vision),
     "ai-product-manager": _pack(demo_product),
+    "ai-evaluation-engineer": _pack(demo_evals),
+    "ai-safety-engineer": _pack(demo_safety),
 }
 
 
