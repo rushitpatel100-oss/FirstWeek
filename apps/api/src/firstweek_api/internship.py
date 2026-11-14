@@ -4,6 +4,7 @@
 Same rules as the workspace: learners get the public script only (no personas, no answer key),
 every model call is rate limited per client with a daily ceiling in all."""
 
+import base64
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -15,6 +16,7 @@ from firstweek_api.workspace import Edits, TestRun
 from firstweek_core.contracts import Internship, SupervisorVerdict
 from firstweek_core.sandbox import JobResult
 from firstweek_simulation import internship as work
+from firstweek_simulation import portfolio
 from firstweek_simulation import workspace as ws
 
 router = APIRouter(prefix="/roles", tags=["internship"])
@@ -24,6 +26,7 @@ chat_limit = Limiter(40, 3600)
 chat_day_limit = Limiter(500, 86400)
 verdict_limit = Limiter(5, 3600)
 verdict_day_limit = Limiter(100, 86400)
+portfolio_limit = Limiter(10, 3600)
 
 
 class Turn(BaseModel):
@@ -51,6 +54,16 @@ class VerdictResponse(BaseModel):
     verdict: SupervisorVerdict
     model: str
     tests: TestRun
+
+
+class PortfolioRequest(Edits):
+    verdict: SupervisorVerdict
+    reviewer: str = Field(default="AI supervisor", max_length=60)
+
+
+class PortfolioResponse(BaseModel):
+    summary: dict[str, object]
+    zip_base64: str
 
 
 def _result(tests: TestRun) -> JobResult:
@@ -152,3 +165,25 @@ async def verdict(slug: str, body: VerdictRequest, request: Request) -> VerdictR
     finally:
         g.flush()
     return VerdictResponse(verdict=written, model=model, tests=tests)
+
+
+@router.post("/{slug}/internship/portfolio")
+async def export_portfolio(
+    slug: str, body: PortfolioRequest, request: Request
+) -> PortfolioResponse:
+    """Skill matrix, CV bullets and a zip of the learner's repo. No model call: the tests run
+    again here, so every number comes from this run, never from the browser."""
+    found = wsapi._project(slug)
+    _script(found)
+    if not portfolio_limit.allow(wsapi._who(request)):
+        raise HTTPException(status_code=429, detail="Too many exports. Try again later.")
+    tests = await wsapi._run(found, body)
+    summary, archive = portfolio.build_export(
+        str(found.blueprint.get("archetype", slug)),
+        found,
+        body.files,
+        _result(tests),
+        body.verdict,
+        reviewer=body.reviewer,
+    )
+    return PortfolioResponse(summary=summary, zip_base64=base64.b64encode(archive).decode())
